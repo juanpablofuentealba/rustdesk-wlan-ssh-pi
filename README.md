@@ -453,12 +453,15 @@ duplicar claves en `authorized_keys`.
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # pruebas locales (26 comprobaciones)
-./tests.sh USUARIO@192.168.1.20      # + pruebas contra un host real
+./tests.sh                      # 45 comprobaciones locales
+./tests.sh USUARIO@192.168.1.20 # 57 con un host real (+ tests de hallazgos)
 ```
 
-Verifica sintaxis, permisos, modos de salida (texto/JSON/Markdown), validez del
-JSON, manejo de errores, modo `--check` y que no haya claves filtradas al repo.
+Cubre: sintaxis, permisos, modos de salida (texto/JSON/Markdown), validez del
+JSON, manejo de errores, modo `--check`, fuga de secretos, enlaces de la
+documentación, **regresiones de hallazgos** (H-07 `hostname -I`, H-08 pipefail)
+y **comportamiento en el host remoto** (servicios enabled, IP Tailscale,
+captura DRM, tipo de login screen, `tailscale ping`).
 
 ### `verify-docs.sh` — valida la documentación
 

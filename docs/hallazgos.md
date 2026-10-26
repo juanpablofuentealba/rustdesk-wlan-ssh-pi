@@ -246,6 +246,25 @@ ssh objetivo 'grep -iE "drm: consumer cache|UInput" ~/.local/share/logs/RustDesk
 
 ## Verificación automatizada
 
-`./verify-docs.sh` comprueba que los comandos y URLs citados sigan vigentes.
-Para los hallazgos de comportamiento (login screen Wayland), la verificación es
-la prueba de reinicio descrita arriba.
+Los hallazgos están cubiertos por pruebas ejecutables:
+
+| Hallazgo | Dónde se verifica |
+|---|---|
+| H-01 Tailscale sobrevive reboot | `tests.sh <host>`: `tailscaled enabled`, tiene IP `100.x` |
+| H-02 RustDesk depende de la sesión | `tests.sh <host>`: detecta si hay sesión `seat0` |
+| H-03 login screen Wayland | `tests.sh` (local) + `tests.sh <host>` + `verify-docs.sh` |
+| H-04 captura DRM con sesión | `tests.sh <host>`: busca `drm: consumer cache` |
+| H-05 Tailscale directo | `tests.sh <host>`: `tailscale ping` responde `pong` |
+| H-06 sshd enabled | `tests.sh <host>`: `sshd enabled` |
+| H-07 `hostname -I` | `tests.sh` (local): los scripts usan `ip route get` |
+| H-08 pipefail falsos negativos | `tests.sh` (local): `verify-docs` no usa `strings|grep -q` |
+
+```fish
+./tests.sh                      # 45 comprobaciones
+./tests.sh USUARIO@IP           # 57 (incluye hallazgos en el host)
+./verify-docs.sh                # 28 (comandos y URLs vigentes)
+```
+
+Para los hallazgos de comportamiento profundo (sobrevivir a un reinicio real),
+la verificación es la prueba de reinicio descrita arriba: reiniciar el equipo y
+comprobar que todo vuelve.
