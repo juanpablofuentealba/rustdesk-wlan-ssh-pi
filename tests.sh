@@ -71,6 +71,9 @@ t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
 t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
 t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" setup-remote-target.sh'
+# Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
+t "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
+t "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'
 # dry-run de distro desconocida no debe romper
 
 sect "setup --dry-run (seguridad para clientes)"

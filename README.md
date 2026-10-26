@@ -588,8 +588,36 @@ configurar nada. Dos detalles propios de Mint que el script ya cubre:
   Si usas la sesión **Wayland** de Mint, el `.deb` oficial no trae el parche DRM
   de Arch y el script te avisa (puede caer al portal "elige la pantalla").
 
-Rama probada contra una simulación de **Mint 22.3 "Zena"** (`/etc/os-release`
-real) en contenedor `debian:12`.
+#### Versiones de Mint
+
+> **Cambio de esquema (2026):** Mint abandonó el versionado `22.x` con point
+> releases y pasó a **un número por año, sin puntos**. El número representa el
+> año de la serie; cada año hay **una** versión.
+
+| Versión | Nombre | Base | Estado |
+|---|---|---|---|
+| **22.3** | Zena | Ubuntu 24.04 | estable anterior (última con points) |
+| **27** | **Adrien** | **Ubuntu 26.04** | **próxima — sale en Navidad** (en desarrollo/pre-beta) |
+| 28 | (por anunciar) | — | siguiente serie (2027) |
+
+- Tras la 27 ya **no habrá 27.1/27.2**: se salta directo a la 28, 29, etc.
+- Cambio de tradición: nombres **masculinos** ("Adrien" sucede a "Zena").
+- Base Ubuntu **26.04** (LTS siguiente), no 24.04.
+- Fuente oficial: [Monthly News – Septiembre 2026](https://blog.linuxmint.com/?s=27).
+
+**Para el kit no cambia nada:** la 27 seguirá trayendo `ID_LIKE="ubuntu debian"`
+(base Ubuntu 26.04), así que seguirá detectándose como `debian`. Las mismas dos
+particularidades (ufw inactivo, X11 por defecto) aplican igual.
+
+#### Probado
+
+Rama probada contra `/etc/os-release` real de **Mint 22.3 "Zena"** en contenedor
+`debian:12`. Para la **27 "Adrien"** la detección es idéntica (misma familia),
+pero conviene re-verificar cuando salga la ISO:
+
+```fish
+./setup-remote-target.sh --check   # debe decir: Familia: debian
+```
 
 ### Forzar la familia (pruebas)
 
