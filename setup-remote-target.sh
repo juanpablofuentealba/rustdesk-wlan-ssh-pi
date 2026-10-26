@@ -149,14 +149,45 @@ need_root() {
 
 # Devuelve el firewall ACTIVO, o 'ufw-inactive'/'firewalld-inactive' si el
 # gestor está instalado pero apagado (caso típico de Linux Mint: ufw sin activar).
+#
+# IMPORTANTE: no basta con 'systemctl is-active ufw' — en Linux Mint el servicio
+# ufw.service puede estar ACTIVE mientras el firewall está DESACTIVADO
+# (/etc/ufw/ufw.conf → ENABLED=no). Hay que mirar el estado REAL del filtrado.
 detect_firewall() {
+  # --- ufw ---
+  if command -v ufw >/dev/null 2>&1; then
+    local st
+    if [[ $EUID -eq 0 ]]; then
+      st="$(ufw status 2>/dev/null | head -1)"
+    else
+      # sin root no podemos usar 'ufw status'; leemos el archivo de config
+      st=""
+      if [[ -r /etc/ufw/ufw.conf ]]; then
+        grep -qi '^ENABLED=yes' /etc/ufw/ufw.conf 2>/dev/null && st="active" || st="inactive"
+      fi
+    fi
+    # OJO con el orden: "inactive" CONTIENE "active", así que hay que
+    # comprobar *inactive* ANTES que *active*.
+    if [[ "$st" == *inactive* ]]; then printf 'ufw-inactive'; return; fi
+    if [[ "$st" == *active* ]]; then printf 'ufw'; return; fi
+    # No se pudo determinar: usar el servicio como pista, pero preferir inactivo
+    if systemctl is-active --quiet ufw 2>/dev/null; then printf 'ufw'; return; fi
+    printf 'ufw-inactive'; return
+  fi
+  # --- firewalld ---
+  if command -v firewall-cmd >/dev/null 2>&1; then
+    if [[ $EUID -eq 0 ]]; then
+      systemctl is-active --quiet firewalld 2>/dev/null && { printf 'firewalld'; return; }
+    else
+      firewall-cmd --state 2>/dev/null | grep -q running && { printf 'firewalld'; return; }
+    fi
+    printf 'firewalld-inactive'; return
+  fi
+  # --- nftables / iptables (solo si el servicio está activo) ---
   local fw
-  for fw in ufw firewalld nftables iptables; do
+  for fw in nftables iptables; do
     if systemctl is-active --quiet "$fw" 2>/dev/null; then printf '%s' "$fw"; return; fi
   done
-  # Gestor instalado pero inactivo → avisar y dejar la regla preparada
-  if command -v ufw >/dev/null 2>&1; then printf 'ufw-inactive'; return; fi
-  if command -v firewall-cmd >/dev/null 2>&1; then printf 'firewalld-inactive'; return; fi
   printf 'none'
 }
 

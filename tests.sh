@@ -32,6 +32,10 @@ tj() { # tj "descripcion" comando...  (espera exit != 0)
   if "$@" >/dev/null 2>&1; then printf '%s✘%s %s (debería fallar)' "$R" "$N" "$desc"; FAIL=$((FAIL+1));
   else printf '%s✔%s %s\n' "$G" "$N" "$desc"; PASS=$((PASS+1)); fi
 }
+sk() { # sk "descripcion"  (omitido: no cuenta como fallo)
+  printf '%s▲%s %s\n' "$Y" "$N" "$1"
+  SKIP=$((SKIP+1))
+}
 sect() { printf '\n%s== %s ==%s\n' "$BD" "$1" "$N"; }
 
 HOST="${1:-}"
@@ -71,6 +75,17 @@ t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
 t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
 t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" setup-remote-target.sh'
+# Regresiones detectadas en prueba real (VM Mint 22.3, reporte de opencode):
+t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
+# detect_firewall debe leer ENABLED de ufw.conf, no solo systemctl is-active
+t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
+t "detect_firewall: inactive antes que active" bash -c '
+  awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh > /tmp/_df.sh
+  n=$(grep -n "inactive" /tmp/_df.sh | head -1 | cut -d: -f1)
+  a=$(grep -n "\*active\*" /tmp/_df.sh | head -1 | cut -d: -f1)
+  [ -n "$n" ] && [ -n "$a" ] && [ "$n" -lt "$a" ]
+'
+t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
 t "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
 t "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'
@@ -90,10 +105,16 @@ tj "setup --all sin --yes cancela sin TTY" bash -c './setup-remote-target.sh --a
 sect "inventory.sh (local)"
 t "texto funciona"             ./inventory.sh
 t "texto tiene hostname"       bash -c './inventory.sh | grep -q "Inventario"'
-t "JSON es válido"             bash -c './inventory.sh --json | jq empty'
-t "JSON tiene target"          bash -c './inventory.sh --json | jq -e ".target"'
-t "JSON tiene CPU_MODEL"       bash -c './inventory.sh --json | jq -e ".CPU_MODEL"'
-t "JSON tiene HOSTNAME"        bash -c './inventory.sh --json | jq -e ".HOSTNAME"'
+if command -v jq >/dev/null 2>&1; then
+  t "JSON es válido"             bash -c './inventory.sh --json | jq empty'
+  t "JSON tiene target"          bash -c './inventory.sh --json | jq -e ".target"'
+  t "JSON tiene CPU_MODEL"       bash -c './inventory.sh --json | jq -e ".CPU_MODEL"'
+  t "JSON tiene HOSTNAME"        bash -c './inventory.sh --json | jq -e ".HOSTNAME"'
+else
+  # Sin jq no se puede validar el JSON; omitir en vez de fallar (evita 4 fallos
+  # confusos si el entorno no trae jq, p. ej. una VM recién instalada).
+  sk "jq no instalado: se omiten 4 pruebas de JSON (sudo apt install jq)"
+fi
 t "Markdown funciona"          bash -c './inventory.sh --markdown | grep -q "^| Hostname"'
 t "Markdown tiene tabla"       bash -c './inventory.sh --markdown | grep -q "| Campo | Valor |"'
 tj "host inalcanzable falla"   ./inventory.sh USUARIO@10.255.255.1
