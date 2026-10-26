@@ -17,6 +17,7 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`Makefile`](Makefile) | Atajos: `check`, `inventory`, `ssh`, `target-setup`… |
 | [`docs/vpn-remoto.md`](docs/vpn-remoto.md) | WireGuard / Tailscale / Cloudflare para acceso fuera de la LAN |
+| [`docs/tailscale.md`](docs/tailscale.md) | **Guía dedicada de Tailscale**: acceso sin abrir puertos (recomendado) |
 | [`LICENSE`](LICENSE) | MIT |
 
 ---
@@ -377,33 +378,37 @@ ssh 192.168.1.20 → por WLAN, latencia ~1.5 ms, throughput estable
 ## 9. Acceso remoto fuera de la LAN (VPN)
 
 SSH directo (`USUARIO@192.168.1.20`) solo funciona **dentro de la misma red**. Para
-administrar el equipo desde otra red, usa **WireGuard**, **Tailscale** o un
-**túnel**. Guía completa en [`docs/vpn-remoto.md`](docs/vpn-remoto.md).
+administrar el equipo desde otra red, usa **Tailscale** (recomendado), WireGuard o
+un túnel.
 
-**Regla de oro:** con VPN/túnel **no** abras el puerto 22 al internet. La VPN ya
-transporta el SSH cifrado y privado.
+### Tailscale (recomendado — sin abrir puertos)
+
+Guía completa: [`docs/tailscale.md`](docs/tailscale.md)
 
 ```fish
-# WireGuard (hub en el desktop que siempre está encendido)
-sudo pacman -S --needed wireguard-tools
-sudo systemctl enable --now wg-quick@wg0
-sudo wg show
-
-# Tailscale (zero-config, sin abrir puertos)
-paru -S --needed tailscale
+# En CADA PC (misma cuenta):
+sudo pacman -S --needed tailscale
 sudo systemctl enable --now tailscaled
-sudo tailscale up
+sudo tailscale up            # abre un enlace para autenticar
 
-# Y luego, desde cualquier red:
-ssh remoto
+# Y desde cualquier red:
+ssh USUARIO@100.x.y.z        # la IP Tailscale del otro PC
 ```
+
+**Ventajas:** IP fija, cifrado, sin tocar el router, sin DuckDNS.
+
+### Alternativas
+
+Guía: [`docs/vpn-remoto.md`](docs/vpn-remoto.md)
+
+**Regla de oro:** con VPN/túnel **no** abras el puerto 22 al internet.
 
 | Escenario | Opción |
 |---|---|
-| Puedo abrir un puerto UDP | **WireGuard** (hub + peers) |
-| No puedo abrir puertos, quiero simplicidad | **Tailscale** |
+| **No quiero abrir puertos / no sé de redes** | **Tailscale** ⭐ (recomendado) |
+| Puedo abrir un puerto UDP y quiero control total | **WireGuard** (hub + peers) |
 | Solo SSH, tengo dominio en Cloudflare | **Cloudflare Tunnel** |
-| IP pública dinámica | WireGuard + **DuckDNS** |
+| IP pública dinámica con WireGuard | WireGuard + **DuckDNS** |
 
 ---
 
