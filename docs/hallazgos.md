@@ -4,7 +4,8 @@ Registro de comportamientos **comprobados en máquinas reales**, no supuestos.
 Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarlo.
 
 > Última actualización: 2026-10-26
-> Equipos de prueba: desktop AMD (operador) + laptop HP Ryzen 5 (objetivo), ambos CachyOS/Wayland
+> Equipos de prueba: desktop (operador) + laptop **HP** Ryzen 5 (objetivo),
+> ambos CachyOS/Wayland
 
 ---
 
@@ -134,10 +135,11 @@ escritorio, RustDesk reengancha la captura DRM y el control completo.
 
 ```
 $ tailscale status
-100.x  operador  ...  active; direct 192.168.1.x:41641, tx ... rx ...
+100.x  operador  ...  -
+100.x  objetivo  ...  active; direct 192.168.1.x:41641, tx ... rx ...
 
 $ tailscale ping <objetivo>
-pong from <objetivo> (100.x.y.z) via 192.168.1.x:41641 in 1ms
+pong from <objetivo> (100.x.y.z) via 192.168.1.x:41641 in 2ms
 ```
 
 **Conclusión:** NAT traversal funciona; la latencia es de ~1 ms. No está pasando
@@ -244,6 +246,56 @@ ssh objetivo 'systemctl is-active tailscaled sshd rustdesk'
 ssh objetivo 'grep -iE "drm: consumer cache|UInput" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log | tail -3'
 ```
 
+## H-09 — MagicDNS funciona aunque Tailscale avise `resolved-NM wired incorrectly`
+
+**Verificado:** ✅
+
+`tailscale status` muestra este *health check* en el operador:
+
+```
+#     - systemd-resolved and NetworkManager are wired together incorrectly;
+#       MagicDNS will probably not work. For more info, see https://tailscale.com/s/resolved-nm
+```
+
+Sin embargo, **MagicDNS sí resuelve**:
+
+```
+$ resolvectl query <objetivo>
+<objetivo>: 100.x.y.z                                      -- link: tailscale0
+       (<objetivo>.<tailnet>.ts.net)
+
+$ tailscale status | grep <objetivo>
+100.x.y.z  <objetivo>  ...  active; direct 192.168.1.x:41641
+
+$ getent hosts <objetivo>
+100.x.y.z  <objetivo>.<tailnet>.ts.net
+```
+
+**Causa:** el aviso de Tailscale exige que NetworkManager declare explícitamente
+el backend `systemd-resolved` (`/etc/NetworkManager/conf.d/`). Este equipo tiene
+`/etc/resolv.conf` → `nameserver 127.0.0.53` (stub de resolved) y NM **sin**
+backend declarado, así que Tailscale no puede *leer* la config del sistema
+(`failed to read system DNS configuration: Access denied`) y avisa por precaución.
+
+**Fix (opcional, solo silencia el aviso):**
+
+```fish
+# /etc/NetworkManager/conf.d/dns.conf
+[main]
+dns=systemd-resolved
+```
+
+```fish
+sudo systemctl reload NetworkManager
+systemctl restart systemd-resolved
+```
+
+**Conclusión:** el aviso es un **falso positivo** en este setup; no impide usar
+`ssh <nombre>.<tailnet>.ts.net` ni `ssh <nombre>` (con MagicDNS). Verifica con
+`getent hosts <host>` antes de asumir que está roto.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -258,10 +310,11 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-06 sshd enabled | `tests.sh <host>`: `sshd enabled` |
 | H-07 `hostname -I` | `tests.sh` (local): los scripts usan `ip route get` |
 | H-08 pipefail falsos negativos | `tests.sh` (local): `verify-docs` no usa `strings|grep -q` |
+| H-09 MagicDNS con aviso resolved-NM | `tests.sh <host>`: MagicDNS resuelve por nombre |
 
 ```fish
-./tests.sh                      # 45 comprobaciones
-./tests.sh USUARIO@IP           # 57 (incluye hallazgos en el host)
+./tests.sh                      # 50 comprobaciones (local)
+./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```
 

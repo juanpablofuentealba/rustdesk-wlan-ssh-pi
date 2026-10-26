@@ -116,6 +116,22 @@ else
   sk "tailscale no instalado"
 fi
 
+sect "Hallazgo H-09 (MagicDNS con aviso resolved-NM)"
+t "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'
+t "H-09 menciona resolved-NM"       bash -c 'grep -qi "resolved-nm\|systemd-resolved" docs/hallazgos.md'
+if command -v tailscale >/dev/null 2>&1; then
+  # El aviso no debe impedir que MagicDNS resuelva un peer (si hay alguno)
+  peer_name="$(tailscale status --json 2>/dev/null \
+    | jq -r '.Peer // {} | to_entries[0].value.HostName // empty' 2>/dev/null)"
+  if [[ -n "$peer_name" ]] && getent hosts "$peer_name" >/dev/null 2>&1; then
+    t "H-09 MagicDNS resuelve '$peer_name' (a pesar del aviso)" true
+  else
+    sk "H-09 sin peer resoluble por MagicDNS desde el operador"
+  fi
+else
+  sk "H-09 tailscale no instalado en el operador"
+fi
+
 sect "Documentación presente y enlazada"
 for d in docs/guia-desde-cero.md docs/tailscale.md docs/vpn-remoto.md \
          docs/onboarding-cliente.md docs/hallazgos.md; do

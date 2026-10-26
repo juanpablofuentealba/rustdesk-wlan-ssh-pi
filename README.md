@@ -336,10 +336,12 @@ Caso real: dos equipos CachyOS en la misma red WiFi de 5 GHz.
 
 ```
 objetivo: wlan0 (WiFi 802.11ac) → router doméstico
-          IP 192.168.1.20/24 · gateway 192.168.1.1
+          IP 192.168.1.16/24 · gateway 192.168.1.1
           eth0 (Ethernet) DOWN · sin cable
 
-ssh 192.168.1.20 → por WLAN, latencia ~1.5 ms, throughput estable
+operador: desktop con Ethernet 192.168.1.12
+
+ssh <objetivo> → por WLAN, latencia ~2 ms, throughput estable
 ```
 
 ### Verificación
@@ -350,6 +352,7 @@ ssh 192.168.1.20 → por WLAN, latencia ~1.5 ms, throughput estable
 ✅ clave del operador autorizada en authorized_keys
 ✅ RustDesk: captura DRM + uinput activos
 ✅ SSH sobre WLAN funcionando (specs, comandos, consultas)
+✅ MagicDNS: `ssh <nombre>` resuelve por Tailscale (ver H-09)
 ```
 
 ### Hallazgos
