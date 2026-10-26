@@ -271,28 +271,52 @@ $ getent hosts <objetivo>
 100.x.y.z  <objetivo>.<tailnet>.ts.net
 ```
 
-**Causa:** el aviso de Tailscale exige que NetworkManager declare explícitamente
-el backend `systemd-resolved` (`/etc/NetworkManager/conf.d/`). Este equipo tiene
-`/etc/resolv.conf` → `nameserver 127.0.0.53` (stub de resolved) y NM **sin**
-backend declarado, así que Tailscale no puede *leer* la config del sistema
-(`failed to read system DNS configuration: Access denied`) y avisa por precaución.
+**Causa (verificada):** el aviso tiene **dos** requisitos que deben cumplirse a
+la vez, y en este equipo faltaban ambos:
 
-**Fix (opcional, solo silencia el aviso):**
+1. **NetworkManager debe declarar el backend** `systemd-resolved`. Sin
+   `dns=systemd-resolved` en `/etc/NetworkManager/conf.d/`, Tailscale no puede
+   leer la config del sistema.
+2. **`/etc/resolv.conf` debe ser el symlink al stub de resolved**
+   (`/run/systemd/resolve/stub-resolv.conf`). Si es un **archivo normal** (como
+   lo era aquí, con `nameserver 127.0.0.53` escrito a mano por NM),
+   `resolvectl` reporta `resolv.conf mode: foreign` y Tailscale asume que la
+   resolución no depende de resolved.
+
+Comprobación del síntoma:
 
 ```fish
-# /etc/NetworkManager/conf.d/dns.conf
+resolvectl status | grep "resolv.conf mode"   # 'foreign' = mal
+ls -la /etc/resolv.conf                        # debe ser un symlink, no un archivo
+```
+
+**Fix (silencia el aviso de verdad):**
+
+```fish
+# 1. Declarar el backend DNS en NetworkManager
+#    /etc/NetworkManager/conf.d/dns.conf
 [main]
 dns=systemd-resolved
 ```
 
 ```fish
-sudo systemctl reload NetworkManager
-systemctl restart systemd-resolved
+# 2. Apuntar /etc/resolv.conf al stub de resolved (haz backup antes)
+sudo cp -a /etc/resolv.conf /etc/resolv.conf.bak
+sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+# 3. Reiniciar NM (lee dns.conf) y re-evaluar Tailscale
+sudo systemctl restart NetworkManager
+sudo systemctl restart tailscaled
+
+# 4. Verificar
+resolvectl status | grep "resolv.conf mode"   # ahora 'stub' ✅
+tailscale status | grep -A3 "Health check"    # sin aviso ✅
 ```
 
-**Conclusión:** el aviso es un **falso positivo** en este setup; no impide usar
-`ssh <nombre>.<tailnet>.ts.net` ni `ssh <nombre>` (con MagicDNS). Verifica con
-`getent hosts <host>` antes de asumir que está roto.
+**Conclusión:** el aviso es **real pero no bloqueante**: MagicDNS resolvía igual,
+pero conviene arreglarlo para que resolved gestione bien `search tailc15fd9.ts.net`.
+Tras el fix, el DNS normal (`getent hosts google.com`) y MagicDNS (`getent hosts
+<host>`) funcionan, y `ssh <nombre>` entra sin especificar IP.
 
 ---
 

@@ -116,15 +116,29 @@ else
   sk "tailscale no instalado"
 fi
 
-sect "Hallazgo H-09 (MagicDNS con aviso resolved-NM)"
+sect "Hallazgo H-09 (MagicDNS / resolved-NM)"
 t "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'
 t "H-09 menciona resolved-NM"       bash -c 'grep -qi "resolved-nm\|systemd-resolved" docs/hallazgos.md'
+t "H-09 menciona resolv.conf stub"  bash -c 'grep -q "stub-resolv.conf" docs/hallazgos.md'
 if command -v tailscale >/dev/null 2>&1; then
-  # El aviso no debe impedir que MagicDNS resuelva un peer (si hay alguno)
+  # Si resolved gestiona resolv.conf, el modo debe ser 'stub' (no 'foreign')
+  if command -v resolvectl >/dev/null 2>&1; then
+    mode="$(resolvectl status 2>/dev/null | awk -F': ' '/resolv.conf mode/{print $2; exit}')"
+    if [[ "$mode" == "stub" ]]; then
+      t "H-09 resolved gestiona resolv.conf (mode=stub)" true
+    elif [[ -n "$mode" ]]; then
+      sk "H-09 resolv.conf mode='$mode' (revisar fix; ver hallazgos)"
+    else
+      sk "H-09 resolvectl no reporta resolv.conf mode"
+    fi
+  else
+    sk "H-09 resolvectl no instalado"
+  fi
+  # El aviso, si existe, no debe impedir que MagicDNS resuelva un peer
   peer_name="$(tailscale status --json 2>/dev/null \
     | jq -r '.Peer // {} | to_entries[0].value.HostName // empty' 2>/dev/null)"
   if [[ -n "$peer_name" ]] && getent hosts "$peer_name" >/dev/null 2>&1; then
-    t "H-09 MagicDNS resuelve '$peer_name' (a pesar del aviso)" true
+    t "H-09 MagicDNS resuelve '$peer_name'" true
   else
     sk "H-09 sin peer resoluble por MagicDNS desde el operador"
   fi
