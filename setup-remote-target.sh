@@ -147,10 +147,16 @@ need_root() {
   fi
 }
 
+# Devuelve el firewall ACTIVO, o 'ufw-inactive'/'firewalld-inactive' si el
+# gestor está instalado pero apagado (caso típico de Linux Mint: ufw sin activar).
 detect_firewall() {
+  local fw
   for fw in ufw firewalld nftables iptables; do
     if systemctl is-active --quiet "$fw" 2>/dev/null; then printf '%s' "$fw"; return; fi
   done
+  # Gestor instalado pero inactivo → avisar y dejar la regla preparada
+  if command -v ufw >/dev/null 2>&1; then printf 'ufw-inactive'; return; fi
+  if command -v firewall-cmd >/dev/null 2>&1; then printf 'firewalld-inactive'; return; fi
   printf 'none'
 }
 
@@ -319,6 +325,11 @@ run_check() {
       if [[ $EUID -eq 0 ]]; then firewall-cmd --list-all 2>/dev/null | sed 's/^/    /';
       else warn "    firewalld activo (requiere root para ver reglas)"; fi ;;
     nftables)  warn "    nftables activo: revisa 'sudo nft list ruleset'" ;;
+    ufw-inactive)
+      warn "    ufw instalado pero INACTIVO (típico en Linux Mint: GUFW sin activar)"
+      warn "    --ssh lo activará y abrirá :${SSH_PORT}; si lo activas a mano: sudo ufw allow ${SSH_PORT}/tcp" ;;
+    firewalld-inactive)
+      warn "    firewalld instalado pero INACTIVO; --ssh lo activará y permitirá ssh" ;;
     none)      ok "Sin firewall activo (accesible en LAN, pero menos seguro)" ;;
   esac
 
@@ -507,6 +518,21 @@ UDEV
   info "debe aparecer:  drm: consumer cache warmed (N displays) at startup"
   info "Si en su lugar ves 'Please select the screen to be shared', la captura"
   info "cayó al portal (fallback): revisa grupo video y enable-drm-display-wake."
+
+  # Nota por familia: el .deb/.rpm oficial NO trae el parche DRM del AUR de Arch.
+  case "$DISTRO_FAMILY" in
+    debian|fedora)
+      local sess
+      sess="$(loginctl show-session "$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | tail -1)" -p Type --value 2>/dev/null || true)"
+      if [[ "$sess" == "wayland" ]]; then
+        warn "Wayland detectado en $DISTRO_FAMILY: el paquete oficial NO incluye el parche DRM"
+        warn "  de Arch. El acceso desatendido puede caer al portal (pide elegir pantalla)."
+        warn "  Con X11 (Cinnamon por defecto en Mint) no aplica este aviso."
+      else
+        ok "Sesión X11 (o sin Wayland): el aviso de captura DRM no aplica"
+      fi
+      ;;
+  esac
 }
 
 # ---------- 3. SSH ----------
@@ -585,6 +611,32 @@ setup_ssh() {
     iptables)
       warn "iptables activo: añade manualmente una regla para tcp/${SSH_PORT}"
       warn "  sudo iptables -A INPUT -p tcp --dport ${SSH_PORT} -j ACCEPT"
+      ;;
+    ufw-inactive)
+      # Caso típico de Linux Mint: ufw instalado pero apagado.
+      warn "ufw está instalado pero INACTIVO (habitual en Linux Mint)"
+      info "Activando ufw y permitiendo ${SSH_PORT}/tcp..."
+      run ufw --force enable >/dev/null 2>&1 || true
+      run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
+      if [[ $DRY_RUN -eq 1 ]]; then
+        info "(dry-run) ufw se activaría y permitiría ${SSH_PORT}/tcp"
+      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}/tcp"; then
+        ok "ufw activado con ${SSH_PORT}/tcp permitido"
+      else
+        warn "no pude confirmar; revisa manualmente: sudo ufw status"
+      fi
+      ;;
+    firewalld-inactive)
+      warn "firewalld está instalado pero INACTIVO"
+      info "Activando firewalld y permitiendo ssh..."
+      run systemctl enable --now firewalld >/dev/null 2>&1 || true
+      run firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1 || true
+      run firewall-cmd --reload >/dev/null 2>&1 || true
+      if [[ $DRY_RUN -eq 1 ]]; then
+        info "(dry-run) firewalld se activaría y permitiría ssh"
+      else
+        ok "firewalld activado con servicio ssh permitido"
+      fi
       ;;
     none)
       ok "Sin firewall: no hace falta abrir nada"

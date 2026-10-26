@@ -66,6 +66,11 @@ t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" setup-
 t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" setup-remote-target.sh'
 # No debe quedar 'pacman' fuera de la rama arch (debe usar pkg_install)
 t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" setup-remote-target.sh'
+# Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
+t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
+t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
+t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
+t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" setup-remote-target.sh'
 # dry-run de distro desconocida no debe romper
 
 sect "setup --dry-run (seguridad para clientes)"

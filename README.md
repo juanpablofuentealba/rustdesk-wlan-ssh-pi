@@ -11,7 +11,7 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 | Familia | Distros | Gestor | RustDesk |
 |---|---|---|---|
 | **Arch** | CachyOS, Arch, Manjaro, EndeavourOS | `pacman` + AUR (`paru`/`yay`) | `rustdesk-unattended-wayland` (AUR) |
-| **Debian** | Debian, Ubuntu, Mint, Pop!_OS | `apt` | `.deb` oficial |
+| **Debian** | Debian, Ubuntu, **Linux Mint**, Pop!_OS | `apt` | `.deb` oficial |
 | **Fedora** | Fedora, RHEL, Rocky, AlmaLinux | `dnf` | `.rpm` oficial |
 
 El script detecta la familia vía `/etc/os-release` y usa el camino correcto.
@@ -558,7 +558,7 @@ $ ./setup-remote-target.sh --check
 | Familia | Detección | Gestor | Instalación de RustDesk |
 |---|---|---|---|
 | `arch` | ID/ID_LIKE contiene `arch` (o existe `pacman`) | `pacman` | `rustdesk-unattended-wayland` vía AUR (`paru`/`yay`) |
-| `debian` | `debian`/`ubuntu` (o existe `apt-get`) | `apt-get` | `.deb` oficial (resuelto en la API de GitHub) |
+| `debian` | `debian`/`ubuntu`/`linuxmint` (o existe `apt-get`) | `apt-get` | `.deb` oficial (resuelto en la API de GitHub) |
 | `fedora` | `fedora`/`rhel` (o existe `dnf`) | `dnf` | `.rpm` oficial (resuelto en la API de GitHub) |
 
 ### Qué cambia por familia
@@ -571,10 +571,25 @@ $ ./setup-remote-target.sh --check
 | Abrir puerto | `ufw allow 22/tcp` | `ufw allow 22/tcp` | `firewall-cmd --add-service=ssh` |
 | RustDesk unattended | AUR (`DRM`) | `.deb` oficial | `.rpm` oficial |
 
-> **Nota (Debian/Ubuntu):** RustDesk se instala desde el `.deb` oficial. En
+> **Nota (Debian/Ubuntu/Mint):** RustDesk se instala desde el `.deb` oficial. En
 > Wayland, la captura puede requerir el portal PipeWire en algunas versiones;
 > el script verifica el log y avisa. Para unattended completo en Wayland, el
 > camino más probado sigue siendo Arch (paquete con parche DRM).
+
+### Linux Mint (base Ubuntu)
+
+Mint trae `ID_LIKE="ubuntu debian"`, así que **detecta como `debian`** sin
+configurar nada. Dos detalles propios de Mint que el script ya cubre:
+
+- **`ufw` viene instalado pero INACTIVO** (GUFW sin activar). El script lo
+  detecta como `ufw-inactive`, avisa y con `--ssh` **lo activa y abre :22**
+  (en vez de asumir que no hay firewall).
+- **Cinnamon usa X11 por defecto** → la captura de RustDesk funciona directo.
+  Si usas la sesión **Wayland** de Mint, el `.deb` oficial no trae el parche DRM
+  de Arch y el script te avisa (puede caer al portal "elige la pantalla").
+
+Rama probada contra una simulación de **Mint 22.3 "Zena"** (`/etc/os-release`
+real) en contenedor `debian:12`.
 
 ### Forzar la familia (pruebas)
 
