@@ -124,6 +124,10 @@ done
 t "README enlaza hallazgos"     bash -c 'grep -q "docs/hallazgos.md" README.md'
 t "README enlaza onboarding"    bash -c 'grep -q "docs/onboarding-cliente.md" README.md'
 t "README enlaza tailscale"     bash -c 'grep -q "docs/tailscale.md" README.md'
+# La doc debe distinguir roles (operador no necesita sshd; el objetivo sí)
+t "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
+t "README aclara que el operador no necesita sshd" \
+  bash -c 'grep -qE "sshd.*no necesita|no necesita.*sshd" README.md'
 
 if [[ -n "$HOST" ]]; then
   RH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST"

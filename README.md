@@ -77,6 +77,28 @@ falta **shell**. Ese es el rol de SSH.
 
 La clave: **RustDesk para los ojos, SSH para las manos.**
 
+### Qué necesita cada máquina (importante)
+
+No es simétrico. El **operador** solo necesita *salir* hacia los clientes; el
+**objetivo** es el que debe *aceptar* conexiones.
+
+| Componente | PC OPERADOR | PC OBJETIVO |
+|---|---|---|
+| **Tailscale** | ✅ (para alcanzar clientes) | ✅ (para ser alcanzado) |
+| **RustDesk (app)** | ✅ (ver/controlar) | ✅ (ser controlado) |
+| **RustDesk unattended** (DRM/uinput) | ❌ no aplica | ✅ **sí** |
+| **sshd** | ❌ **no necesita** | ✅ **sí** |
+| **firewall abierto :22** | ❌ no | ✅ **sí** |
+| **clave del operador autorizada** | ❌ no | ✅ **sí** |
+
+> **Error común:** habilitar `sshd`/abrir puertos en el **operador**. No sirve
+> de nada: nadie entra en el operador. Solo el objetivo necesita aceptar
+> conexiones. El operador solo necesita Tailscale (y RustDesk si va a mirar
+> pantallas).
+
+> **Al reiniciar el operador:** basta con que `tailscaled` esté `enabled`.
+> No hace falta `sshd` ni config de firewall.
+
 ---
 
 ## 3. Configurar el PC objetivo (CachyOS / Arch)
