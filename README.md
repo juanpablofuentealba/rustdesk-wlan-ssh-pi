@@ -20,6 +20,7 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 | [`docs/vpn-remoto.md`](docs/vpn-remoto.md) | WireGuard / Tailscale / Cloudflare para acceso fuera de la LAN |
 | [`docs/tailscale.md`](docs/tailscale.md) | **Guía dedicada de Tailscale**: acceso sin abrir puertos (recomendado) |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | **Cómo preparar el PC de un cliente** (modelos de acceso, auth keys verificadas) |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | **Hallazgos verificados en pruebas reales** (reinicio, login screen Wayland, etc.) |
 | [`LICENSE`](LICENSE) | MIT |
 
 ---

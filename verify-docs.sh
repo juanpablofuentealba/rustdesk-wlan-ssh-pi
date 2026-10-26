@@ -61,8 +61,29 @@ check_url "https://login.tailscale.com/start"
 check_url "https://console.tailscale.com/admin/settings/keys"
 check_url "https://console.tailscale.com/admin/machines"
 
+sect "Hallazgos: login screen (docs/hallazgos.md H-03)"
+# Determina si la PANTALLA DE LOGIN corre en X11 o Wayland.
+# Importante: no basta con ver si hay Xorg (el greeter X11 usa Xorg legítimamente),
+# hay que mirar el display server DEL GREETER.
+if pgrep -f 'plasmalogin|startplasma-wayland' >/dev/null 2>&1; then
+  if pgrep -f 'startplasma-wayland' >/dev/null 2>&1; then
+    sk "login screen Wayland (plasmalogin) → allow-logon-screen-password NO aplica (H-03)"
+  else
+    ok "login screen plasmalogin (revisar display server)"
+  fi
+elif pgrep -f 'sddm|gdm|lightdm|greetd' >/dev/null 2>&1; then
+  # Si el greeter usa Xorg propio (xauth en /run/sddm) → X11
+  if pgrep -af Xorg 2>/dev/null | grep -qE 'run/(sddm|gdm|lightdm)'; then
+    ok "login screen X11 (greeter con Xorg) → allow-logon-screen-password aplica"
+  else
+    sk "greeter detectado, display server indeterminado"
+  fi
+else
+  sk "sin greeter activo ahora mismo (¿sesión ya iniciada?)"
+fi
+
 sect "Archivos y enlaces internos"
-for d in docs/tailscale.md docs/onboarding-cliente.md docs/vpn-remoto.md docs/guia-desde-cero.md README.md; do
+for d in docs/tailscale.md docs/onboarding-cliente.md docs/vpn-remoto.md docs/guia-desde-cero.md docs/hallazgos.md README.md; do
   [[ -f "$d" ]] && ok "existe $d" || ko "FALTA $d"
 done
 # Enlaces relativos entre docs
