@@ -160,8 +160,11 @@ detect_firewall() {
     if [[ $EUID -eq 0 ]]; then
       st="$(ufw status 2>/dev/null | head -1)"
     else
-      # sin root no podemos usar 'ufw status'; leemos el archivo de config
       st=""
+    fi
+    # Si 'ufw status' no dijo nada concluyente (p. ej. salida vacía, o sin
+    # root), caer a /etc/ufw/ufw.conf — que es la fuente de verdad de ENABLED.
+    if [[ "$st" != *active* ]]; then
       if [[ -r /etc/ufw/ufw.conf ]]; then
         grep -qi '^ENABLED=yes' /etc/ufw/ufw.conf 2>/dev/null && st="active" || st="inactive"
       fi

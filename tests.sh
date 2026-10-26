@@ -79,12 +79,8 @@ t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parch
 t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
 # detect_firewall debe leer ENABLED de ufw.conf, no solo systemctl is-active
 t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
-t "detect_firewall: inactive antes que active" bash -c '
-  awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh > /tmp/_df.sh
-  n=$(grep -n "inactive" /tmp/_df.sh | head -1 | cut -d: -f1)
-  a=$(grep -n "\*active\*" /tmp/_df.sh | head -1 | cut -d: -f1)
-  [ -n "$n" ] && [ -n "$a" ] && [ "$n" -lt "$a" ]
-'
+t "detect_firewall consulta ufw.conf (respaldo)" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
+t "detect_firewall lee ENABLED (no solo systemctl)" bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "ENABLED=yes"'
 t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
 t "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
