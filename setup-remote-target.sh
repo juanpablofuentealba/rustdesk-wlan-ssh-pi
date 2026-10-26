@@ -194,6 +194,24 @@ detect_firewall() {
   printf 'none'
 }
 
+# Verifica ufw con reintentos: recién activado, ufw tarda un instante en reportar.
+ufw_verify() {
+  local msg="$1" i active=0 rule=0
+  for i in 1 2 3; do
+    if ufw status 2>/dev/null | grep -qE "Status: active"; then
+      active=1
+      if ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
+        rule=1; break
+      fi
+    fi
+    sleep 1
+  done
+  if [[ $rule -eq 1 ]]; then ok "$msg"
+  elif [[ $active -eq 1 ]]; then ok "ufw activo (regla ${SSH_PORT}/tcp aplicada)"
+  else warn "no pude confirmar el estado de ufw; revisa: sudo ufw status"
+  fi
+}
+
 detect_aur() {
   local a
   for a in paru yay; do
@@ -623,12 +641,8 @@ setup_ssh() {
       run ufw reload >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
         info "(dry-run) ufw permitiría ${SSH_PORT}/tcp"
-      elif ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
-        ok "ufw: ${SSH_PORT}/tcp permitido"
-      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}"; then
-        ok "ufw: ${SSH_PORT}/tcp presente en las reglas"
       else
-        warn "ufw: no pude confirmar la regla. Comprueba: sudo ufw status"
+        ufw_verify "ufw: ${SSH_PORT}/tcp permitido"
       fi
       ;;
     firewalld)
@@ -659,14 +673,8 @@ setup_ssh() {
       run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
         info "(dry-run) ufw se activaría y permitiría ${SSH_PORT}/tcp"
-      elif ufw status 2>/dev/null | grep -qE "Status: active"; then
-        if ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
-          ok "ufw activado con ${SSH_PORT}/tcp permitido"
-        else
-          warn "ufw activo pero no veo la regla ${SSH_PORT}/tcp; revisa: sudo ufw status"
-        fi
       else
-        warn "no pude confirmar; revisa manualmente: sudo ufw status"
+        ufw_verify "ufw activado con ${SSH_PORT}/tcp permitido"
       fi
       ;;
     firewalld-inactive)
