@@ -339,9 +339,12 @@ ssh remoto '
 Caso real: dos equipos CachyOS en la misma red WiFi de 5 GHz.
 
 > **Validación multi-distro:** las ramas Debian y Fedora se probaron en
-> contenedores reales (`debian:12`, `fedora:41`): detección de familia correcta,
-> resolución del asset en la API de GitHub y descarga íntegra del `.deb` (24 MB)
-> y `.rpm` (33 MB) oficiales de RustDesk 1.5.0.
+> contenedores reales (`debian:12`, `fedora:41` y **`fedora:44`**): detección de
+> familia correcta, resolución del asset en la API de GitHub y descarga íntegra
+> del `.deb` (24 MB) y `.rpm` (33 MB) oficiales de RustDesk 1.5.0.
+>
+> Probado contra ISOs reales: **Linux Mint 22.3 "Zena"** (familia debian) y
+> **Fedora 44** (`Fedora-Workstation-Live-44-1.7.x86_64.iso`, familia fedora).
 
 ### Equipos (ejemplo real de la prueba)
 

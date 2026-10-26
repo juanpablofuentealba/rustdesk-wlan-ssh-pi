@@ -566,16 +566,15 @@ setup_ssh() {
     ss -tln 2>/dev/null | grep -q ":${SSH_PORT}\b" && break
     sleep 1
   done
-  if ! ss -tln 2>/dev/null | grep -q ":${SSH_PORT}\b"; then
-    if [[ $DRY_RUN -eq 1 ]]; then
-      info "(dry-run) sshd escucharía en :${SSH_PORT}"
-    else
-      err "sshd no escucha en :${SSH_PORT}"
-      systemctl status sshd --no-pager 2>/dev/null | tail -5 || true
-      return 1
-    fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) sshd escucharía en :${SSH_PORT}"
+  elif ss -tln 2>/dev/null | grep -q ":${SSH_PORT}\b"; then
+    ok "sshd escuchando en :${SSH_PORT}"
+  else
+    err "sshd no escucha en :${SSH_PORT}"
+    systemctl status sshd --no-pager 2>/dev/null | tail -5 || true
+    return 1
   fi
-  ok "sshd escuchando en :${SSH_PORT}"
 
   hdr "Firewall"
   local fw; fw="$(detect_firewall)"
