@@ -14,7 +14,8 @@
 #   # 2) SSH + firewall + clave pública del operador
 #   sudo ./setup-remote-target.sh --ssh --key "ssh-ed25519 AAAA... operador@mipc"
 #
-#   # 3) Todo
+#   # 3) Todo (simulacro primero, luego aplicar)
+#   sudo ./setup-remote-target.sh --all --dry-run
 #   sudo ./setup-remote-target.sh --all --key "ssh-ed25519 AAAA... operador@mipc"
 #
 # Importante: al usar sudo, el script detecta el usuario real vía SUDO_USER y
@@ -41,6 +42,8 @@ DO_SSH=0
 DO_CHECK=0
 SSH_PORT=22
 KEY=""
+DRY_RUN=0
+ASSUME_YES=0
 
 usage() {
   sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
@@ -53,10 +56,13 @@ Opciones:
   --port <n>            Puerto SSH (por defecto 22)
   --check               Solo diagnóstico (no cambia nada; no requiere root)
   --all                 Equivale a --rustdesk --ssh
+  --dry-run             Muestra qué haría SIN aplicar cambios (seguro)
+  --yes, -y             No preguntar confirmación antes de aplicar
   -h, --help            Muestra esta ayuda
 
 Ejemplos:
   ./setup-remote-target.sh --check
+  sudo ./setup-remote-target.sh --all --dry-run      # simulacro
   sudo ./setup-remote-target.sh --all --key "ssh-ed25519 AAAA... operador@mipc"
 EOF
 }
@@ -69,6 +75,8 @@ while [[ $# -gt 0 ]]; do
     --port)     SSH_PORT="${2:-22}"; shift 2 ;;
     --check)    DO_CHECK=1; shift ;;
     --all)      DO_RUSTDESK=1; DO_SSH=1; shift ;;
+    --dry-run)  DRY_RUN=1; shift ;;
+    --yes|-y)   ASSUME_YES=1; shift ;;
     -h|--help)  usage; exit 0 ;;
     *) err "Opción desconocida: $1"; usage; exit 1 ;;
   esac
@@ -105,6 +113,24 @@ else
 fi
 
 # ---------- helpers ----------
+# Ejecuta un comando real, o solo lo muestra si DRY_RUN=1.
+run() {
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf '%s[sudo]%s %s\n' "$B" "$N" "$*"
+  else
+    "$@"
+  fi
+}
+
+# Pide confirmación (salvo --yes o --dry-run).
+confirm() {
+  [[ $DRY_RUN -eq 1 || $ASSUME_YES -eq 1 ]] && return 0
+  local r
+  printf '%s¿Aplicar estos cambios?%s [y/N] ' "$BD" "$N"
+  read -r r || r=""
+  case "$r" in [yYsS]) return 0 ;; *) err "Cancelado por el usuario"; exit 1 ;; esac
+}
+
 need_root() {
   if [[ $EUID -ne 0 ]]; then
     err "Este paso requiere root. Ejecuta con: sudo $0 $*"
@@ -242,7 +268,10 @@ setup_rustdesk() {
     local aur; aur="$(detect_aur)"
     if [[ -n "$aur" ]]; then
       info "Instalando rustdesk-unattended-wayland con $aur..."
-      if sudo -u "$TARGET_USER" -H "$aur" -S --needed --noconfirm rustdesk-unattended-wayland; then
+      if [[ $DRY_RUN -eq 1 ]]; then
+        printf '%s[aur]%s sudo -u %s %s -S --needed --noconfirm rustdesk-unattended-wayland\n' "$B" "$N" "$TARGET_USER" "$aur"
+        ok "(dry-run) se instalaría rustdesk-unattended-wayland"
+      elif sudo -u "$TARGET_USER" -H "$aur" -S --needed --noconfirm rustdesk-unattended-wayland; then
         ok "Instalado"
       else
         err "Falló la instalación con $aur"
@@ -258,7 +287,9 @@ setup_rustdesk() {
   # módulo uinput al arranque
   local modconf=/etc/modules-load.d/rustdesk-uinput.conf
   if [[ ! -f "$modconf" ]]; then
-    printf '# RustDesk: garantiza uinput (inyección de input remoto) al arranque\nuinput\n' > "$modconf"
+    if [[ $DRY_RUN -eq 0 ]]; then
+      printf '# RustDesk: garantiza uinput (inyección de input remoto) al arranque\nuinput\n' > "$modconf"
+    fi
     ok "Creado $modconf"
   else
     ok "$modconf ya existe"
@@ -267,22 +298,24 @@ setup_rustdesk() {
   # regla udev: /dev/uinput accesible al usuario de la sesión activa
   local rule=/etc/udev/rules.d/60-rustdesk-uinput.rules
   if [[ ! -f "$rule" ]]; then
-    cat > "$rule" <<'UDEV'
+    if [[ $DRY_RUN -eq 0 ]]; then
+      cat > "$rule" <<'UDEV'
 # RustDesk: permite al usuario de la sesión activa usar /dev/uinput
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
 UDEV
+    fi
     ok "Creado $rule"
   else
     ok "$rule ya existe"
   fi
 
-  modprobe uinput 2>/dev/null || true
-  udevadm control --reload-rules 2>/dev/null || true
-  udevadm trigger /dev/uinput 2>/dev/null || true
+  run modprobe uinput 2>/dev/null || true
+  run udevadm control --reload-rules 2>/dev/null || true
+  run udevadm trigger /dev/uinput 2>/dev/null || true
   ok "uinput cargado y reglas udev recargadas"
 
-  systemctl enable rustdesk >/dev/null 2>&1 || true
-  systemctl restart rustdesk 2>/dev/null || true
+  run systemctl enable rustdesk >/dev/null 2>&1 || true
+  run systemctl restart rustdesk 2>/dev/null || true
   ok "rustdesk.service habilitado y reiniciado"
 
   # sugerir enable-drm-display-wake en la config del usuario objetivo
@@ -315,10 +348,10 @@ setup_ssh() {
     ok "openssh ya instalado"
   else
     info "Instalando openssh..."
-    pacman -S --needed --noconfirm openssh
+    run pacman -S --needed --noconfirm openssh
   fi
 
-  systemctl enable --now sshd
+  run systemctl enable --now sshd
   ok "sshd habilitado y arrancado"
 
   # sshd a veces tarda en bindear; esperamos y comprobamos
@@ -328,9 +361,13 @@ setup_ssh() {
     sleep 1
   done
   if ! ss -tln 2>/dev/null | grep -q ":${SSH_PORT}\b"; then
-    err "sshd no escucha en :${SSH_PORT}"
-    systemctl status sshd --no-pager 2>/dev/null | tail -5 || true
-    return 1
+    if [[ $DRY_RUN -eq 1 ]]; then
+      info "(dry-run) sshd escucharía en :${SSH_PORT}"
+    else
+      err "sshd no escucha en :${SSH_PORT}"
+      systemctl status sshd --no-pager 2>/dev/null | tail -5 || true
+      return 1
+    fi
   fi
   ok "sshd escuchando en :${SSH_PORT}"
 
@@ -339,9 +376,11 @@ setup_ssh() {
   info "Detectado: $fw"
   case "$fw" in
     ufw)
-      ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
-      ufw reload >/dev/null 2>&1 || true
-      if ufw status 2>/dev/null | grep -q "${SSH_PORT}/tcp"; then
+      run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
+      run ufw reload >/dev/null 2>&1 || true
+      if [[ $DRY_RUN -eq 1 ]]; then
+        info "(dry-run) ufw permitiría ${SSH_PORT}/tcp"
+      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}/tcp"; then
         ok "ufw: ${SSH_PORT}/tcp permitido"
       else
         warn "ufw: no pude confirmar la regla. Comprueba: sudo ufw status"
@@ -369,24 +408,29 @@ setup_ssh() {
   if [[ -n "$KEY" ]]; then
     hdr "Autorizando clave del operador"
     local sshdir="$TARGET_HOME/.ssh" ak="$TARGET_HOME/.ssh/authorized_keys"
-    mkdir -p "$sshdir"
-    touch "$ak"
-    if grep -qF -- "$KEY" "$ak" 2>/dev/null; then
-      ok "La clave ya estaba autorizada (no se duplica)"
-    elif grep -qF "$(awk '{print $2}' <<<"$KEY")" "$ak" 2>/dev/null; then
-      ok "Ya existe una clave con esa misma parte pública (se omite)"
+    if [[ $DRY_RUN -eq 1 ]]; then
+      printf '%s[auth]%s añadiría la clave a %s\n' "$B" "$N" "$ak"
+      ok "(dry-run) clave del operador se autorizaría"
     else
-      printf '%s\n' "$KEY" >> "$ak"
-      ok "Clave añadida a $ak"
+      mkdir -p "$sshdir"
+      touch "$ak"
+      if grep -qF -- "$KEY" "$ak" 2>/dev/null; then
+        ok "La clave ya estaba autorizada (no se duplica)"
+      elif grep -qF "$(awk '{print $2}' <<<"$KEY")" "$ak" 2>/dev/null; then
+        ok "Ya existe una clave con esa misma parte pública (se omite)"
+      else
+        printf '%s\n' "$KEY" >> "$ak"
+        ok "Clave añadida a $ak"
+      fi
+      # propietario y permisos correctos (clave: si corremos como root,
+      # authorized_keys DEBE pertenecer al usuario objetivo o SSH lo ignora)
+      chmod 700 "$sshdir"
+      chmod 600 "$ak"
+      if [[ "$TARGET_USER" != "root" ]]; then
+        chown -R "$TARGET_USER":"$(id -gn "$TARGET_USER" 2>/dev/null || echo "$TARGET_USER")" "$sshdir"
+      fi
+      ok "Permisos aplicados (700 .ssh, 600 authorized_keys, owner $TARGET_USER)"
     fi
-    # propietario y permisos correctos (clave: si corremos como root,
-    # authorized_keys DEBE pertenecer al usuario objetivo o SSH lo ignora)
-    chmod 700 "$sshdir"
-    chmod 600 "$ak"
-    if [[ "$TARGET_USER" != "root" ]]; then
-      chown -R "$TARGET_USER":"$(id -gn "$TARGET_USER" 2>/dev/null || echo "$TARGET_USER")" "$sshdir"
-    fi
-    ok "Permisos aplicados (700 .ssh, 600 authorized_keys, owner $TARGET_USER)"
   else
     warn "No se pasó --key: el operador NO podrá entrar sin contraseña"
     warn "  Vuelve a ejecutar con: sudo $0 --ssh --key \"(tu clave pública)\""
@@ -405,9 +449,28 @@ if [[ $DO_CHECK -eq 1 ]]; then
   exit 0
 fi
 
-need_root
+# Resumen previo + confirmación (a menos que --yes o --dry-run)
+hdr "Acciones a realizar"
+[[ $DO_RUSTDESK -eq 1 ]] && info "· RustDesk unattended (DRM + uinput)"
+[[ $DO_SSH -eq 1 ]] && info "· sshd habilitado + firewall :${SSH_PORT}"
+if [[ -n "$KEY" ]]; then info "· Autorizar la clave del operador"; else
+  [[ $DO_SSH -eq 1 ]] && warn "· Sin --key: el operador no podrá entrar sin contraseña"; fi
+info "· Usuario objetivo: ${TARGET_USER} (HOME: ${TARGET_HOME})"
+if [[ $DRY_RUN -eq 1 ]]; then
+  warn "MODO SIMULACRO (--dry-run): no se aplicará ningún cambio"
+fi
+confirm
+
+# En simulacro no se necesita root: solo mostramos qué haría.
+if [[ $DRY_RUN -eq 0 ]]; then need_root; fi
 if [[ $DO_RUSTDESK -eq 1 ]]; then setup_rustdesk; fi
 if [[ $DO_SSH -eq 1 ]]; then setup_ssh; fi
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  hdr "Fin del simulacro"
+  ok "Nada fue modificado. Ejecuta sin --dry-run para aplicar."
+  exit 0
+fi
 
 hdr "Hecho"
 ok "Verifica con: ./setup-remote-target.sh --check"

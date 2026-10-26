@@ -116,12 +116,16 @@ No es simétrico. El **operador** solo necesita *salir* hacia los clientes; el
 # a) Diagnóstico: no cambia nada, no necesita root
 ./setup-remote-target.sh --check
 
-# b) Aplicar todo (pide tu contraseña sudo):
+# b) SIMULACRO: muestra qué haría, sin aplicar nada (seguro, sin root)
+./setup-remote-target.sh --all --dry-run --key "ssh-ed25519 AAAA... operador@mipc"
+
+# c) Aplicar todo (pide confirmación y tu contraseña sudo):
 #    - RustDesk unattended (DRM + uinput)
 #    - sshd habilitado
 #    - firewall abierto en :22
 #    - clave del operador autorizada
 sudo ./setup-remote-target.sh --all --key "ssh-ed25519 AAAA... operador@mipc"
+#    (usa --yes para no preguntar; útil en automatización)
 ```
 
 Si ya lo copiaste vía `make target-setup`, el comando exacto se te imprime al final.
@@ -448,6 +452,9 @@ Guía: [`docs/vpn-remoto.md`](docs/vpn-remoto.md)
 # diagnóstico (no cambia nada)
 ./setup-remote-target.sh --check
 
+# simulacro: muestra las acciones SIN aplicar nada (no necesita root)
+./setup-remote-target.sh --all --dry-run --key "ssh-ed25519 AAAA..."
+
 # RustDesk unattended + SSH + firewall + clave del operador
 sudo ./setup-remote-target.sh --all --key (cat ~/.ssh/id_ed25519.pub)
 #                                    ↑ en fish, ( ) sustituye el comando.
@@ -459,7 +466,8 @@ sudo ./setup-remote-target.sh --rustdesk
 ```
 
 Detecta el firewall (ufw/firewalld/nftables) y abre el puerto SSH solo. Evita
-duplicar claves en `authorized_keys`.
+duplicar claves en `authorized_keys`. Pide **confirmación** antes de aplicar
+(salta con `--yes`). Flag `--dry-run`: simula sin tocar el sistema.
 
 ### `inventory.sh` — inventario de specs
 
@@ -527,8 +535,11 @@ scp setup-remote-target.sh inventory.sh cliente:~/     # o git clone
 # 3. Diagnóstico remoto (no cambia nada)
 ssh cliente 'bash ~/setup-remote-target.sh --check'
 
-# 4. Aplicar (el cliente teclea su sudo en su máquina)
-ssh cliente 'bash ~/setup-remote-target.sh --all --key "(clave publica)"'
+# 3b. Simulacro remoto (muestra qué haría, sin aplicar; no necesita root)
+ssh cliente 'bash ~/setup-remote-target.sh --all --dry-run --key "(clave publica)"'
+
+# 4. Aplicar (el cliente teclea su sudo; pide confirmación con --yes para no bloquear)
+ssh cliente 'bash ~/setup-remote-target.sh --all --yes --key "(clave publica)"'
 
 # 5. Verificar desde el operador
 ./tests.sh cliente                    # o: make HOST=cliente check
@@ -545,6 +556,7 @@ ssh cliente 'bash ~/setup-remote-target.sh --all --key "(clave publica)"'
 | `IP local` vacío | `hostname -I` no existe | Usa `ip route get` |
 | Comandos fallan en el cliente | shell es fish | Scripts son bash; se invocan con `bash` |
 | Captura pide confirmación | cayó al portal, no DRM | Verifica `drm: consumer cache` |
+| Aplicar cambios sin querer | script ejecuta y ya | `--dry-run` simula; pide confirmación salvo `--yes` |
 
 ---
 

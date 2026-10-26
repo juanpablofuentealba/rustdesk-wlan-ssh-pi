@@ -53,6 +53,17 @@ t "setup sin args muestra usage y falla" bash -c './setup-remote-target.sh >/dev
 tj "setup opción inválida falla" ./setup-remote-target.sh --nope
 t "inventory --help sale 0"    ./inventory.sh --help
 
+sect "setup --dry-run (seguridad para clientes)"
+t "setup --dry-run sin sudo sale 0"      bash -c './setup-remote-target.sh --ssh --dry-run >/dev/null 2>&1'
+t "setup --dry-run NO requiere root"      bash -c './setup-remote-target.sh --all --dry-run >/dev/null 2>&1'
+t "ayuda menciona --dry-run"              bash -c './setup-remote-target.sh --help 2>&1 | grep -q -- "--dry-run"'
+t "ayuda menciona --yes"                  bash -c './setup-remote-target.sh --help 2>&1 | grep -q -- "--yes"'
+# El dry-run NO debe modificar el sistema (estado de sshd y authorized_keys)
+t "dry-run no toca sshd enabled"          bash -c 'b=$(systemctl is-enabled sshd 2>&1); ./setup-remote-target.sh --all --dry-run >/dev/null 2>&1; a=$(systemctl is-enabled sshd 2>&1); [ "$b" = "$a" ]'
+t "dry-run no toca authorized_keys"       bash -c 'b=$(md5sum ~/.ssh/authorized_keys 2>/dev/null); ./setup-remote-target.sh --ssh --dry-run --key "ssh-ed25519 AAAATEST x@y" >/dev/null 2>&1; a=$(md5sum ~/.ssh/authorized_keys 2>/dev/null); [ "$b" = "$a" ]'
+# Confirmación: sin --yes y sin TTY debe cancelar (no aplicar)
+tj "setup --all sin --yes cancela sin TTY" bash -c './setup-remote-target.sh --all </dev/null >/dev/null 2>&1'
+
 sect "inventory.sh (local)"
 t "texto funciona"             ./inventory.sh
 t "texto tiene hostname"       bash -c './inventory.sh | grep -q "Inventario"'

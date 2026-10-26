@@ -9,7 +9,7 @@ KEYFILE   ?= $(HOME)/.ssh/id_ed25519
 SSH       ?= ssh -o BatchMode=yes -o ConnectTimeout=10
 .DEFAULT_GOAL := help
 
-.PHONY: help test verify-docs key push-key check target-setup inventory inventory-md inventory-json \
+.PHONY: help test verify-docs key push-key check target-setup dry-run inventory inventory-md inventory-json \
         ssh ping rustdesk-log rustdesk-id reboot-services ports update
 
 help: ## Muestra esta ayuda
@@ -57,6 +57,12 @@ target-setup: ## Copia setup-remote-target.sh al host y muestra cómo ejecutarlo
 	@echo ""
 	@echo "  O primero solo el diagnóstico (sin root):"
 	@echo "    ~/setup-remote-target.sh --check"
+	@echo ""
+	@echo "  Simulacro (qué haría, sin aplicar cambios):"
+	@echo "    ~/setup-remote-target.sh --all --dry-run --key \"$$(cat $(KEYFILE).pub)\""
+
+dry-run: ## Simula setup-remote-target.sh en el host (sin aplicar cambios)
+	@$(SSH) $(HOST) '~/setup-remote-target.sh --all --dry-run --key "$$(cat /dev/null)" 2>&1 || true'
 
 inventory: ## Inventario de specs (texto)
 	@./inventory.sh $(HOST)
