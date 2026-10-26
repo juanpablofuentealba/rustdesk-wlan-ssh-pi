@@ -225,18 +225,26 @@ if [[ -n "$HOST" ]]; then
   sect "Hallazgos en el host remoto"
   # H-01/H-06: servicios enabled (sobreviven reboot)
   t "H-06 sshd enabled"          bash -c "$RH 'systemctl is-enabled sshd' >/dev/null 2>&1"
-  t "H-01 tailscaled enabled"    bash -c "$RH 'systemctl is-enabled tailscaled' >/dev/null 2>&1"
   t "RustDesk enabled"           bash -c "$RH 'systemctl is-enabled rustdesk' >/dev/null 2>&1"
-  t "servicios activos ahora"    bash -c "$RH 'systemctl is-active tailscaled sshd rustdesk' | grep -qv inactive"
-  # H-01: ¿tiene IP Tailscale?
-  t "H-01 tiene IP Tailscale"    bash -c "$RH 'tailscale ip -4' | grep -qE '^100\.'"
-  # H-02/H-04: si hay sesión gráfica activa, debe haber captura DRM
-  has_session="$($RH 'loginctl list-sessions --no-legend 2>/dev/null | grep -c " seat0 "' 2>/dev/null || echo 0)"
-  if [[ "$has_session" -gt 0 ]]; then
-    t "H-04 captura DRM con sesión activa" \
-      bash -c "$RH 'grep -q \"drm: consumer cache\" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log'"
+  t "RustDesk activo ahora"      bash -c "$RH 'systemctl is-active rustdesk' | grep -q '^active'"
+  # Tailscale puede NO estar instalado en el objetivo (p. ej. solo SSH por LAN).
+  # En ese caso se OMITE (no es un fallo del kit ni del host).
+  if $RH 'command -v tailscale >/dev/null 2>&1' 2>/dev/null; then
+    t "H-01 tailscaled enabled"    bash -c "$RH 'systemctl is-enabled tailscaled' >/dev/null 2>&1"
+    t "H-01 Tailscale activo"      bash -c "$RH 'systemctl is-active tailscaled' | grep -q '^active'"
+    t "H-01 tiene IP Tailscale"    bash -c "$RH 'tailscale ip -4' | grep -qE '^100\.'"
   else
-    sk "H-04 sin sesión gráfica activa (login screen): DRM no aplica"
+    sk "H-01 Tailscale no instalado en el objetivo (acceso por LAN)"
+  fi
+  # H-02/H-04: la captura DRM solo aplica en Wayland. En X11 no aplica.
+  remote_sess="$($RH 'loginctl show-session "$(loginctl list-sessions --no-legend 2>/dev/null | awk "{print \$1}" | tail -1)" -p Type --value 2>/dev/null' 2>/dev/null || true)"
+  if [[ "$remote_sess" == "wayland" ]]; then
+    t "H-04 captura DRM con sesión Wayland" \
+      bash -c "$RH 'grep -q \"drm: consumer cache\" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log'"
+  elif [[ -n "$remote_sess" ]]; then
+    sk "H-04 sesión $remote_sess en el objetivo: captura DRM no aplica"
+  else
+    sk "H-04 no se pudo determinar el tipo de sesión del objetivo"
   fi
   # H-03: tipo de login screen del host remoto
   if $RH 'pgrep -f plasmalogin >/dev/null || pgrep -f "sddm|gdm|lightdm" >/dev/null' 2>/dev/null; then
@@ -248,25 +256,23 @@ if [[ -n "$HOST" ]]; then
   else
     sk "H-03 sin greeter visible en el host remoto"
   fi
-  # H-05: conexión Tailscale directa (si tailscale está en el operador)
-  if command -v tailscale >/dev/null 2>&1; then
-    # Elegir el peer REMOTO correcto. Usamos --json y excluimos el nodo propio
-    # (Self) para no hacer ping a nosotros mismos.
-    peer="$(tailscale status --json 2>/dev/null \
-      | jq -r '.Peer // {} | to_entries[] | .value.TailscaleIPs[0]' 2>/dev/null | head -1)"
-    if [[ -z "$peer" ]]; then
-      # Fallback: primera IP 100.x que NO sea la nuestra
-      self="$(tailscale ip -4 2>/dev/null | head -1)"
-      peer="$(tailscale status 2>/dev/null | awk -v self="$self" '$1 ~ /^100\./ && $1 != self {print $1; exit}')"
-    fi
-    if [[ -n "$peer" ]]; then
+  # H-05: conexión Tailscale directa. SOLO tiene sentido si el HOST objetivo
+  # está en la tailnet. Si el objetivo no tiene Tailscale (p. ej. VM por LAN),
+  # se OMITE: no es un fallo.
+  if command -v tailscale >/dev/null 2>&1 \
+     && $RH 'command -v tailscale >/dev/null 2>&1' 2>/dev/null; then
+    # IP Tailscale del host objetivo (tal como la ve el operador)
+    peer="$($RH 'tailscale ip -4' 2>/dev/null | head -1)"
+    if [[ "$peer" =~ ^100\. ]]; then
       # OJO: 'tailscale ping' NO acepta -c; sin flag hace intentos y sale solo
       t "H-05 tailscale ping responde ($peer)" bash -c "tailscale ping '$peer' 2>&1 | grep -q pong"
     else
-      sk "H-05 no se pudo resolver la IP Tailscale de un peer"
+      sk "H-05 el objetivo tiene tailscale pero sin IP 100.x"
     fi
-  else
+  elif ! command -v tailscale >/dev/null 2>&1; then
     sk "H-05 tailscale no instalado en el operador"
+  else
+    sk "H-05 el objetivo no tiene Tailscale (acceso por LAN): H-05 no aplica"
   fi
 else
   sect "Remoto"

@@ -498,10 +498,12 @@ setup_rustdesk() {
   # módulo uinput al arranque
   local modconf=/etc/modules-load.d/rustdesk-uinput.conf
   if [[ ! -f "$modconf" ]]; then
-    if [[ $DRY_RUN -eq 0 ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      info "(dry-run) crearía $modconf"
+    else
       printf '# RustDesk: garantiza uinput (inyección de input remoto) al arranque\nuinput\n' > "$modconf"
+      ok "Creado $modconf"
     fi
-    ok "Creado $modconf"
   else
     ok "$modconf ya existe"
   fi
@@ -509,13 +511,15 @@ setup_rustdesk() {
   # regla udev: /dev/uinput accesible al usuario de la sesión activa
   local rule=/etc/udev/rules.d/60-rustdesk-uinput.rules
   if [[ ! -f "$rule" ]]; then
-    if [[ $DRY_RUN -eq 0 ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      info "(dry-run) crearía $rule"
+    else
       cat > "$rule" <<'UDEV'
 # RustDesk: permite al usuario de la sesión activa usar /dev/uinput
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
 UDEV
+      ok "Creado $rule"
     fi
-    ok "Creado $rule"
   else
     ok "$rule ya existe"
   fi
@@ -616,8 +620,10 @@ setup_ssh() {
       run ufw reload >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
         info "(dry-run) ufw permitiría ${SSH_PORT}/tcp"
-      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}/tcp"; then
+      elif ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
         ok "ufw: ${SSH_PORT}/tcp permitido"
+      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}"; then
+        ok "ufw: ${SSH_PORT}/tcp presente en las reglas"
       else
         warn "ufw: no pude confirmar la regla. Comprueba: sudo ufw status"
       fi
@@ -650,8 +656,12 @@ setup_ssh() {
       run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
         info "(dry-run) ufw se activaría y permitiría ${SSH_PORT}/tcp"
-      elif ufw status 2>/dev/null | grep -q "${SSH_PORT}/tcp"; then
-        ok "ufw activado con ${SSH_PORT}/tcp permitido"
+      elif ufw status 2>/dev/null | grep -qE "Status: active"; then
+        if ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
+          ok "ufw activado con ${SSH_PORT}/tcp permitido"
+        else
+          warn "ufw activo pero no veo la regla ${SSH_PORT}/tcp; revisa: sudo ufw status"
+        fi
       else
         warn "no pude confirmar; revisa manualmente: sudo ufw status"
       fi
