@@ -15,9 +15,11 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 | [`setup-remote-target.sh`](setup-remote-target.sh) | Prepara el PC objetivo (RustDesk + SSH + firewall + clave) |
 | [`inventory.sh`](inventory.sh) | Inventario de specs (texto / JSON / Markdown) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
+| [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
 | [`Makefile`](Makefile) | Atajos: `check`, `inventory`, `ssh`, `target-setup`… |
 | [`docs/vpn-remoto.md`](docs/vpn-remoto.md) | WireGuard / Tailscale / Cloudflare para acceso fuera de la LAN |
 | [`docs/tailscale.md`](docs/tailscale.md) | **Guía dedicada de Tailscale**: acceso sin abrir puertos (recomendado) |
+| [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | **Cómo preparar el PC de un cliente** (modelos de acceso, auth keys verificadas) |
 | [`LICENSE`](LICENSE) | MIT |
 
 ---
@@ -445,6 +447,10 @@ duplicar claves en `authorized_keys`.
 
 ### `tests.sh` — pruebas antes de un cliente nuevo
 
+> **¿Vas a preparar el PC de un cliente?** Lee
+> [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md): modelos de acceso,
+> auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
+
 ```fish
 ./tests.sh                      # pruebas locales (26 comprobaciones)
 ./tests.sh USUARIO@192.168.1.20      # + pruebas contra un host real
@@ -452,6 +458,17 @@ duplicar claves en `authorized_keys`.
 
 Verifica sintaxis, permisos, modos de salida (texto/JSON/Markdown), validez del
 JSON, manejo de errores, modo `--check` y que no haya claves filtradas al repo.
+
+### `verify-docs.sh` — valida la documentación
+
+```fish
+./verify-docs.sh
+```
+
+Comprueba que los **comandos de Tailscale** de la doc siguen existiendo
+(`--auth-key`, `--hostname`, `netcheck`...) y que las **URLs oficiales**
+responden. Córrelo antes de un cliente nuevo o después de actualizar Tailscale:
+si algo cambió, lo detecta antes de que falles en terreno ajeno.
 
 ### `Makefile` — atajos
 

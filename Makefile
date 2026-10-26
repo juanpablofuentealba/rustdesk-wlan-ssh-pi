@@ -9,7 +9,7 @@ KEYFILE   ?= $(HOME)/.ssh/id_ed25519
 SSH       ?= ssh -o BatchMode=yes -o ConnectTimeout=10
 .DEFAULT_GOAL := help
 
-.PHONY: help test key push-key check target-setup inventory inventory-md inventory-json \
+.PHONY: help test verify-docs key push-key check target-setup inventory inventory-md inventory-json \
         ssh ping rustdesk-log rustdesk-id reboot-services ports update
 
 help: ## Muestra esta ayuda
@@ -42,6 +42,9 @@ check: ## Verifica SSH + RustDesk + firewall en el host
 
 test: ## Ejecuta las pruebas de humo (local; añade HOST=... para remoto)
 	@./tests.sh $(HOST)
+
+verify-docs: ## Valida comandos de Tailscale y URLs de la documentación
+	@./verify-docs.sh
 
 target-setup: ## Copia setup-remote-target.sh al host y muestra cómo ejecutarlo
 	@echo "→ copiando setup a $(HOST)"
