@@ -6,13 +6,24 @@ trabajar de verdad dentro de la máquina.
 
 Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de red.
 
+**Distros soportadas** (ramas separadas por familia, con su gestor nativo):
+
+| Familia | Distros | Gestor | RustDesk |
+|---|---|---|---|
+| **Arch** | CachyOS, Arch, Manjaro, EndeavourOS | `pacman` + AUR (`paru`/`yay`) | `rustdesk-unattended-wayland` (AUR) |
+| **Debian** | Debian, Ubuntu, Mint, Pop!_OS | `apt` | `.deb` oficial |
+| **Fedora** | Fedora, RHEL, Rocky, AlmaLinux | `dnf` | `.rpm` oficial |
+
+El script detecta la familia vía `/etc/os-release` y usa el camino correcto.
+Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
+
 ## Contenido
 
 | Archivo | Qué es |
 |---|---|
 | [`README.md`](README.md) | Esta guía |
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | **Explicación para principiantes**: qué hace cada pieza y paso a paso |
-| [`setup-remote-target.sh`](setup-remote-target.sh) | Prepara el PC objetivo (RustDesk + SSH + firewall + clave) |
+| [`setup-remote-target.sh`](setup-remote-target.sh) | Prepara el PC objetivo (RustDesk + SSH + firewall + clave) · **Arch/Debian/Fedora** |
 | [`inventory.sh`](inventory.sh) | Inventario de specs (texto / JSON / Markdown) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
@@ -33,7 +44,8 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 
 Quieres "arreglar computadoras Linux" de forma remota, especialmente:
 
-- **CachyOS / Arch** (rolling release, Wayland, KDE Plasma).
+- **CachyOS / Arch** (rolling release, Wayland, KDE Plasma), **Debian/Ubuntu**
+  o **Fedora/RHEL** (el kit trae ramas separadas para cada familia).
 - Equipos a los que **solo tienes acceso visual** (RustDesk), no shell.
 - Redes **WiFi**, donde la IP cambia y el rendimiento es variable.
 
@@ -101,12 +113,14 @@ No es simétrico. El **operador** solo necesita *salir* hacia los clientes; el
 
 ---
 
-## 3. Configurar el PC objetivo (CachyOS / Arch)
+## 3. Configurar el PC objetivo (Arch / Debian / Fedora)
 
 > **Hay dos caminos:** el **automático** (recomendado, script) o el **manual**
 > (para entender qué hace). El script ejecuta exactamente los pasos manuales,
 > pero además resuelve el usuario correcto bajo `sudo`, evita claves duplicadas
-> y detecta el firewall.
+> y detecta el firewall. **Soporta Arch, Debian/Ubuntu y Fedora/RHEL** con
+> ramas separadas por familia. Los pasos manuales de abajo usan `paru`/`pacman`
+> (Arch); para otras familias ver [§ 11](#11-soporte-multi-distro-arch--debian--fedora).
 
 ### 3.0 Automático (recomendado)
 
@@ -324,6 +338,11 @@ ssh remoto '
 
 Caso real: dos equipos CachyOS en la misma red WiFi de 5 GHz.
 
+> **Validación multi-distro:** las ramas Debian y Fedora se probaron en
+> contenedores reales (`debian:12`, `fedora:41`): detección de familia correcta,
+> resolución del asset en la API de GitHub y descarga íntegra del `.deb` (24 MB)
+> y `.rpm` (33 MB) oficiales de RustDesk 1.5.0.
+
 ### Equipos (ejemplo real de la prueba)
 
 | | **Operador** | **Objetivo** |
@@ -519,6 +538,62 @@ make HOST=remoto rustdesk-log        # log del server
 make HOST=remoto key                 # genera clave si no existe
 make HOST=remoto push-key            # ssh-copy-id al objetivo
 make HOST=remoto test                # pruebas de humo (local + remoto)
+```
+
+---
+
+## 11. Soporte multi-distro (Arch / Debian / Fedora)
+
+El mismo script sirve para las tres familias; detecta la distro y usa el camino
+adecuado. No hay que elegir nada a mano.
+
+### Detección automática
+
+```
+$ ./setup-remote-target.sh --check
+● OS: Ubuntu 24.04.1 LTS
+● Familia: debian          ← detectado por /etc/os-release
+```
+
+| Familia | Detección | Gestor | Instalación de RustDesk |
+|---|---|---|---|
+| `arch` | ID/ID_LIKE contiene `arch` (o existe `pacman`) | `pacman` | `rustdesk-unattended-wayland` vía AUR (`paru`/`yay`) |
+| `debian` | `debian`/`ubuntu` (o existe `apt-get`) | `apt-get` | `.deb` oficial (resuelto en la API de GitHub) |
+| `fedora` | `fedora`/`rhel` (o existe `dnf`) | `dnf` | `.rpm` oficial (resuelto en la API de GitHub) |
+
+### Qué cambia por familia
+
+| Paso | Arch | Debian/Ubuntu | Fedora/RHEL |
+|---|---|---|---|
+| Paquete SSH | `openssh` | `openssh-server` | `openssh-server` |
+| Servicio SSH | `sshd` | `ssh` (alias `sshd`) | `sshd` |
+| Firewall por defecto | ufw / nftables | ufw | **firewalld** |
+| Abrir puerto | `ufw allow 22/tcp` | `ufw allow 22/tcp` | `firewall-cmd --add-service=ssh` |
+| RustDesk unattended | AUR (`DRM`) | `.deb` oficial | `.rpm` oficial |
+
+> **Nota (Debian/Ubuntu):** RustDesk se instala desde el `.deb` oficial. En
+> Wayland, la captura puede requerir el portal PipeWire en algunas versiones;
+> el script verifica el log y avisa. Para unattended completo en Wayland, el
+> camino más probado sigue siendo Arch (paquete con parche DRM).
+
+### Forzar la familia (pruebas)
+
+```fish
+# Útil para simular una distro antes de ir al cliente
+DISTRO_FAMILY_OVERRIDE=debian ./setup-remote-target.sh --all --dry-run
+DISTRO_FAMILY_OVERRIDE=fedora ./setup-remote-target.sh --all --dry-run
+```
+
+### Resolución del paquete de RustDesk
+
+Los nombres de los assets incluyen la versión (ej. `rustdesk-1.5.0-x86_64.deb`),
+así que el script consulta la API de releases y elige el asset estándar (excluye
+variantes `-sciter` y `-suse`):
+
+```
+Resolviendo el .deb oficial de RustDesk...
+Descargando rustdesk-1.5.0-x86_64.deb...
+✔ RustDesk instalado (.deb oficial)
 ```
 
 ---

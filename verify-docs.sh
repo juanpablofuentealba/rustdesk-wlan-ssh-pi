@@ -61,6 +61,26 @@ check_url "https://login.tailscale.com/start"
 check_url "https://console.tailscale.com/admin/settings/keys"
 check_url "https://console.tailscale.com/admin/machines"
 
+sect "Multi-distro: assets de RustDesk (API de releases)"
+# El script resuelve los .deb/.rpm desde la API; verificamos que existan assets.
+if command -v curl >/dev/null 2>&1; then
+  assets="$(curl -fsSL --max-time 10 \
+    https://api.github.com/repos/rustdesk/rustdesk/releases/latest 2>/dev/null \
+    | grep -oE '"name": *"[^"]+\.(deb|rpm)"' || true)"
+  if printf '%s' "$assets" | grep -q '\.deb'; then ok "hay assets .deb en el último release"
+  else ko "no se encontraron assets .deb"; fi
+  if printf '%s' "$assets" | grep -q '\.rpm'; then ok "hay assets .rpm en el último release"
+  else ko "no se encontraron assets .rpm"; fi
+  # Preferencia: los scripts deben excluir variantes sciter/suse
+  if grep -q "grep -v 'suse'" setup-remote-target.sh && grep -q "grep -v 'sciter'" setup-remote-target.sh; then
+    ok "excluye variantes sciter/suse al elegir asset"
+  else
+    ko "no excluye variantes sciter/suse"
+  fi
+else
+  sk "curl no disponible para verificar assets"
+fi
+
 sect "Hallazgos: login screen (docs/hallazgos.md H-03)"
 # Determina si la PANTALLA DE LOGIN corre en X11 o Wayland.
 # Importante: no basta con ver si hay Xorg (el greeter X11 usa Xorg legítimamente),

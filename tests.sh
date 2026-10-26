@@ -53,6 +53,21 @@ t "setup sin args muestra usage y falla" bash -c './setup-remote-target.sh >/dev
 tj "setup opción inválida falla" ./setup-remote-target.sh --nope
 t "inventory --help sale 0"    ./inventory.sh --help
 
+sect "Soporte multi-distro (arch | debian | fedora)"
+t "detecta familia arch"    bash -c 'bash -c "id=arch; idlike=; case \" \$id \$idlike \" in *\" arch \"*) echo arch;; esac" | grep -q arch'
+t "script define detect_distro"   bash -c 'grep -q "^detect_distro()" setup-remote-target.sh'
+t "script define pkg_install"     bash -c 'grep -q "^pkg_install()" setup-remote-target.sh'
+t "script define pkg_installed"   bash -c 'grep -q "^pkg_installed()" setup-remote-target.sh'
+t "rama debian usa apt-get"       bash -c 'grep -q "apt-get install" setup-remote-target.sh'
+t "rama fedora usa dnf"           bash -c 'grep -q "dnf install" setup-remote-target.sh'
+t "rama arch usa pacman"          bash -c 'grep -q "pacman -S" setup-remote-target.sh'
+t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" setup-remote-target.sh && grep -q "releases/latest" setup-remote-target.sh'
+t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" setup-remote-target.sh'
+t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" setup-remote-target.sh'
+# No debe quedar 'pacman' fuera de la rama arch (debe usar pkg_install)
+t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" setup-remote-target.sh'
+# dry-run de distro desconocida no debe romper
+
 sect "setup --dry-run (seguridad para clientes)"
 t "setup --dry-run sin sudo sale 0"      bash -c './setup-remote-target.sh --ssh --dry-run >/dev/null 2>&1'
 t "setup --dry-run NO requiere root"      bash -c './setup-remote-target.sh --all --dry-run >/dev/null 2>&1'
