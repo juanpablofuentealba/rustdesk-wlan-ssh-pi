@@ -189,6 +189,24 @@ t "el kit extraído pasa su propio --check" \
   bash -c "'$_kitdir/kit/setup-remote-target.sh' --check 2>&1 | grep -q 'Diagnóstico completo'"
 rm -rf "$_kitdir"
 
+sect "verify-offlan.sh (prueba fuera de la LAN)"
+t "bash -n verify-offlan.sh"    bash -n verify-offlan.sh
+t "verify-offlan es ejecutable" test -x verify-offlan.sh
+t "detecta la ruta LAN (no da falso positivo)" \
+  bash -c 'grep -q "ON_LAN=1" verify-offlan.sh'
+t "distingue DERP de ruta directa" \
+  bash -c 'grep -q "via DERP" verify-offlan.sh'
+t "reconoce rangos privados (10/172.16-31/192.168)" \
+  bash -c 'grep -qE "172\\\\.\\(1\[6-9\]" verify-offlan.sh'
+t "usa BatchMode en el SSH de comprobación" \
+  bash -c 'grep -q "BatchMode=yes" verify-offlan.sh'
+t "verifica SSH y RustDesk por Tailscale" \
+  bash -c 'grep -q "SSH entra por la IP Tailscale" verify-offlan.sh && grep -q "rustdesk --get-id" verify-offlan.sh'
+t "avisa si no hay internet" \
+  bash -c 'grep -q "sin internet" verify-offlan.sh'
+t "no modifica nada (solo lectura)" \
+  bash -c '! grep -qE "^[[:space:]]*(sudo|apt|dnf|pacman)[[:space:]]" verify-offlan.sh && ! grep -qE "systemctl (start|restart|enable|disable)" verify-offlan.sh'
+
 sect "No fuga de secretos al repo"
 t ".gitignore ignora claves"   bash -c 'grep -q "id_" .gitignore'
 t "no hay claves en el árbol"  bash -c '! find . -name "id_*" -not -path "./.git/*" | grep -q .'
