@@ -1,63 +1,66 @@
 ========================================================================
-  REPOSITORIO DEL PROYECTO
+  REPOSITORIO DEL PROYECTO  (esto es lo primero que tenes que ubicar)
 ========================================================================
 
   https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
 
-
-  ----------------------------------------------------------------------
-  PARA QUE SIRVE
-  ----------------------------------------------------------------------
-
-  Todo lo de este pendrive sale de ahi: los scripts, el runbook, y la
+  Todo lo de este pendrive sale de ahi: los scripts, el runbook y la
   explicacion tecnica de cada decision (los "hallazgos verificados").
+  El pendrive es el RESPALDO; el repo es la fuente de verdad.
 
 
   ----------------------------------------------------------------------
-  CUANDO USARLO
+  USO RAPIDO (si tenes internet en el equipo del cliente)
   ----------------------------------------------------------------------
 
-  1. Si algo falla en el PC del cliente
-     -> el repo tiene la lista de problemas conocidos y como resolverlos
-        docs/hallazgos.md
+     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
+     cd ~/kit
+     sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
 
-  2. Si queres la version mas nueva del kit
-     -> clonar y regenerar el kit:
+  Si vas a usar un AGENTE IA (OpenCode/Claude/pi), pega primero:
+     cat PROMPT-AGENTE.txt      <- reglas duras + flujo
 
-        git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
-        cd rustdesk-wlan-ssh-pi
-        ./make-kit.sh --dest /run/media/$USER/PENDRIVE/kit-rustdesk --with-key
 
-  3. Si no tenes el pendrive a mano
-     -> desde el propio PC del cliente (necesita internet):
+  ----------------------------------------------------------------------
+  SI NO TENES INTERNET (o preferis el pendrive)
+  ----------------------------------------------------------------------
 
-        git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
-        cd ~/kit
-        sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
-
-  4. Solo bajar un script actualizado sin clonar todo:
-
-        curl -fsSL -o setup-remote-target.sh \
-          https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/setup-remote-target.sh
+     cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit
+     cd ~/kit && ./setup-remote-target.sh --check
 
 
   ----------------------------------------------------------------------
   QUE HAY EN EL REPO
   ----------------------------------------------------------------------
 
+  -- Empezar aca --
   README.md                guia general
-  INSTALAR.md              runbook detallado (el del pendrive)
   PASOS-EN-ORDEN.txt       checklist de pasos, en orden
-  instalar-todo.sh         un comando hace todo en el cliente
-  setup-remote-target.sh   RustDesk + SSH + firewall + Tailscale
+  INSTALAR.md              runbook detallado
+  PROMPT-AGENTE.txt        reglas para agentes IA (OpenCode/Claude/pi)
+
+  -- El kit --
+  instalar-todo.sh         UN COMANDO hace todo en el cliente
+  setup-remote-target.sh   RustDesk + SSH + firewall + Tailscale (+ --laptop)
   rustdesk-password.sh     contrasena permanente de RustDesk
-  verify-offlan.sh         probar el acceso desde fuera de la LAN
+  install-rustdesk-unattended-fedora.sh   Fedora/RHEL con capturador DRM
+  laptop-no-suspend.sh     portatiles: evita que suspenda y se pierda acceso
   inventory.sh             ficha de specs del equipo
   make-kit.sh              empaquetar el kit para un pendrive
-  tests.sh                 pruebas (mas de 270)
-  docs/hallazgos.md        H-01..H-22: problemas y soluciones verificadas
-  docs/estado-sesion.md    estado del trabajo, para retomar
+
+  -- Verificacion --
+  tests.sh                 pruebas (mas de 390)
+  verify-offlan.sh         probar el acceso desde fuera de la LAN
+  reboot-remoto.sh         prueba de reinicio unattended (NOPASSWD acotado)
+  verify-docs.sh           valida comandos y URLs de la doc
+
+  -- Documentacion --
+  docs/hallazgos.md        H-01..H-29: problemas y soluciones verificadas
+  docs/tailscale.md        acceso remoto sin abrir puertos
   docs/onboarding-cliente.md  como dar de alta un cliente (modelo B)
+  docs/estado-sesion.md    estado del trabajo, para retomar
+  docs/guia-desde-cero.md  explicacion para principiantes
+  docs/vpn-remoto.md       WireGuard / Cloudflare como alternativas
 
 
   ----------------------------------------------------------------------
@@ -65,4 +68,15 @@
   ----------------------------------------------------------------------
 
      cd kit-rustdesk && sha256sum -c MANIFEST.sha256
+     cat kit-rustdesk/.kit-version       # version y fecha del kit
+
+
+  ----------------------------------------------------------------------
+  ORDEN DE LECTURA SUGERIDO (si es la primera vez)
+  ----------------------------------------------------------------------
+
+     1. LEEME-PRIMERO.txt        (esto, resumido)
+     2. PASOS-EN-ORDEN.txt       (los pasos, en orden)
+     3. PROMPT-AGENTE.txt        (si usas un agente IA)
+     4. docs/hallazgos.md        (si algo falla)
 ========================================================================

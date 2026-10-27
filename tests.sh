@@ -470,6 +470,20 @@ t "REPO.txt tiene la URL"           bash -c "grep -q '$REPO_URL' REPO.txt"
 t "REPO.txt explica para qué sirve" bash -c 'grep -qi "clonar\|git clone" REPO.txt'
 t "REPO.txt dice cómo regenerar el kit" bash -c 'grep -q "make-kit.sh" REPO.txt'
 t "REPO.txt lista el contenido del repo" bash -c 'grep -q "docs/hallazgos.md" REPO.txt'
+t "REPO.txt tiene USO RAPIDO con git clone" \
+  bash -c 'grep -q "USO RAPIDO" REPO.txt && grep -q "git clone" REPO.txt'
+t "REPO.txt menciona PROMPT-AGENTE (agentes)" \
+  bash -c 'grep -q "PROMPT-AGENTE" REPO.txt'
+t "REPO.txt ya no dice H-01..H-22 (desactualizado)" \
+  bash -c '! grep -q "H-01..H-22" REPO.txt'
+t "REPO.txt lista las herramientas nuevas" \
+  bash -c 'grep -q "reboot-remoto.sh" REPO.txt && grep -q "laptop-no-suspend.sh" REPO.txt'
+t "REPO.txt tiene orden de lectura sugerido" \
+  bash -c 'grep -q "ORDEN DE LECTURA" REPO.txt'
+t "LEEME ubica el repo ARRIBA de todo" \
+  bash -c 'grep -q "EL REPOSITORIO (esto es lo que tenes que ubicar primero)" LEEME-PRIMERO.txt'
+t "LEEME lista REPO.txt como punto 1" \
+  bash -c 'grep -q "1) REPO.txt" LEEME-PRIMERO.txt'
 t "LEEME-PRIMERO.txt tiene la URL"   bash -c "grep -q '$REPO_URL' LEEME-PRIMERO.txt"
 t "PASOS-EN-ORDEN.txt tiene la URL"  bash -c "grep -q '$REPO_URL' PASOS-EN-ORDEN.txt"
 t "INSTALAR.md tiene la URL"         bash -c "grep -q '$REPO_URL' INSTALAR.md"

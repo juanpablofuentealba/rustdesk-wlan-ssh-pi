@@ -6,16 +6,30 @@
   >>> LEE ESTE ARCHIVO, Y DESPUES "PASOS-EN-ORDEN.txt" <<<
 
 ------------------------------------------------------------------------
+  EL REPOSITORIO (esto es lo que tenes que ubicar primero)
+------------------------------------------------------------------------
+
+     https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+
+  Es la fuente de verdad: scripts + documentacion + los 29 hallazgos.
+  El pendrive es el RESPALDO. Detalle completo en: REPO.txt
+
+  Uso rapido (con internet, sin pendrive):
+     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
+     cd ~/kit
+     sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
+
+------------------------------------------------------------------------
   QUE HAY EN ESTE PENDRIVE
 ------------------------------------------------------------------------
 
-  1) PASOS-EN-ORDEN.txt      <- EMPIEZA ACA. Los pasos, en orden.
-  2) kit-rustdesk/           <- El kit (scripts + runbook detallado)
-  3) ISOs arrancables        <- Para instalar el sistema operativo
-  4) REPO.txt                <- Ruta del repositorio (documentacion y versiones)
-  5) PROMPT-AGENTE.txt       <- Si usas un agente IA (OpenCode/Claude/pi):
+  1) REPO.txt                <- El repositorio: URL, uso rapido, indice
+  2) PASOS-EN-ORDEN.txt      <- EMPIEZA ACA. Los pasos, en orden.
+  3) kit-rustdesk/           <- El kit (scripts + runbook detallado)
+  4) PROMPT-AGENTE.txt       <- Si usas un agente IA (OpenCode/Claude/pi):
                                 pegalo como primer mensaje. Trae las reglas
                                 duras y evita que reinvente lo ya resuelto.
+  5) ISOs arrancables        <- Para instalar el sistema operativo
 
   PRUEBAS DE VALIDACION (dentro del kit, se corren DESDE tu equipo operador):
      ./verify-offlan.sh <hostname>    acceso fuera de la LAN (7 OK = listo)
