@@ -139,6 +139,15 @@ else
 fi
 t "Markdown funciona"          bash -c './inventory.sh --markdown | grep -q "^| Hostname"'
 t "Markdown tiene tabla"       bash -c './inventory.sh --markdown | grep -q "| Campo | Valor |"'
+# Punto 4 (H-20): la detección de tipo debe usar solo datos del remoto.
+t "inventory detecta virt (para tipo vm)" \
+  bash -c 'grep -q "systemd-detect-virt" inventory.sh'
+t "inventory NO ejecuta hostnamectl en el operador" \
+  bash -c '! grep -qE "_hostchassis=\\\$\\(hostnamectl" inventory.sh'
+t "inventory mapea virt -> vm" \
+  bash -c 'grep -q "CTYPE=\"vm\"" inventory.sh'
+t "inventory reconoce chassis_type=1 como VM con virt" \
+  bash -c 'grep -q "1)" inventory.sh && grep -q "CTYPE=\"vm\"" inventory.sh'
 tj "host inalcanzable falla"   ./inventory.sh USUARIO@10.255.255.1
 
 sect "setup --check (lectura, sin root)"

@@ -808,6 +808,41 @@ python3 -c "import tomllib; tomllib.load(open('/root/.config/rustdesk/RustDesk2.
 
 ---
 
+## H-20 — `inventory.sh` clasificaba las VMs como `desconocido`
+
+**Verificado:** ✅ (Fedora 44 en QEMU/KVM, 27 oct 2026)
+
+En una VM QEMU/KVM:
+
+```
+$ cat /sys/class/dmi/id/chassis_type
+1                            ← SMBIOS: "Other"
+$ hostnamectl chassis
+vm
+$ systemd-detect-virt
+kvm
+```
+
+El mapeo original solo cubría laptops (8/9/10/14) y desktops (3-7), así que `1`
+caía en `desconocido` aunque `systemd` detecta perfectamente la virtualización.
+
+**Solución:** consultar `systemd-detect-virt` **en el objetivo** y clasificar
+como `vm` cuando no devuelve `none`.
+
+**Trampa al implementarlo:** el respaldo `hostnamectl chassis` **se ejecutaba en
+el operador**, no en el remoto, y devolvía el tipo del operador (`desktop` en
+CachyOS). La detección debe usar **solo** datos recolectados por el
+`REMOTE_SCRIPT` (la variable `D[...]`).
+
+Resultado:
+
+| Objetivo | Antes | Ahora |
+|---|---|---|
+| VM QEMU/KVM | `desconocido` | `vm` ✅ |
+| PC real (CachyOS) | `desktop` | `desktop` ✅ (sin regresión) |
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -833,6 +868,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-17 sin CLI de conexión | `tests.sh`: no hay llamadas a `rustdesk --connect` en los scripts |
 | H-18 server anclado a seat0/greeter | `tests.sh <host>`: detecta el usuario de la sesión gráfica |
 | H-19 `os error 104` por audio/clipboard | `tests.sh`: existe la sección H-19 en este documento |
+| H-20 tipo de equipo en VMs | `tests.sh`: `inventory.sh` usa `systemd-detect-virt` y mapea a `vm` |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

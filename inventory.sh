@@ -37,6 +37,9 @@ j KERNEL "$(uname -r)"
 j ARCH "$(uname -m)"
 j UPTIME "$(uptime -p 2>/dev/null | sed 's/^up //')"
 j CHASSIS "$(cat /sys/class/dmi/id/chassis_type 2>/dev/null)"
+# 'vm' cuando systemd detecta virtualización (resp. de hostnamectl) — QEMU
+# reporta chassis_type=1 ("Other"), que por si solo cae en 'desconocido'.
+j VIRT "$(systemd-detect-virt 2>/dev/null || hostnamectl chassis 2>/dev/null)"
 j VENDOR "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)"
 j MODEL "$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
 j BOARD "$(cat /sys/class/dmi/id/board_name 2>/dev/null)"
@@ -84,11 +87,28 @@ while IFS='=' read -r k v; do
   [[ -n "$k" ]] && D["$k"]="$v"
 done <<<"$RAW"
 
-case "${D[CHASSIS]:-}" in
-  8|9|10|14) CTYPE="laptop" ;;
-  3|4|5|6|7) CTYPE="desktop" ;;
-  *)         CTYPE="desconocido" ;;
-esac
+# Detección de tipo de equipo, con respaldo para VMs.
+# OJO: usar SOLO datos del remoto (D[...]). Ejecutar hostnamectl aquí correría
+# en el operador, no en el objetivo, y daría el tipo del operador.
+# Motivo del respaldo: en QEMU/KVM el chassis_type de SMBIOS suele ser 1
+# ("Other") y sin esto caía en 'desconocido' aunque sea claramente una VM.
+# systemd-detect-virt devuelve 'none' en hardware real y p.ej. 'kvm' en una VM.
+_virt="${D[VIRT]:-}"
+case "$_virt" in ""|none) _virt="" ;; esac
+if [[ -n "$_virt" ]]; then
+  CTYPE="vm"
+else
+  CTYPE=""
+fi
+if [[ -z "$CTYPE" ]]; then
+  case "${D[CHASSIS]:-}" in
+    8|9|10|14) CTYPE="laptop" ;;
+    3|4|5|6|7) CTYPE="desktop" ;;
+    1)        [[ -n "$_virt" ]] && CTYPE="vm" || CTYPE="desconocido" ;;
+    *)        CTYPE="desconocido" ;;
+  esac
+fi
+[[ -z "$CTYPE" ]] && CTYPE="desconocido"
 D[CHASSIS_TYPE]="$CTYPE"
 
 # ---------- salida ----------

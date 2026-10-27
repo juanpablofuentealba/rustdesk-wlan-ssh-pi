@@ -348,10 +348,10 @@ Ninguna de estas está empezada; son opciones, no deuda técnica:
 3. ~~**Tailscale en la VM**~~ — **RESUELTO** (IP `100.x.y.z`). El kit ya
    trae `--tailscale`/`--authkey` y lo diagnostica en `--check`. Falta probar
    la ruta **fuera de la LAN** desde otra red.
-4. **`inventory.sh` en QEMU** — mapear el chasis virtual a `vm`.
-   **Actualizado:** en Fedora 44 `hostnamectl` **sí** reporta `Chassis: vm`;
-   conviene usar eso como respaldo cuando `/sys/class/dmi/id/chassis_type`
-   no devuelve un tipo estándar.
+4. ~~**`inventory.sh` en QEMU**~~ — **RESUELTO** (H-20). En QEMU el
+   `chassis_type` de SMBIOS es `1` ("Other"), así que caía en `desconocido`.
+   Ahora `inventory.sh` consulta `systemd-detect-virt` en el objetivo y
+   clasifica como `vm`. Verificado: VM → `vm`, PC real → `desktop`.
 5. **X11 en el guest** — solo si se quiere copy-paste nativo; ver el coste
    arriba.
 
