@@ -26,6 +26,8 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`setup-remote-target.sh`](setup-remote-target.sh) | Prepara el PC objetivo (RustDesk + SSH + firewall + clave) · **Arch/Debian/Fedora** |
 | [`inventory.sh`](inventory.sh) | Inventario de specs (texto / JSON / Markdown) |
 | [`clip-vm.sh`](clip-vm.sh) | Puente de portapapeles host↔VM por SSH (`get` / `put` / `show`) |
+| [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | Instala el paquete **unattended Wayland** (con `libdrmtap`) en Fedora/RHEL desde el `.deb` oficial · ver [H-14](docs/hallazgos.md) |
+| [`rustdesk-password.sh`](rustdesk-password.sh) | Fija la **contraseña permanente** de RustDesk (necesaria para unattended) · ver [H-15](docs/hallazgos.md) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
 | [`Makefile`](Makefile) | Atajos: `check`, `inventory`, `ssh`, `target-setup`… |

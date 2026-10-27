@@ -55,8 +55,34 @@ Volcado completo guardado en el repo:
 | **H-11** | En Fedora 44 KDE la "última sesión" de `loginctl` no es la gráfica | Fedora 44 KDE real |
 | **H-12** | Imágenes mínimas sin `systemctl`: "sin firewall" era falso | `fedora:44`, `debian:12` |
 | **H-13** | El portapapeles SPICE funciona en una sola dirección en Wayland | Fedora 44 KDE + CachyOS |
+| **H-14** | El `.rpm`/`.deb` estándar NO trae `libdrmtap`: en Wayland sin usuario falla la captura (portal XDG) | Fedora 44 KDE Wayland |
+| **H-15** | Sin contraseña permanente, unattended es imposible (y el campo `password = ''` engaña) | Fedora 44 |
+| **H-16** | Con solo el greeter, el log de captura NO está donde el kit lo busca | Fedora 44 Wayland |
+| **H-17** | RustDesk 1.5.0 no tiene CLI de conexión (es GUI pura) | CachyOS + Fedora 44 |
+| **H-18** | El server se ancla a la sesión gráfica de seat0 (incluido el greeter) | Fedora 44 Wayland |
 
 Detalle completo en [`hallazgos.md`](hallazgos.md).
+
+### Punto 1 resuelto: unattended en Wayland sobre el greeter
+
+Cierre del pendiente #1 (RustDesk unattended en la VM). Secuencia verificada:
+
+1. **H-15** — `RustDesk.toml` tenía `password = ''` → sin contraseña permanente.
+   Se fijó con `rustdesk-password.sh` (reproduce el formato del código fuente).
+2. **H-14** — El `.rpm` oficial no trae `libdrmtap` → la captura caía al portal y
+   fallaba con *"Error en la captura de pantalla de Wayland… XDG Desktop Portal"*.
+   Se instaló el `.deb` oficial `rustdesk-unattended-wayland` con
+   `install-rustdesk-unattended-fedora.sh` (sha256 verificado, portable a Fedora).
+3. **H-18** — Tras instalar, el log muestra la evidencia:
+   `drm: consumer cache warmed (1 displays) at startup`.
+
+La contraseña de prueba se fija con `rustdesk-password.sh install`. **No se
+escribe en este repo** (es un secreto operativo): usar una distinta en cada
+cliente.
+
+**Nota de alcance:** falta la confirmación visual de extremo a extremo (abrir la
+GUI de RustDesk y ver la pantalla de login). El binario no permite conectar por
+CLI (**H-17**), así que esa prueba es manual.
 
 ---
 
@@ -222,15 +248,16 @@ qué se necesita realmente.
 
 Ninguna de estas está empezada; son opciones, no deuda técnica:
 
-1. **RustDesk unattended en la VM** — probar el flujo visual completo
-   (`--rustdesk`), que es justo el caso Wayland donde importa el parche DRM.
-   Requiere `sudo` en el guest (pide contraseña).
+1. ~~**RustDesk unattended en la VM**~~ — **RESUELTO** (ver H-14/H-15/H-18).
+   Falta solo la confirmación visual manual. Herramientas nuevas:
+   `install-rustdesk-unattended-fedora.sh`, `rustdesk-password.sh`.
 2. **`clip-vm.sh` sin gestor de portapapeles** — probar en un guest sin Klipper
    (p. ej. Fedora KDE mínimo) y endurecer el script si se cuelga.
 3. **Tailscale en la VM** — extender el kit al acceso fuera de la LAN.
-4. **`inventory.sh` en QEMU** — mapear el chasis virtual a `vm` en vez de
-   `desconocido` (hoy lee `/sys/class/dmi/id/chassis_type`, que en QEMU no da
-   un tipo estándar).
+4. **`inventory.sh` en QEMU** — mapear el chasis virtual a `vm`.
+   **Actualizado:** en Fedora 44 `hostnamectl` **sí** reporta `Chassis: vm`;
+   conviene usar eso como respaldo cuando `/sys/class/dmi/id/chassis_type`
+   no devuelve un tipo estándar.
 5. **X11 en el guest** — solo si se quiere copy-paste nativo; ver el coste
    arriba.
 

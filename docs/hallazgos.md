@@ -551,6 +551,201 @@ proceso vivo. Conviene verificar con `clip-vm.sh show` antes de concluir que
 
 ---
 
+## H-14 — El `.rpm`/`.deb` estándar NO trae `libdrmtap`: en Wayland sin usuario falla la captura
+
+**Verificado:** ✅ (Fedora 44 KDE Wayland, greeter `plasmalogin`, 27 oct 2026)
+
+Síntoma reportado por el cliente al conectar por primera vez:
+
+> *"Error en la captura de pantalla de Wayland. Es posible que el XDG Desktop
+> Portal se haya bloqueado o no esté disponible. Intente reiniciarlo con
+> `systemctl --user restart xdg-desktop-portal`."*
+
+El log de captura lo confirma:
+
+```
+WARN  [libs/scrap/src/wayland/display.rs:283] Failed to get wayland displays: Could not find wayland compositor
+WARN  [src/server/wayland.rs:567] Failed to get desktop rect for uinput
+ERROR [src/server/wayland.rs:117] Wayland portal handshake failed:
+      wl-stage:create-session:dbus:org.freedesktop.DBus.Error.NameHasNoOwner:
+      Could not activate remote peer 'org.freedesktop.portal.Desktop': startup job failed
+```
+
+**Causa raíz:** el paquete **oficial estándar** (`.rpm` en Fedora, `.deb` de
+Ubuntu/Debian) **no incluye `libdrmtap.so`**, el capturador que lee el
+framebuffer por DRM directo. Sin él, RustDesk intenta capturar por el
+**XDG Desktop Portal** (D-Bus de sesión). Pero `rustdesk.service` corre como
+**root en contexto de sistema**, sin portal de sesión ni acceso al compositor
+del usuario → el handshake falla.
+
+Tres capas del mismo problema:
+
+1. `--server` corre como `root` con `HOME=/var/lib/plasmalogin` (ve al greeter,
+   no a un usuario logueado).
+2. No hay portal D-Bus de sesión para root en ese contexto.
+3. El `.rpm`/`.deb` estándar no trae captura DRM directa.
+
+### La solución: paquete `rustdesk-unattended-wayland`
+
+RustDesk publica **en su propio release de GitHub** un `.deb` llamado
+`rustdesk-unattended-wayland-<ver>-x86_64.deb` que **sí** incluye el capturador
+DRM. **No es exclusivo de Arch/AUR**: el AUR solo empaqueta ese mismo `.deb`
+(ver su `PKGBUILD`).
+
+| Pieza | `.rpm` estándar | `.deb` unattended-wayland |
+|---|---|---|
+| `libdrmtap.so` | ❌ | ✅ `0.5.8` |
+| Captura DRM directa | ❌ | ✅ |
+| Funciona en greeter Wayland | ❌ (error portal) | ✅ |
+
+Verificado que es portable a Fedora:
+
+- `sha256` del `.deb` coincide con el del PKGBUILD del AUR:
+  `9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09`
+- `libdrmtap` solo necesita `libdrm.so.2`, `libm`, `libc` → presentes en Fedora.
+- El binario del `.deb` resuelve sus libs contra el sistema (`ldd` sin `not found`).
+
+### Trampas al instalar el `.deb` en Fedora
+
+1. **Dueño.** Al extraer el `.deb` en `/tmp` y copiarlo, los archivos quedan
+   `jp:jp`. systemd falla con `status=203/EXEC` (*"Permission denied"*) si no se
+   corrige a `root:root`.
+2. **SELinux.** Los archivos copiados desde `/tmp` heredan el contexto
+   `user_tmp_t`. Con SELinux en `Enforcing`, systemd **no puede ejecutarlos**.
+   Hay que `restorecon -R` para devolverlos a `usr_t` / `lib_t`.
+3. **Ruta del servicio.** En Fedora el unit vive en
+   `/etc/systemd/system/rustdesk.service` (no en `/usr/lib/systemd/system/`).
+
+Resultado tras corregir:
+
+```
+INFO [src/server/drm_capturer.rs:1889] drm: consumer cache warmed (1 displays) at startup
+```
+
+Esa línea (y la **ausencia** del error del portal) es la prueba de que la
+captura DRM funciona sin usuario logueado.
+
+**Instalador reproducible:** `install-rustdesk-unattended-fedora.sh`.
+
+---
+
+## H-15 — Sin contraseña permanente, unattended es imposible (y el campo puede engañar)
+
+**Verificado:** ✅ (Fedora 44, 27 oct 2026)
+
+`RustDesk.toml` **tenía la línea** `password = ''` y `salt = ''`: es decir,
+`grep -c "^password"` devolvía `1` pero **no había contraseña**. Un chequeo que
+cuente líneas da un falso positivo.
+
+Sin contraseña permanente, RustDesk exige aceptación manual o contraseña
+temporal en cada conexión → **no hay acceso desatendido**.
+
+**Problema extra:** RustDesk 1.5.0 **no expone un flag CLI** para fijarla
+(`rustdesk --password` no existe; la GUI es la única vía oficial).
+
+**Solución:** `rustdesk-password.sh`, que reproduce el formato exacto extraído
+del código fuente (`libs/hbb_common/src/config/permanent_password.rs`):
+
+```
+salt    = 32 caracteres aleatorios          (DEFAULT_SALT_LEN)
+h1      = SHA256(password || salt)          (32 bytes)
+inner   = "00" + base64_original(h1)        (PASSWORD_HASH_PREFIX)
+key     = machine_uid() padded a 32 bytes   (= /etc/machine-id en Linux)
+sealed  = 0x01 || nonce(24B) || secretbox_seal(inner, nonce, key)
+storage = "01" + base64_original(sealed)    (PERMANENT_PASSWORD_ENC_VERSION)
+```
+
+Se escribe en `RustDesk.toml` → `password` (storage) y `salt`.
+
+**Roundtrip verificado:** descifrar el storage con PyNaCl devuelve el `h1`
+esperado, y `SHA256(password||salt)` coincide. Una contraseña incorrecta falla.
+
+**Nota:** el server corre como root y usa `/root/.config/rustdesk/`, pero el
+usuario `jp` tiene la suya en `~jp/.config/rustdesk/`. Hay que escribir en ambas
+(lo hace el instalador).
+
+---
+
+## H-16 — Con solo el greeter, el log de captura NO está donde el kit lo busca
+
+**Verificado:** ✅ (Fedora 44 KDE Wayland, 27 oct 2026)
+
+Cuando `rustdesk.service` (root) está corriendo y **no hay usuario logueado**,
+los logs se reparten en **tres** rutas según el proceso:
+
+| Proceso | Ruta del log |
+|---|---|
+| `--service` (root, systemd) | `/root/.local/share/logs/RustDesk/service/` |
+| `--server` (root, sirve el greeter) | `/var/lib/plasmalogin/.local/share/logs/RustDesk/server/` |
+| `--server` (con usuario logueado) | `~usuario/.local/share/logs/RustDesk/server/` |
+
+El proceso `--server` corrió con **`HOME=/var/lib/plasmalogin`** y
+`DISPLAY=Err(NotPresent)` (correcto: en Wayland no hay X11). El kit leía
+`~jp/.local/share/...`, que en ese escenario **queda congelado** (última línea de
+la sesión anterior). Un log "viejo" no significa "no funciona".
+
+Instrumentos de diagnóstico usados:
+
+```fish
+# a qué usuario/hogar está atado el server
+sudo tr '\0' '\n' < /proc/(pgrep -f 'rustdesk --server')/environ | grep -iE 'HOME|USER'
+
+# dónde escribe realmente
+sudo find /root /var/lib/plasmalogin -name 'rustdesk_rCURRENT.log' 2>/dev/null
+```
+
+---
+
+## H-17 — RustDesk 1.5.0 no tiene CLI de conexión (es GUI pura)
+
+**Verificado:** ✅ (CachyOS y Fedora 44, 1.5.0)
+
+`rustdesk --help` **abre la GUI** y se queda residente (no imprime ayuda ni
+termina). En el código, `core_main.rs` solo interpreta flags de
+instalación/servicio (`--version`, `--uninstall`, `--install-idd`,
+`--portable-service`…). **No hay `--connect` ni forma de iniciar una sesión por
+CLI.**
+
+Consecuencia práctica: la prueba visual de extremo a extremo **requiere
+intervención humana** (abrir la GUI y escribir la ID + contraseña). No se puede
+automatizar con el binario oficial, ni local ni remotamente.
+
+---
+
+## H-18 — El server se ancla a la sesión gráfica de seat0 (incluido el greeter)
+
+**Verificado:** ✅ (Fedora 44 KDE Wayland, 27 oct 2026)
+
+Con solo el greeter `plasmalogin` en `seat0` (sin usuario logueado), RustDesk
+eligió correctamente servirlo:
+
+```
+INFO [src/core_main.rs:398] start --server with user plasmalogin
+INFO [src/server.rs:665] DISPLAY=Err(NotPresent)
+INFO [src/ipc.rs:725] Started ipc server at path: /tmp/RustDesk-981/ipc
+```
+
+El código tiene una ruta dedicada para este caso: `is_x11_for_drm()` evita el
+"punto ciego del greeter" y `drm_capturer` documenta que, si no hay pantalla
+encendida al arrancar, *"the first login probes again"*.
+
+Esto es la evidencia de que el acceso desatendido **antes del login** es un caso
+soportado, siempre que exista el capturador DRM (ver H-14).
+
+**Quién puede usar `uinput`:** con la regla udev `TAG+="uaccess"`, el ACL de
+`/dev/uinput` apunta al usuario de la sesión **activa de seat0**. En la pantalla
+de login ese usuario es el **greeter** (aquí `plasmalogin`), no `jp`:
+
+```
+$ getfacl /dev/uinput
+user:plasmalogin:rw-
+```
+
+Al iniciar sesión `jp`, el ACL debe moverse a `jp`. Verificar con `getfacl`
+después del login si la inyección de input no responde.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -570,6 +765,11 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-11 última sesión no es la gráfica (Fedora 44 KDE) | `tests.sh` (local): `graphical_session_type` prefiere seat |
 | H-12 `sin-herramientas` (imagen mínima sin systemctl) | `tests.sh` (local): `detect_firewall` distingue de `none` |
 | H-13 portapapeles SPICE en una dirección (Wayland) | `tests.sh` (local): `clip-vm.sh` sin `--paste-once`, con `nohup+disown` |
+| H-14 `.rpm` sin `libdrmtap` → falla el portal | `tests.sh`: existe `install-rustdesk-unattended-fedora.sh`; el script verifica sha256 y libdrmtap |
+| H-15 contraseña permanente vacía | `tests.sh`: existe `rustdesk-password.sh`; roundtrip con PyNaCl |
+| H-16 log de captura bajo el greeter | `tests.sh`: el kit documenta las tres rutas de log |
+| H-17 sin CLI de conexión | `tests.sh`: no hay llamadas a `rustdesk --connect` en los scripts |
+| H-18 server anclado a seat0/greeter | `tests.sh <host>`: detecta el usuario de la sesión gráfica |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

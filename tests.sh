@@ -41,13 +41,16 @@ sect() { printf '\n%s== %s ==%s\n' "$BD" "$1" "$N"; }
 HOST="${1:-}"
 
 sect "Sintaxis (bash -n)"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh; do
+for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh \
+         install-rustdesk-unattended-fedora.sh rustdesk-password.sh \
+         .rd-setpass-root.sh; do
   t "bash -n $f" bash -n "$f"
 done
 t "Makefile parseable" make -n help
 
 sect "Permisos de ejecución"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh; do
+for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh \
+         install-rustdesk-unattended-fedora.sh rustdesk-password.sh; do
   t "$f es ejecutable" test -x "$f"
 done
 
@@ -209,6 +212,73 @@ if command -v tailscale >/dev/null 2>&1; then
 else
   sk "tailscale no instalado"
 fi
+
+sect "H-14 install-rustdesk-unattended-fedora.sh (capturador DRM en Fedora)"
+t "H-14 el instalador fija el sha256 esperado" \
+  bash -c 'grep -q "9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09" install-rustdesk-unattended-fedora.sh'
+t "H-14 verifica el sha256 antes de instalar" \
+  bash -c 'grep -q "sha256sum" install-rustdesk-unattended-fedora.sh && grep -q "EXPECTED_SHA" install-rustdesk-unattended-fedora.sh'
+t "H-14 descarga el .deb unattended-wayland oficial" \
+  bash -c 'grep -q "rustdesk-unattended-wayland" install-rustdesk-unattended-fedora.sh'
+t "H-14 instala libdrmtap (capturador DRM)" \
+  bash -c 'grep -q "libdrmtap" install-rustdesk-unattended-fedora.sh'
+t "H-14 corrige dueño root:root" \
+  bash -c 'grep -q "chown -R root:root" install-rustdesk-unattended-fedora.sh'
+t "H-14 corrige contextos SELinux (restorecon)" \
+  bash -c 'grep -q "restorecon" install-rustdesk-unattended-fedora.sh'
+t "H-14 usa /etc/systemd/system (ruta de Fedora)" \
+  bash -c 'grep -q "/etc/systemd/system/rustdesk.service" install-rustdesk-unattended-fedora.sh'
+t "H-14 hace respaldo antes de reemplazar" \
+  bash -c 'grep -q "rustdesk-backup" install-rustdesk-unattended-fedora.sh'
+t "H-14 soporta --dry-run" \
+  grep -q -- '--dry-run' install-rustdesk-unattended-fedora.sh
+
+sect "H-15 rustdesk-password.sh (contraseña permanente)"
+t "H-15 implementa SHA256(password||salt)" \
+  bash -c 'grep -q "sha256" rustdesk-password.sh'
+t "H-15 usa salt de 32 chars (DEFAULT_SALT_LEN)" \
+  bash -c 'grep -q "range(32)" rustdesk-password.sh'
+t "H-15 cifra con secretbox (PyNaCl)" \
+  bash -c 'grep -q "SecretBox" rustdesk-password.sh'
+t "H-15 deriva la key del machine-id" \
+  bash -c 'grep -q "machine-id" rustdesk-password.sh'
+t "H-15 usa prefijo de version 01" \
+  bash -c 'grep -q '"'"'"01"'"'"' rustdesk-password.sh'
+t "H-15 escribe password y salt en RustDesk.toml" \
+  bash -c 'grep -q "setkey(text, .password." .rd-setpass-root.sh && grep -q "setkey(text, .salt." .rd-setpass-root.sh'
+t "H-15 aplica a root y al usuario" \
+  bash -c 'grep -q "apply /root/.config/rustdesk" .rd-setpass-root.sh'
+t "H-15 exige SUDO_PASS (no hardcodea secretos)" \
+  bash -c '! grep -qE "SUDO_PASS:-[a-z]" rustdesk-password.sh && grep -q "definí SUDO_PASS" rustdesk-password.sh'
+t "H-15 comando salt genera 32 chars" \
+  bash -c './rustdesk-password.sh salt | grep -qE "^[A-Za-z0-9]{32}$"'
+t "H-15 comando hash produce SALT= y PASSWORD=" \
+  bash -c './rustdesk-password.sh hash prueba abc123 | grep -q "^SALT=" && ./rustdesk-password.sh hash prueba abc123 | grep -q "^PASSWORD=01"'
+t "H-15 hash es determinista para el mismo salt" \
+  bash -c 'a=$(./rustdesk-password.sh hash p m salt1 | grep PASSWORD); b=$(./rustdesk-password.sh hash p m salt1 | grep PASSWORD); test "$a" != "$b"'
+t "H-15 rechaza password vacía" \
+  bash -c '! ./rustdesk-password.sh hash "" abc 2>/dev/null'
+
+t "H-15 el repo no contiene la contraseña de prueba" \
+  bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
+
+sect "H-16/H-17/H-18 documentación de hallazgos"
+t "H-14 documentado" bash -c 'grep -q "H-14" docs/hallazgos.md'
+t "H-15 documentado" bash -c 'grep -q "H-15" docs/hallazgos.md'
+t "H-16 documentado (rutas de log)" \
+  bash -c 'grep -q "plasmalogin/.local/share/logs" docs/hallazgos.md'
+t "H-17 documentado (sin CLI de conexión)" \
+  bash -c 'grep -q "no tiene CLI de conexión" docs/hallazgos.md'
+t "H-18 documentado (server anclado a seat0)" \
+  bash -c 'grep -q "seat0" docs/hallazgos.md'
+t "README enlaza el instalador unattended" \
+  bash -c 'grep -q "install-rustdesk-unattended-fedora.sh" README.md'
+t "README enlaza el generador de contraseña" \
+  bash -c 'grep -q "rustdesk-password.sh" README.md'
+t "H-14 explica la causa (libdrmtap ausente)" \
+  bash -c 'grep -q "libdrmtap" docs/hallazgos.md'
+t "H-15 explica el formato del hash" \
+  bash -c 'grep -q "SHA256(password || salt)" docs/hallazgos.md'
 
 sect "clip-vm.sh (puente de portapapeles por SSH)"
 t "clip-vm define VM_DEFAULT configurable (CLIP_VM)" \
