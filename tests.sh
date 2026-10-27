@@ -146,8 +146,8 @@ t "--check maneja sin-herramientas (no afirma seguro)" \
 t "--check dice no verificable sin loginctl" \
   bash -c 'grep -q "no verificable (falta loginctl)" setup-remote-target.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
-tdoc "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
-tdoc "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'
+tdoc "referencia documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" docs/referencia.md'
+tdoc "referencia explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" docs/referencia.md'
 # dry-run de distro desconocida no debe romper
 
 sect "setup --dry-run (seguridad para clientes)"
@@ -243,8 +243,8 @@ t "H-13 ya NO titula \"una sola dirección\"" \
   bash -c '! grep -q "funciona en una sola dirección" docs/hallazgos.md'
 t "H-13 registra el historial de la medición" \
   bash -c 'grep -q "Historial" docs/hallazgos.md'
-t "README aclara que clip-vm es para scripting" \
-  bash -c 'grep -q "scripting/automatización" README.md'
+t "referencia aclara que clip-vm es para scripting" \
+  bash -c 'grep -q "scripting/automatización" docs/referencia.md'
 t "estado-sesion refleja la conclusión nueva" \
   bash -c 'grep -q "ambas direcciones" docs/estado-sesion.md'
 
@@ -470,8 +470,8 @@ t "REPO.txt tiene la URL"           bash -c "grep -q '$REPO_URL' REPO.txt"
 t "REPO.txt explica para qué sirve" bash -c 'grep -qi "clonar\|git clone" REPO.txt'
 t "REPO.txt dice cómo regenerar el kit" bash -c 'grep -q "make-kit.sh" REPO.txt'
 t "REPO.txt lista el contenido del repo" bash -c 'grep -q "docs/hallazgos.md" REPO.txt'
-t "REPO.txt tiene USO RAPIDO con git clone" \
-  bash -c 'grep -q "USO RAPIDO" REPO.txt && grep -q "git clone" REPO.txt'
+t "REPO.txt tiene uso rapido con git clone" \
+  bash -c 'grep -qi "Uso rapido" REPO.txt && grep -q "git clone" REPO.txt'
 t "REPO.txt menciona PROMPT-AGENTE (agentes)" \
   bash -c 'grep -q "PROMPT-AGENTE" REPO.txt'
 t "REPO.txt ya no dice H-01..H-22 (desactualizado)" \
@@ -480,8 +480,8 @@ t "REPO.txt lista las herramientas nuevas" \
   bash -c 'grep -q "reboot-remoto.sh" REPO.txt && grep -q "laptop-no-suspend.sh" REPO.txt'
 t "REPO.txt tiene orden de lectura sugerido" \
   bash -c 'grep -q "ORDEN DE LECTURA" REPO.txt'
-t "LEEME ubica el repo ARRIBA de todo" \
-  bash -c 'grep -q "EL REPOSITORIO (esto es lo que tenes que ubicar primero)" LEEME-PRIMERO.txt'
+t "LEEME ubica la auth key y el repo arriba" \
+  bash -c 'grep -q "AUTH KEY DE TAILSCALE: ACA SE GENERA" LEEME-PRIMERO.txt && grep -q "REPOSITORIO:" LEEME-PRIMERO.txt'
 t "LEEME lista REPO.txt como punto 1" \
   bash -c 'grep -q "1) REPO.txt" LEEME-PRIMERO.txt'
 t "LEEME-PRIMERO.txt tiene la URL"   bash -c "grep -q '$REPO_URL' LEEME-PRIMERO.txt"
@@ -515,8 +515,10 @@ t "paso 7 verifica la captura DRM" \
   bash -c 'grep -q "consumer cache warmed" PASOS-EN-ORDEN.txt'
 t "paso 9 explica la revocación al cliente" \
   bash -c 'grep -q "Disable" PASOS-EN-ORDEN.txt'
-t "incluye la tabla de fallos comunes" \
-  bash -c 'grep -q "portal handshake failed" PASOS-EN-ORDEN.txt && grep -q "os error 104" PASOS-EN-ORDEN.txt'
+t "los fallos apuntan a hallazgos (no duplican tabla)" \
+  bash -c 'grep -q "docs/hallazgos.md" PASOS-EN-ORDEN.txt'
+t "LEEME tiene la tabla de fallos comunes" \
+  bash -c 'grep -q "portal handshake failed" LEEME-PRIMERO.txt && grep -q "RustDesk failed" LEEME-PRIMERO.txt'
 t "recuerda la auth key antes de salir" \
   bash -c 'grep -q "tskey-auth" PASOS-EN-ORDEN.txt'
 t "make-kit copia PASOS-EN-ORDEN.txt" \
@@ -620,7 +622,7 @@ t "INSTALAR.md documenta la prueba de reinicio" \
 t "INSTALAR.md advierte de la IP pública compartida" \
   bash -c 'grep -q "IPs públicas distintas" INSTALAR.md'
 t "LEEME-PRIMERO.txt lista las pruebas de validación" \
-  bash -c 'grep -q "PRUEBAS DE VALIDACION" LEEME-PRIMERO.txt'
+  bash -c 'grep -q "PRUEBAS DESDE TU EQUIPO OPERADOR" LEEME-PRIMERO.txt'
 t "LEEME-PRIMERO.txt menciona reboot-remoto" \
   bash -c 'grep -q "reboot-remoto.sh" LEEME-PRIMERO.txt'
 t "onboarding-cliente cubre las dos pruebas" \
@@ -743,8 +745,8 @@ t "los backups del helper rotan (no acumulan)" \
   bash -c 'grep -q "tail -n +4" .rd-setpass-root.sh'
 t "el helper remoto se limpia con trap" \
   bash -c 'grep -q "trap .*rm -f /tmp/rd-setpass-root.sh" rustdesk-password.sh'
-t "README ya no presenta paru como ruta primaria en Arch" \
-  bash -c 'grep -q "Ruta recomendada" README.md'
+t "referencia ya no presenta paru como ruta primaria en Arch" \
+  bash -c 'grep -q "Ruta recomendada" docs/referencia.md'
 
 sect "Calidad de código (shellcheck sin notas accionables)"
 t "setup usa find (no ls) para el log más reciente" \
@@ -765,10 +767,10 @@ t "ensure_aur cae al AUR solo si no está en el repo" \
   bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "paru-bin"'
 t "ensure_aur avisa que instaló sin compilar" \
   bash -c 'grep -q "instalado desde el repositorio (sin compilar)" setup-remote-target.sh'
-t "README documenta los requisitos del objetivo" \
-  bash -c 'grep -q "Requisitos del PC objetivo" README.md'
-t "README dice que paru NO hace falta a mano" \
-  bash -c 'grep -q "no hace falta instalarlo a mano" README.md'
+t "referencia documenta los requisitos del objetivo" \
+  bash -c 'grep -q "Requisitos del PC objetivo" docs/referencia.md'
+t "referencia dice que paru NO hace falta a mano" \
+  bash -c 'grep -q "no hace falta instalarlo a mano" docs/referencia.md'
 t "INSTALAR.md explica la cascada de paru" \
   bash -c 'grep -q "Hay que instalar .paru. a mano? NO" INSTALAR.md'
 t "PASOS-EN-ORDEN avisa que no hay que instalar nada a mano" \
@@ -931,16 +933,16 @@ tdoc "estado-sesion registra la IP de la VM" bash -c 'grep -q "192.168.122.11" d
 tdoc "estado-sesion avisa que el guest es Wayland" bash -c 'grep -qi "wayland" docs/estado-sesion.md'
 tdoc "estado-sesion registra el bloqueo de sudo" bash -c 'grep -qi "sudo.*contraseña\|pide contraseña" docs/estado-sesion.md'
 # La doc debe distinguir roles (operador no necesita sshd; el objetivo sí)
-tdoc "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
-t "README aclara que el operador no necesita sshd" \
-  bash -c 'grep -qE "sshd.*no necesita|no necesita.*sshd" README.md'
+tdoc "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC objetivo" README.md && grep -q "PC operador" README.md'
+t "referencia aclara que el operador no necesita sshd" \
+  bash -c 'grep -qE "sshd.*no necesita|no necesita.*sshd" docs/referencia.md'
 # El agente IA (pi) es herramienta del OPERADOR: NO se instala en el cliente.
-t "README: el agente IA vive solo en el operador" \
-  bash -c 'grep -qE "pi.*vive SOLO en el operador|solo aqu.*NUNCA" README.md'
-t "README: el agente NO se instala en el objetivo" \
-  bash -c 'sed "s/^> //" README.md | tr "\n" " " | grep -qiE "no se instala ni se configura en el PC objetivo"'
-t "README: explica que pi no tiene modelos gratis" \
-  bash -c 'grep -qi "no incluye modelos gratuitos fiables" README.md'
+t "referencia: el agente IA vive solo en el operador" \
+  bash -c 'grep -qE "pi.*vive SOLO en el operador|solo aqu.*NUNCA" docs/referencia.md'
+t "referencia: el agente NO se instala en el objetivo" \
+  bash -c 'sed "s/^> //" docs/referencia.md | tr "\n" " " | grep -qiE "no se instala ni se configura en el PC objetivo"'
+t "referencia: explica que pi no tiene modelos gratis" \
+  bash -c 'grep -qi "no incluye modelos gratuitos fiables" docs/referencia.md'
 t "guia-desde-cero: pi corre solo en el operador" \
   bash -c 'grep -qE "pi.*corre SOLO en tu PC" docs/guia-desde-cero.md'
 t "estado-sesion registra el modelo de producto" \

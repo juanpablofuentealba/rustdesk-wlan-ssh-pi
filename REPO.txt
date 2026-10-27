@@ -1,108 +1,75 @@
 ========================================================================
-  REPOSITORIO DEL PROYECTO  (esto es lo primero que tenes que ubicar)
+  EL REPOSITORIO  (ubica esto primero)
 ========================================================================
 
   https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
 
-  Todo lo de este pendrive sale de ahi: los scripts, el runbook y la
-  explicacion tecnica de cada decision (los "hallazgos verificados").
-  El pendrive es el RESPALDO; el repo es la fuente de verdad.
+  Fuente de verdad: scripts + documentacion + los 30 "hallazgos" (problemas
+  reales ya resueltos). El pendrive es el RESPALDO.
+
+  Uso rapido (con internet, sin pendrive):
+     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
+     cd ~/kit
+     sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
+
+  Con agente IA (OpenCode/Claude/pi): pega primero  cat PROMPT-AGENTE.txt
+
+  Sin internet (o desde el pendrive):
+     cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit && cd ~/kit
+     ./setup-remote-target.sh --check
 
 
   ======================================================================
-   ***  AUTH KEY DE TAILSCALE: ACA SE GENERA  ***
+   ***  AUTH KEY DE TAILSCALE: ACA SE GENERA (no en el equipo)  ***
   ======================================================================
 
      https://login.tailscale.com/admin/settings/keys
-
      (alias: https://console.tailscale.com/admin/settings/keys)
 
-  La key NO sale del equipo ni de Tailscale instalado. Se crea en esta
-  PAGINA WEB, logueado con tu cuenta, desde cualquier navegador (el celular
-  sirve). Despues se copia y se pega en el equipo del cliente.
+  Se crea en esa PAGINA WEB, con tu cuenta, desde cualquier navegador (el
+  celular sirve). Despues se copia y se pega en el equipo del cliente.
+  Camino manual: admin -> Settings -> pestana "Keys" -> "Generate auth key".
+  Se muestra UNA SOLA VEZ.   Reusable: SI (varios) / NO (un equipo).
 
-     Camino manual:  login.tailscale.com/admin
-                     -> Settings -> pestana "Keys"
-                     -> "Generate auth key..."
-
-     Reusable: SI (varios) / NO (un equipo)   Ephemeral: NO
-     Expiry: 1 dia (o 90)                     Se muestra UNA SOLA VEZ.
-
-  No la tenes a mano? No te bloquees:
+  Sin key todavia? No te bloquees:
      sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
      ./unir-tailscale.sh --hostname <equipo>     # pide la key y une
 
   Detalle: README.md (seccion "Auth key de Tailscale") y docs/tailscale.md
 
-  ----------------------------------------------------------------------
-  USO RAPIDO (si tenes internet en el equipo del cliente)
-  ----------------------------------------------------------------------
-
-     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
-     cd ~/kit
-     sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
-
-  Si vas a usar un AGENTE IA (OpenCode/Claude/pi), pega primero:
-     cat PROMPT-AGENTE.txt      <- reglas duras + flujo
-
 
   ----------------------------------------------------------------------
-  SI NO TENES INTERNET (o preferis el pendrive)
+  QUE HAY EN EL REPO  (indice)
   ----------------------------------------------------------------------
 
-     cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit
-     cd ~/kit && ./setup-remote-target.sh --check
+  Empezar aca:   README.md  ·  PASOS-EN-ORDEN.txt  ·  PROMPT-AGENTE.txt
 
+  El kit:        instalar-todo.sh          un comando hace todo
+                 setup-remote-target.sh    RustDesk+SSH+firewall+Tailscale
+                 unir-tailscale.sh         unir a la tailnet (pide la key)
+                 laptop-no-suspend.sh      portatiles: no suspender
+                 rustdesk-password.sh      contrasena permanente de RustDesk
+                 install-rustdesk-unattended-fedora.sh   Fedora con DRM
+                 inventory.sh              ficha de specs
+                 make-kit.sh               empaquetar para un pendrive
 
-  ----------------------------------------------------------------------
-  QUE HAY EN EL REPO
-  ----------------------------------------------------------------------
+  Verificacion:  tests.sh  ·  verify-offlan.sh  ·  reboot-remoto.sh
 
-  -- Empezar aca --
-  README.md                guia general
-  PASOS-EN-ORDEN.txt       checklist de pasos, en orden
-  INSTALAR.md              runbook detallado
-  PROMPT-AGENTE.txt        reglas para agentes IA (OpenCode/Claude/pi)
-
-  -- El kit --
-  instalar-todo.sh         UN COMANDO hace todo en el cliente
-  setup-remote-target.sh   RustDesk + SSH + firewall + Tailscale (+ --laptop)
-  rustdesk-password.sh     contrasena permanente de RustDesk
-  install-rustdesk-unattended-fedora.sh   Fedora/RHEL con capturador DRM
-  laptop-no-suspend.sh     portatiles: evita que suspenda y se pierda acceso
-  unir-tailscale.sh        unir a la tailnet pidiendo/pegando la auth key
-  inventory.sh             ficha de specs del equipo
-  make-kit.sh              empaquetar el kit para un pendrive
-
-  -- Verificacion --
-  tests.sh                 pruebas (mas de 390)
-  verify-offlan.sh         probar el acceso desde fuera de la LAN
-  reboot-remoto.sh         prueba de reinicio unattended (NOPASSWD acotado)
-  verify-docs.sh           valida comandos y URLs de la doc
-
-  -- Documentacion --
-  docs/hallazgos.md        H-01..H-30: problemas y soluciones verificadas
-  docs/tailscale.md        acceso remoto sin abrir puertos
-  docs/onboarding-cliente.md  como dar de alta un cliente (modelo B)
-  docs/estado-sesion.md    estado del trabajo, para retomar
-  docs/guia-desde-cero.md  explicacion para principiantes
-  docs/vpn-remoto.md       WireGuard / Cloudflare como alternativas
+  Documentacion: docs/hallazgos.md      H-01..H-30 (problemas y soluciones)
+                 docs/referencia.md     detalle tecnico / pasos manuales
+                 docs/tailscale.md      acceso sin abrir puertos
+                 docs/guia-desde-cero.md  para principiantes
+                 docs/onboarding-cliente.md  dar de alta un cliente
 
 
   ----------------------------------------------------------------------
-  VERIFICAR QUE ESTE KIT NO ESTA CORRUPTO
+  VERIFICAR QUE EL KIT NO ESTA CORRUPTO
   ----------------------------------------------------------------------
 
      cd kit-rustdesk && sha256sum -c MANIFEST.sha256
-     cat kit-rustdesk/.kit-version       # version y fecha del kit
+     cat kit-rustdesk/.kit-version      # version y fecha
 
 
-  ----------------------------------------------------------------------
-  ORDEN DE LECTURA SUGERIDO (si es la primera vez)
-  ----------------------------------------------------------------------
-
-     1. LEEME-PRIMERO.txt        (esto, resumido)
-     2. PASOS-EN-ORDEN.txt       (los pasos, en orden)
-     3. PROMPT-AGENTE.txt        (si usas un agente IA)
-     4. docs/hallazgos.md        (si algo falla)
+  ORDEN DE LECTURA:  1) LEEME-PRIMERO  2) PASOS-EN-ORDEN
+                     3) PROMPT-AGENTE (si usas IA)  4) docs/hallazgos (si falla)
 ========================================================================

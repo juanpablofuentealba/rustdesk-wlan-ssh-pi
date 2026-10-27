@@ -15,15 +15,10 @@
 ------------------------------------------------------------------------
 
   [ ] Auth key de Tailscale (del cliente, o tuya si es prueba)
-      https://login.tailscale.com/admin/settings/keys
-      (admin -> Settings -> pestana "Keys" -> "Generate auth key...")
-      -> "Generate auth key"
-         Reusable:  SI   (vas a instalar varias veces)
-         Ephemeral: NO
-         Expiry:    1 dia
-      Empieza con: tskey-auth-...
-      ATENCION: la key solo se muestra UNA VEZ al generarla. Copiala ya.
-      No esta en Machines ni en DNS: solo en Settings -> Keys.
+      Generala en la WEB (ver URL arriba), pestana Keys. Empieza con tskey-.
+      Reusable: SI (varias veces) · Ephemeral: NO · Expiry: 1 dia.
+      Se muestra UNA SOLA VEZ al generarla: copiala ya.
+      No la tenes todavia? NO te bloquees: usa --tailscale-luego (PASO 5c).
 
   [ ] Contraseña permanente de RustDesk que le vas a poner
       (anotala, la vas a usar cada vez que te conectes)
@@ -111,13 +106,7 @@
   remoto (Tailscale/SSH/RustDesk se caen). --all ya lo previene. Si instalás
   por partes, agregá --laptop o corré:  sudo ./laptop-no-suspend.sh --apply
 
-  ¿TODAVÍA NO TENES LA AUTH KEY?  La key NO se genera en el equipo: se crea
-  en la web (login.tailscale.com -> Settings -> pestana Keys) desde cualquier
-  navegador, y se copia. Para no quedarte a mitad, usa --tailscale-luego:
-
-     sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
-     # ... despues, con la key a mano:
-     ./unir-tailscale.sh --hostname laptop-cliente
+  PASO 5 — EL COMANDO:
 
          sudo ./instalar-todo.sh \
            --authkey 'tskey-auth-XXXX' \
@@ -135,6 +124,16 @@
   Para simular sin aplicar nada:  agregá  --dry-run
 
   Seguí al PASO 8 (verificar desde tu equipo).
+
+  ---
+  PASO 5c — ¿TODAVÍA NO TENES LA AUTH KEY?
+
+  No te bloquees. La key se genera en la WEB (no en el equipo). Instalá
+  Tailscale sin unir y uní despues:
+
+         sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
+         # ... con la key a mano (generada en la web):
+         ./unir-tailscale.sh --hostname <equipo>
 
   ---
   SI PREFERÍS HACERLO POR PARTES (pasos 5b y 6b)
@@ -227,27 +226,12 @@
   SI ALGO FALLA
 ========================================================================
 
-  "Wayland portal handshake failed"
-    -> falta el capturador DRM
-       Arch/CachyOS: paru -S rustdesk-unattended-wayland
-       Fedora:       sudo ./install-rustdesk-unattended-fedora.sh
+  Todos los problemas conocidos y sus soluciones estan en:
+     docs/hallazgos.md   (H-01..H-30)
+  y en LEEME-PRIMERO.txt (los mas comunes).
 
-  "Pide aceptación en cada conexión"
-    -> falta la contraseña permanente -> volvé al PASO 6
+  Diagnostico rapido en cualquier momento:
+     cd ~/kit && ./setup-remote-target.sh --check
 
-  "Conexión reinicializada (os error 104)"
-    -> audio/portapapeles en bucle
-       Desactivá audio y portapapeles en la GUI de RustDesk antes de conectar
-
-  "SSH no entra"
-    -> sudo ./setup-remote-target.sh --ssh --key "$(cat operador.pub)"
-
-  "Tailscale no une"
-    -> auth key vencida o mal copiada (debe empezar con tskey-)
-
-  "tailscale ping va por la LAN"
-    -> esperado si estás en la misma red. Para el caso real, usá otra red.
-
-  Explicación completa de cada fallo: kit-rustdesk/INSTALAR.md
-  y https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+  Repositorio: https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
 ========================================================================

@@ -6,69 +6,48 @@
   >>> LEE ESTE ARCHIVO, Y DESPUES "PASOS-EN-ORDEN.txt" <<<
 
 ------------------------------------------------------------------------
-  AUTH KEY DE TAILSCALE: ACA SE GENERA  (leer esto)
+  AUTH KEY DE TAILSCALE: ACA SE GENERA (no en el equipo)
 ------------------------------------------------------------------------
 
      https://login.tailscale.com/admin/settings/keys
 
-  La key NO se genera en el equipo: se crea en esta PAGINA WEB (con tu
-  cuenta, desde cualquier navegador; el celular sirve) y se copia aca.
-  Camino manual: admin -> Settings -> pestana "Keys" -> Generate auth key.
-  Se muestra UNA SOLA VEZ.
+  Se crea en esa PAGINA WEB, con tu cuenta, desde cualquier navegador (el
+  celular sirve) y se copia. Camino manual: admin -> Settings -> pestana
+  "Keys" -> "Generate auth key". Se muestra UNA SOLA VEZ.
 
-  Si todavia no la tenes, NO te bloquees:
+  Sin key todavia? No te bloquees:
      sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
-     ./unir-tailscale.sh --hostname <equipo>    # pide la key y une
-
-------------------------------------------------------------------------
-  EL REPOSITORIO (esto es lo que tenes que ubicar primero)
-------------------------------------------------------------------------
-
-     https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
-
-  Es la fuente de verdad: scripts + documentacion + los 29 hallazgos.
-  El pendrive es el RESPALDO. Detalle completo en: REPO.txt
-
-  Uso rapido (con internet, sin pendrive):
-     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
-     cd ~/kit
-     sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
+     ./unir-tailscale.sh --hostname <equipo>     # pide la key y une
 
 ------------------------------------------------------------------------
   QUE HAY EN ESTE PENDRIVE
 ------------------------------------------------------------------------
 
-  1) REPO.txt                <- El repositorio: URL, uso rapido, indice
-  2) PASOS-EN-ORDEN.txt      <- EMPIEZA ACA. Los pasos, en orden.
-  3) kit-rustdesk/           <- El kit (scripts + runbook detallado)
-  4) PROMPT-AGENTE.txt       <- Si usas un agente IA (OpenCode/Claude/pi):
-                                pegalo como primer mensaje. Trae las reglas
-                                duras y evita que reinvente lo ya resuelto.
-  5) ISOs arrancables        <- Para instalar el sistema operativo
+  1) REPO.txt             <- El repositorio: URL, uso rapido, indice
+  2) PASOS-EN-ORDEN.txt   <- EMPIEZA ACA. Los pasos, en orden.
+  3) kit-rustdesk/        <- El kit (scripts + runbook detallado)
+  4) PROMPT-AGENTE.txt    <- Si usas un agente IA (OpenCode/Claude/pi)
+  5) ISOs arrancables     <- Para instalar el sistema operativo
 
-  PRUEBAS DE VALIDACION (dentro del kit, se corren DESDE tu equipo operador):
-     ./verify-offlan.sh <hostname>    acceso fuera de la LAN (7 OK = listo)
-     ./reboot-remoto.sh --host ... --all   prueba de reinicio unattended
+  Las ISOs NO se copian: se ARRANCAN. La carpeta kit-rustdesk/ se COPIA
+  al PC ya instalado.
 
   REPOSITORIO:  https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
-  (todo lo de este pendrive sale de ahi; ver REPO.txt para como usarlo)
-
-  Las ISOs NO se copian: se ARRANCAN desde el pendrive.
-  La carpeta kit-rustdesk/ NO se arranca: se COPIA al PC ya instalado.
 
 ------------------------------------------------------------------------
   RESUMEN EN 4 LINEAS
 ------------------------------------------------------------------------
 
-  1. Arranca el pendrive -> instala CachyOS CON WiFi
-  2. Reinicia sin el pendrive -> conecta el HOTSPOT 4G del telefono
+  1. Arranca el pendrive -> instala el SO CON WiFi
+  2. Reinicia sin el pendrive -> conecta la red
   3. Copia el kit:  cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit
-  4. UN SOLO COMANDO (hace todo: RustDesk + SSH + Tailscale + contrasena):
+  4. UN SOLO COMANDO:
 
        cd ~/kit
        sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
 
-     Sigue PASOS-EN-ORDEN.txt para el detalle, o kit-rustdesk/INSTALAR.md
+     (--all ya incluye anti-suspension de portatil). Detalle en
+     PASOS-EN-ORDEN.txt o kit-rustdesk/INSTALAR.md
 
 ------------------------------------------------------------------------
   ANTES DE SALIR DE CASA
@@ -79,26 +58,31 @@
   [ ] Contrasena de sudo que elegiras al instalar el SO
   [x] Tu clave publica SSH       (ya viene en kit-rustdesk/operador.pub)
 
+  PRUEBAS DESDE TU EQUIPO OPERADOR (despues de instalar):
+     ./verify-offlan.sh <hostname>           acceso fuera de la LAN (7 OK)
+     ./reboot-remoto.sh --host ... --all     prueba de reinicio unattended
+
 ------------------------------------------------------------------------
   SI ALGO FALLA
 ------------------------------------------------------------------------
 
-  El propio kit te dice que hacer. Los casos ya conocidos:
-
   "no hay aur helper paru"
-     -> Ya NO es un problema: el kit tiene 3 vias (paru si existe, el .deb
-        oficial sin AUR, o instalar paru). Si aun asi falla, es falta de RED.
-        Comproba:  curl -sI https://github.com | head -1
+     -> Ya NO es problema: el kit usa el .deb oficial sin AUR. Si falla
+        igual, es falta de RED:  curl -sI https://github.com | head -1
 
   "tailscale no une"
-     -> El kit ahora muestra el error real de `tailscale up`.
-        Causas: key vencida, key no reusable, o sin internet.
+     -> El kit muestra el error real. Causas: key vencida, no reusable,
+        o sin internet. La key se genera en la WEB (ver arriba).
 
   "Wayland portal handshake failed"
      -> Falta el capturador DRM. El kit lo detecta y dice como arreglarlo.
 
   "Pide aceptacion en cada conexion"
      -> Falta la contrasena permanente de RustDesk (paso del --rdpass).
+
+  "RustDesk failed tras instalar"
+     -> Puede ser la sesion grafica caida. Reinicia y: systemctl status
+        rustdesk. Documentado en docs/hallazgos.md.
 
   "No puedo reiniciar el equipo por SSH (pide contrasena)"
      -> Normal: sudo pide clave y polkit exige auth interactiva (H-27).
@@ -108,15 +92,8 @@
      -> Si operador y objetivo tienen la MISMA IP publica, es la misma casa
         y la prueba NO vale. Compara:  curl -s https://api.ipify.org
 
-  Diagnostico completo en cualquier momento:
-     cd ~/kit && ./setup-remote-target.sh --check
-
-------------------------------------------------------------------------
-  DOCUMENTACION DE FONDO
-------------------------------------------------------------------------
-
-  kit-rustdesk/INSTALAR.md   -> runbook detallado, con el porque de cada paso
-  github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi  -> hallazgos tecnicos
+  Diagnostico completo:  cd ~/kit && ./setup-remote-target.sh --check
+  Todos los problemas conocidos:  docs/hallazgos.md
 
   Verificar el kit:  cd kit-rustdesk && sha256sum -c MANIFEST.sha256
 ========================================================================
