@@ -1195,8 +1195,10 @@ setup_tailscale() {
   if [[ -z "$TS_AUTHKEY" ]]; then
     warn "Sin --authkey: el equipo NO se unirá a la tailnet"
     info "Genera una auth key en el panel del cliente:"
-    info "  https://console.tailscale.com/admin/settings/keys"
+    info "  https://login.tailscale.com/admin/settings/keys"
+    info "  (admin -> Settings -> pestaña Keys -> Generate auth key)"
     info "  (Reusable: NO para un equipo · Ephemeral: NO · Expiry: 1 día)"
+    info "  La key solo se muestra UNA VEZ al generarla."
     info "Luego: sudo $0 --tailscale --authkey \"tskey-auth-...\""
     return 0
   fi

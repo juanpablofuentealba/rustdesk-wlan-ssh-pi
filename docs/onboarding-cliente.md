@@ -35,11 +35,15 @@ Cómo preparar una computadora de un cliente para administrarla remotamente,
 │  1. Crea su cuenta Tailscale (gratis, 1 min)                 │
 │     → https://login.tailscale.com/start                      │
 │  2. Genera una AUTH KEY en su panel:                         │
+│     → https://login.tailscale.com/admin/settings/keys        │
+│       (Settings → pestaña Keys → "Generate auth key...")     │
 │     → https://console.tailscale.com/admin/settings/keys      │
-│     → "Generate auth key"                                    │
-│       · Reusable:  NO   (para un solo equipo)                │
-│       · Ephemeral: NO   (el equipo es permanente)            │
-│       · Expiry:    1 día (suficiente para el trabajo)        │
+│       (alias: lleva a la misma consola)                      │
+│     · Description: kit-pendrive-cliente                      │
+│     · Reusable:  NO   (para un solo equipo)                  │
+│     · Ephemeral: NO   (el equipo es permanente)              │
+│     · Expiry:    1 día (suficiente para el trabajo)          │
+│     · Solo se muestra UNA VEZ: copiarla al generarla         │
 │  3. Te pasa la key (string que empieza con `tskey-auth...`)  │
 │  4. Te da el PRIMER acceso por RustDesk                      │
 └──────────────────────────────────────────────────────────────┘
@@ -138,6 +142,8 @@ Tagged: opcional  → útil si gestionas muchos equipos
 
 - [ ] Cuenta Tailscale creada (suya)
 - [ ] Auth key generada: `tskey-auth-...`
+      (panel → Settings → **Keys** → Generate auth key;
+      ver [`tailscale.md`](tailscale.md#generar-la-auth-key-paso-a-paso-en-la-web))
 - [ ] RustDesk instalado en su PC, con ID y contraseña
 - [ ] Confirmado: el equipo es **suyo** (Modelo B)
 

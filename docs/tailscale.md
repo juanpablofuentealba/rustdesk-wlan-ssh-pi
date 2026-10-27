@@ -88,6 +88,96 @@ To authenticate, visit:
 
 > **Importante:** usa **la misma cuenta** en todos los PCs. Así se ven entre sí.
 
+> **Ojo:** el login por navegador solo sirve en un PC con sesión gráfica. En un
+> equipo recién instalado (o al que entrás a ciegas) no hay navegador: usá una
+> **auth key**. Ver la sección siguiente.
+
+---
+
+## Generar la auth key (paso a paso en la web)
+
+Una **auth key** es un string que empieza con `tskey-auth-...` y reemplaza al
+login por navegador. Con ella, `tailscale up` **no pide nada**:
+
+```fish
+sudo tailscale up --auth-key=tskey-auth-XXXX
+```
+
+### ¿Dónde está en la web? (la duda más común)
+
+El link directo a la página de keys:
+
+```fish
+xdg-open "https://login.tailscale.com/admin/settings/keys"
+```
+
+`login.tailscale.com` y `console.tailscale.com` llevan a **la misma consola**; si
+un link no responde, probá el otro. El camino manual desde el panel:
+
+```
+1. https://login.tailscale.com/admin
+2. Menú izquierdo, abajo del todo  ->  Settings
+3. Pestañas de arriba: General · Keys · Users · ...
+4. Click en la pestaña         Keys          <-- AQUÍ está
+5. Sección "Auth keys"  ->  botón "Generate auth key..."
+```
+
+### Dónde NO está (para no buscarla más)
+
+| Sección del panel | Por qué no está ahí |
+|---|---|
+| **Machines** | Solo lista equipos ya unidos |
+| **DNS / MagicDNS** | Solo configuración de nombres |
+| **Access controls / ACLs** | Solo reglas de permisos |
+| **App de escritorio / móvil** | Nunca muestra auth keys |
+| **Settings → General** | Es la pestaña vecina; hay que ir a **Keys** |
+
+> La auth key **solo se muestra una vez**, al crearla. Si cerrás el diálogo sin
+> copiarla, tenés que generar otra. No se puede recuperar después.
+
+### El formulario, campo por campo
+
+Al pulsar **Generate auth key...**:
+
+| Campo | Para el kit (un cliente) | Para varias instalaciones |
+|---|---|---|
+| **Description** | `kit-pendrive-cliente` | `kit-pendrive-cliente` |
+| **Reusable** | ❌ NO (una key = un equipo) | ✅ **SÍ** (varios equipos) |
+| **Ephemeral** | ❌ NO (el equipo es permanente) | ❌ NO |
+| **Pre-approved** | ✅ sí (evita aprobar a mano) | ✅ sí |
+| **Tags** | `tag:server` (opcional) | `tag:server` (opcional) |
+| **Expiration** | 1 día | **90 días** |
+
+Click **Generate key** → tailscale muestra:
+
+```
+tskey-auth-k1234ABCDEF-5678GHIJKLMNOPQRSTUVWXYZ
+```
+
+Copiala **ya** (es case-sensitive, distingue mayúsculas de minúsculas).
+
+### Usarla con el kit
+
+```fish
+sudo ./instalar-todo.sh \
+  --authkey 'tskey-auth-XXXX' \
+  --rdpass  'TU_CLAVE_RUSTDESK'
+```
+
+El `--sudopass` solo hace falta si la contraseña de sudo no se pide de forma
+interactiva; si la define el cliente al instalar el sistema, omitilo y el script
+la pedirá sola.
+
+### Seguridad de las keys
+
+- **One-off**: se revoca automáticamente al usarse → lo más seguro por equipo.
+- **Reusable**: cómoda para muchos equipos, pero **si se filtra, cualquiera entra
+  a tu tailnet**. No la dejes en el pendrive ni en el repo.
+- **Revocar**: panel → **Settings → Keys** → la key → *Revoke*. Hacelo al terminar
+  las instalaciones.
+- Al expirar la auth key, el equipo **ya unido sigue autorizado** hasta que expire
+  su node key (180 días por defecto).
+
 ### Comprobar
 
 ```fish
@@ -259,7 +349,7 @@ Si siempre sale por DERP, revisa el NAT de tu red. No es grave, solo más lento.
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| `NeedsLogin` | No autenticado | `sudo tailscale up` |
+| `NeedsLogin` | No autenticado | `sudo tailscale up` (o con `--auth-key`) |
 | `tailscale status` vacío | Servicio caído | `sudo systemctl restart tailscaled` |
 | MagicDNS no resuelve | resolver mal configurado | Usa la IP `100.x` directamente |
 | Todo va por DERP (lento) | NAT restrictivo | `tailscale netcheck`; aceptable |
@@ -294,6 +384,8 @@ Ver [`vpn-remoto.md`](vpn-remoto.md) para WireGuard y Cloudflare.
 ```
 1. Instalar Tailscale en cada PC
 2. sudo tailscale up  (misma cuenta en todos)
+   - con sesión gráfica: login por navegador
+   - sin navegador:      --auth-key=tskey-auth-... (Settings -> Keys)
 3. ssh USUARIO@100.x.y.z   desde cualquier red
 ```
 

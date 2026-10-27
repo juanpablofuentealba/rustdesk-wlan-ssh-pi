@@ -1106,6 +1106,53 @@ debe decirlo.
 
 ---
 
+## H-26 — La auth key de Tailscale: dónde está (y dónde la gente la busca)
+
+**Verificado:** ✅ (27 oct 2026)
+
+Síntoma real: al instalar en un equipo **sin sesión gráfica ni navegador**,
+`tailscale up` pelado abre un login interactivo que no se puede completar. La
+salida es `--auth-key`, pero el bloqueo siguiente es **no saber de qué parte del
+panel web sale esa key**. Búsqueda infructuosa típica en *Machines*, *DNS* o la
+app de escritorio.
+
+**Dónde está de verdad:**
+
+```
+https://login.tailscale.com/admin/settings/keys
+  admin  ->  Settings  ->  pestaña "Keys"  ->  "Generate auth key..."
+```
+
+`login.tailscale.com` y `console.tailscale.com` son la **misma consola**; ambos
+links sirven. La key **solo se muestra una vez**, al generarla.
+
+**Formulario, campo por campo** (un equipo vs. varias instalaciones):
+
+| Campo | Un cliente | Varios equipos |
+|---|---|---|
+| Description | `kit-pendrive-cliente` | `kit-pendrive-cliente` |
+| Reusable | ❌ NO | ✅ SÍ |
+| Ephemeral | ❌ NO | ❌ NO |
+| Pre-approved | ✅ sí | ✅ sí |
+| Expiration | 1 día | 90 días |
+
+**Lección:** documentar *dónde* vive una credencial en la UI, no solo cómo se
+usa. El runbook ya explicaba `--authkey` pero no la ruta en el panel; eso costó
+una instalación detenida. Ver [`tailscale.md`](tailscale.md#generar-la-auth-key-paso-a-paso-en-la-web).
+
+### Detalles que confunden al armar el comando
+
+| Dato | Aclaración |
+|---|---|
+| `--rdpass` | Lo **elige el operador** (ej. `Juanpablo44`); no viene de ningún panel |
+| `--sudopass` | Solo si sudo no se pide de forma interactiva; si lo define el cliente, se omite |
+| Clave SSH del operador | Ya viene en `operador.pub`; no hay que generarla de nuevo |
+
+> Una contraseña de RustDesk débil (`Juanpablo44`) **funciona**, pero el kit la
+> advierte. Cambiarla con `./rustdesk-password.sh install "jp@localhost" '<nueva>'`.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1136,6 +1183,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-22 fallos silenciosos (red / tailscale up) | `tests.sh`: el kit comprueba la red y muestra la salida de `tailscale up` |
 | H-23 objetivo con fish (no mandar bash suelto) | `tests.sh`: los comandos remotos van por `bash -s`; `make check` también |
 | H-24 Fedora con DRM (no `.rpm` estándar) | `tests.sh <host>`: la rama fedora intenta primero el `.deb` con `libdrmtap` |
+| H-26 ubicación de la auth key en el panel | `tests.sh`: existe la sección H-26; `verify-docs.sh` comprueba la URL |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

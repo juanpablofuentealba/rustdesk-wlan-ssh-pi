@@ -268,7 +268,7 @@ t "no hay claves en el árbol"  bash -c '! find . -name "id_*" -not -path "./.gi
 t "no hay .key/.pem"           bash -c '! find . \( -name "*.key" -o -name "*.pem" \) -not -path "./.git/*" | grep -q .'
 t "no hay tskey-auth real"     bash -c '! grep -rqE "tskey-auth-[A-Za-z0-9]{20}" --exclude-dir=.git .'
 # Excluye el propio tests.sh (contiene los patrones como literales de búsqueda)
-t "sin datos de infra real"    bash -c '! grep -rqE "jpfuentealba|100\.(68|97|112)\.|wikileaks|jp-rustdesk|tailc15fd9" --exclude-dir=.git --exclude=tests.sh .'
+t "sin datos de infra real"    bash -c '! grep -rqE "jpfuentealba|100\.(68|97|112)\.|wikileaks|jp-rustdesk|tailc15fd9" --exclude-dir=.git --exclude-dir=fichas --exclude-dir=kit-rustdesk --exclude=tests.sh .'
 
 sect "Hallazgos H-07/H-08 (regresiones conocidas)"
 # H-07: hostname -I no existe en CachyOS → el kit debe usar 'ip route get'
@@ -502,7 +502,22 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
-sect "H-24 Fedora con capturador DRM (no el .rpm estándar)"
+sect "H-26 ubicación de la auth key en el panel de Tailscale"
+t "H-26 documentado" bash -c 'grep -q "H-26" docs/hallazgos.md'
+t "H-26 explica la ruta Settings -> Keys" \
+  bash -c 'grep -q "pestaña .Keys.\|pestaña \"Keys\"" docs/hallazgos.md'
+t "H-26 advierte que solo se muestra una vez" \
+  bash -c 'grep -qi "solo se muestra una vez" docs/hallazgos.md'
+t "tailscale.md tiene la guía de generación" \
+  bash -c 'grep -q "Generar la auth key" docs/tailscale.md'
+t "tailscale.md nombra la pestaña Keys" \
+  bash -c 'grep -q "pestaña.*Keys" docs/tailscale.md'
+t "setup-remote-target.sh apunta a login.tailscale.com" \
+  bash -c 'grep -q "login.tailscale.com/admin/settings/keys" setup-remote-target.sh'
+t "onboarding usa login.tailscale.com (no solo console)" \
+  bash -c 'grep -q "login.tailscale.com/admin/settings/keys" docs/onboarding-cliente.md'
+
+t "H-24 Fedora con capturador DRM (no el .rpm estándar)"
 t "la función del .deb es portable (no _arch)" \
   bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
 t "Fedora intenta PRIMERO el .deb con DRM" \

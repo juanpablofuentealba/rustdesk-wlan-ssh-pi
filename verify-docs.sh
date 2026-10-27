@@ -50,14 +50,17 @@ else
 fi
 
 sect "URLs de la documentación oficial"
+# check_url URL [codigos-aceptados]
+# Las URLs del panel redirigen (302) a login si no hay sesión: es lo esperado.
 check_url(){
   local url="$1" want="${2:-200}" code
   code="$(curl -sI -o /dev/null -w '%{http_code}' --max-time 10 "$url" 2>/dev/null || echo 000)"
-  if [[ "$code" == "$want" ]]; then ok "$url ($code)"; else ko "$url devolvió $code (esperado $want)"; fi
+  if [[ " $want " == *" $code "* ]]; then ok "$url ($code)"; else ko "$url devolvió $code (esperado $want)"; fi
 }
 check_url "https://tailscale.com/docs/features/access-control/auth-keys"
 check_url "https://tailscale.com/docs/features/sharing"
 check_url "https://login.tailscale.com/start"
+check_url "https://login.tailscale.com/admin/settings/keys" "200 302"
 check_url "https://console.tailscale.com/admin/settings/keys"
 check_url "https://console.tailscale.com/admin/machines"
 

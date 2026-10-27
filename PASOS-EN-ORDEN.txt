@@ -11,12 +11,15 @@
 ------------------------------------------------------------------------
 
   [ ] Auth key de Tailscale (del cliente, o tuya si es prueba)
-      https://console.tailscale.com/admin/settings/keys
+      https://login.tailscale.com/admin/settings/keys
+      (admin -> Settings -> pestana "Keys" -> "Generate auth key...")
       -> "Generate auth key"
          Reusable:  SI   (vas a instalar varias veces)
          Ephemeral: NO
          Expiry:    1 dia
       Empieza con: tskey-auth-...
+      ATENCION: la key solo se muestra UNA VEZ al generarla. Copiala ya.
+      No esta en Machines ni en DNS: solo en Settings -> Keys.
 
   [ ] Contraseña permanente de RustDesk que le vas a poner
       (anotala, la vas a usar cada vez que te conectes)
