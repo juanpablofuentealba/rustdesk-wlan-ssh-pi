@@ -173,9 +173,48 @@ wl-paste
 ### Suite de pruebas
 
 ```fish
-./tests.sh          # 113 OK / 0 fallos
+./tests.sh          # 119 OK / 0 fallos
 ./verify-docs.sh    # 31 OK / 0 fallos
 ```
+
+---
+
+## Modelo de producto (aclarado por el autor)
+
+Es importante para no confundir el alcance del kit:
+
+| Pieza | Dónde vive | Para quién |
+|---|---|---|
+| **CachyOS** | PC del cliente | El producto que se ofrece |
+| **RustDesk + sshd + Tailscale** | PC del cliente | Infraestructura de acceso remoto |
+| **Clave del operador** | PC del cliente (en `authorized_keys`) | Para que el técnico entre |
+| **`pi` + modelo (DeepSeek pago)** | **SOLO en el PC del operador** | Herramienta de trabajo del técnico |
+
+**`pi` NO se instala en el PC del cliente.** Motivo: no incluye modelos gratuitos
+fiables, así que requeriría que cada cliente pague un modelo (o que el operador
+lo pague por todos). El cliente **no necesita** el agente: el operador lo usa
+**desde su propio equipo**, alcanzando el PC del cliente por SSH.
+
+**Contexto del autor:** 0 clientes actualmente. El trabajo es para *construir la
+capacidad de dar mantención remota* y conseguir el primer cliente. El autor es
+su propio cliente 1 y ofrece **CachyOS** como distro principal (es donde el kit
+funciona mejor: el parche DRM de RustDesk unattended es específico de Arch/AUR).
+
+### Qué significa esto para el empaquetado
+
+Con 0 clientes, empaquetar (`.deb`/`.rpm`/`PKGBUILD`) y hacer una GUI es
+**prematuro**: se construiría la fábrica antes del primer pedido.
+
+Orden sensato:
+
+1. Probar el kit de punta a punta **como si la VM fuera el PC de un cliente**.
+2. Resolver el **acceso fuera de la LAN** (Tailscale) — es lo que permite dar
+   mantención después sin volver al domicilio.
+3. Preparar un **kit de instalación** (pendrive con el script + instrucciones).
+4. **El primer cliente real** — ahí se ve qué falta de verdad.
+
+El paquete y la GUI tienen sentido **después** del primer cliente, cuando se sepa
+qué se necesita realmente.
 
 ---
 

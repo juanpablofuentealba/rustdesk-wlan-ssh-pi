@@ -271,6 +271,19 @@ t "estado-sesion registra el bloqueo de sudo" bash -c 'grep -qi "sudo.*contraseÃ
 t "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
 t "README aclara que el operador no necesita sshd" \
   bash -c 'grep -qE "sshd.*no necesita|no necesita.*sshd" README.md'
+# El agente IA (pi) es herramienta del OPERADOR: NO se instala en el cliente.
+t "README: el agente IA vive solo en el operador" \
+  bash -c 'grep -qE "pi.*vive SOLO en el operador|solo aqu.*NUNCA" README.md'
+t "README: el agente NO se instala en el objetivo" \
+  bash -c 'sed "s/^> //" README.md | tr "\n" " " | grep -qiE "no se instala ni se configura en el PC objetivo"'
+t "README: explica que pi no tiene modelos gratis" \
+  bash -c 'grep -qi "no incluye modelos gratuitos fiables" README.md'
+t "guia-desde-cero: pi corre solo en el operador" \
+  bash -c 'grep -qE "pi.*corre SOLO en tu PC" docs/guia-desde-cero.md'
+t "estado-sesion registra el modelo de producto" \
+  bash -c 'grep -q "Modelo de producto" docs/estado-sesion.md'
+t "estado-sesion: pi solo en el operador" \
+  bash -c 'grep -q "SOLO en el PC del operador" docs/estado-sesion.md'
 
 if [[ -n "$HOST" ]]; then
   RH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST"

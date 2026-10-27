@@ -572,7 +572,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-13 portapapeles SPICE en una dirección (Wayland) | `tests.sh` (local): `clip-vm.sh` sin `--paste-once`, con `nohup+disown` |
 
 ```fish
-./tests.sh                      # 113 comprobaciones (local)
+./tests.sh                      # 119 comprobaciones (local)
 ./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```

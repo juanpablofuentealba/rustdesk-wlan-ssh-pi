@@ -23,6 +23,15 @@ SSH       = las MANOS  (ejecutas comandos)
 pi        = quien USA las manos (y te reporta)
 ```
 
+> **`pi` corre SOLO en tu PC (el operador).** No se instala en el PC objetivo.
+> El otro PC solo necesita la infraestructura de acceso (SSH, RustDesk,
+> Tailscale). El agente es **tu herramienta de trabajo**: tú lo usas desde tu
+> equipo y él alcanza el PC del cliente por SSH.
+>
+> Además `pi` no trae modelos gratuitos fiables, así que instalar el agente en el
+> PC de un cliente implicaría que él pague un modelo — algo que no tiene sentido
+> para un servicio de mantención.
+
 ---
 
 ## 2. La analogía

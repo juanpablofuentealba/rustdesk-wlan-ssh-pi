@@ -73,11 +73,14 @@ falta **shell**. Ese es el rol de SSH.
 │  ┌───────────────────┐  │   RustDesk (GUI)   │  ┌────────────────────┐  │
 │  │ pi (agente IA)    │  │◄──────────────────►│  │ RustDesk server    │  │
 │  │  + bash tool      │  │  screen + input    │  │ (unattended)       │  │
-│  └─────────┬─────────┘  │                    │  └────────────────────┘  │
-│            │            │                    │                          │
-│            │  SSH       │                    │  ┌────────────────────┐  │
-│            └────────────┼────────────────────┼─►│ sshd (puerto 22)   │  │
+│  │  + modelo (pago)  │  │                    │  └────────────────────┘  │
+│  └─────────┬─────────┘  │                    │                          │
+│            │            │                    │  ┌────────────────────┐  │
+│            │  SSH       │                    │  │ sshd (puerto 22)   │  │
+│            └────────────┼────────────────────┼─►│ + clave operador   │  │
 │                         │  shell real        │  └────────────────────┘  │
+│  (el agente NO se       │                    │  (sin agente IA: solo    │
+│   instala en el cliente)│                    │   infraestructura)       │
 └─────────────────────────┘                    └──────────────────────────┘
         eth0 ────────── WiFi / LAN ──────────► wlan0 (192.168.1.20)
 ```
@@ -104,6 +107,18 @@ No es simétrico. El **operador** solo necesita *salir* hacia los clientes; el
 | **sshd** | ❌ **no necesita** | ✅ **sí** |
 | **firewall abierto :22** | ❌ no | ✅ **sí** |
 | **clave del operador autorizada** | ❌ no | ✅ **sí** |
+| **agente IA (`pi` + modelo)** | ✅ **solo aquí** | ❌ **NUNCA** |
+
+> **`pi` vive SOLO en el operador.** El agente IA es **herramienta de trabajo del
+> técnico**, no software del cliente. No se instala ni se configura en el PC
+> objetivo: allí solo va la infraestructura de acceso (RustDesk + sshd +
+> Tailscale + la clave del operador).
+>
+> Motivo práctico: `pi` no incluye modelos gratuitos fiables, así que requeriría
+> que cada cliente pague un modelo (o que el operador lo pague por todos). Eso no
+> escala ni es un producto vendible. El cliente **no necesita** el agente: el
+> agente lo usa el operador **desde su propio equipo**, alcanzando el PC del
+> cliente por SSH.
 
 > **Error común:** habilitar `sshd`/abrir puertos en el **operador**. No sirve
 > de nada: nadie entra en el operador. Solo el objetivo necesita aceptar
@@ -544,7 +559,7 @@ Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # 113 comprobaciones locales
+./tests.sh                      # 119 comprobaciones locales
 ./tests.sh USUARIO@192.168.1.20 # + tests de hallazgos contra un host real
 ```
 
