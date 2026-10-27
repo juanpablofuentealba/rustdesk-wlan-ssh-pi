@@ -186,7 +186,27 @@ sudo ./setup-remote-target.sh --rustdesk
 paru -S rustdesk-unattended-wayland
 ```
 
-Verificar los requisitos:
+### Requisitos del PC objetivo
+
+**Lo instala el kit solo** (no tenés que hacer nada):
+
+| Dependencia | Para qué | Cómo la resuelve |
+|---|---|---|
+| `curl` | descargar paquetes | viene en toda distro de escritorio |
+| `ar` + `tar` | extraer el `.deb` con DRM | vienen en `binutils`/`tar` |
+| `python3` + PyNaCl | generar el hash de la contraseña | el kit **instala PyNaCl** si falta |
+| `openssh-server` | acceso por SSH | `--ssh` lo instala |
+| `tailscale` | acceso fuera de la LAN | `--tailscale` lo instala |
+| **`paru`/`yay`** | AUR (opcional) | **el kit instala `paru` solo**: primero desde el repo (`cachyos`/`extra`), y si no está, compilando `paru-bin` desde AUR |
+| RustDesk con DRM | acceso desatendido | el kit baja el `.deb` oficial y lo verifica |
+
+> **Sobre paru:** en CachyOS y Arch **no hace falta instalarlo a mano**. `paru`
+> está en el repo binario (`cachyos` en CachyOS, `extra` en Arch), así que el kit
+> hace `pacman -S paru` directo — sin compilar. Solo si no estuviera en ningún
+> repo lo compilaría desde AUR. Y para RustDesk, **la vía del `.deb` con DRM ni
+> siquiera necesita paru**.
+
+**Lo tiene que cumplir el equipo** (el kit lo comprueba y avisa):
 
 ```fish
 # El servicio corre como root y necesita acceso a /dev/dri
@@ -196,6 +216,15 @@ id $USER                   # debe incluir el grupo 'video'
 # uinput para inyección de teclado/ratón
 ls -la /dev/uinput
 lsmod | grep uinput
+
+# sesión Wayland (para saber si aplica el capturador DRM)
+echo $XDG_SESSION_TYPE
+```
+
+Todo esto lo verifica de una sola pasada:
+
+```fish
+./setup-remote-target.sh --check
 ```
 
 Los **logs del server** confirman la ruta correcta (captura DRM ≠ portal):

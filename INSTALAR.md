@@ -136,9 +136,20 @@ Qué hace `--all`:
 | `--ssh` | Instala y habilita `sshd` + abre el firewall solo |
 | `--tailscale` | Instala Tailscale y une el equipo con la auth key |
 
-> **En Arch/CachyOS** puede que no haya `paru` ni `yay`: **no importa**, la vía
-> del `.deb` no los necesita. Si el `.deb` fallara, el kit instala `paru-bin`
-> solo y reintenta por AUR como último recurso.
+> **¿Hay que instalar `paru` a mano? NO.** El kit lo resuelve solo, en cascada:
+>
+> 1. **`pacman -S paru`** desde el repo binario (CachyOS lo tiene en `cachyos`,
+>    Arch en `extra`) — **sin compilar**, tarda segundos.
+> 2. Si no estuviera en ningún repo, compila `paru-bin` desde AUR (necesita
+>    `git` + `base-devel`, y tarda unos minutos).
+> 3. Y para instalar RustDesk, **la vía del `.deb` con DRM ni siquiera usa paru**.
+>
+> Es decir: en un CachyOS recién instalado, `paru` puede no existir y no pasa
+> nada. El kit lo pone.
+
+**Dependencias que el kit instala solo:** `curl`, `ar`+`tar` (vienen en el
+sistema), `python3`+PyNaCl, `openssh-server`, `tailscale`, `paru` y RustDesk con
+DRM. Comprobalo todo con `./setup-remote-target.sh --check`.
 
 Si igualmente preferís el AUR (y tenés paru/yay):
 

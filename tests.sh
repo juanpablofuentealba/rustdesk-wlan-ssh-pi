@@ -536,6 +536,24 @@ t "el helper remoto se limpia con trap" \
 t "README ya no presenta paru como ruta primaria en Arch" \
   bash -c 'grep -q "Ruta recomendada" README.md'
 
+sect "H-25 paru en el repo (no compilar desde AUR)"
+t "ensure_aur intenta el repo binario PRIMERO" \
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "pacman -S --needed --noconfirm paru"'
+t "ensure_aur cae al AUR solo si no está en el repo" \
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "paru-bin"'
+t "ensure_aur avisa que instaló sin compilar" \
+  bash -c 'grep -q "instalado desde el repositorio (sin compilar)" setup-remote-target.sh'
+t "README documenta los requisitos del objetivo" \
+  bash -c 'grep -q "Requisitos del PC objetivo" README.md'
+t "README dice que paru NO hace falta a mano" \
+  bash -c 'grep -q "no hace falta instalarlo a mano" README.md'
+t "INSTALAR.md explica la cascada de paru" \
+  bash -c 'grep -q "Hay que instalar .paru. a mano? NO" INSTALAR.md'
+t "PASOS-EN-ORDEN avisa que no hay que instalar nada a mano" \
+  bash -c 'grep -q "NO hace falta instalar nada a mano" PASOS-EN-ORDEN.txt'
+t "PASOS avisa que CachyOS virgen no tiene paru" \
+  bash -c 'grep -q "normal que no haya paru" PASOS-EN-ORDEN.txt'
+
 sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
 t "existe la vía .deb sin AUR" \
   bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'

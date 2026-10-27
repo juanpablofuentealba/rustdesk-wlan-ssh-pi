@@ -25,6 +25,11 @@
 
   [ ] Tu clave publica SSH: ya viene en  kit-rustdesk/operador.pub
 
+  NOTA: NO hace falta instalar nada a mano antes de empezar.
+        El kit instala solo: paru (desde el repo, sin compilar), PyNaCl,
+        openssh-server, tailscale y RustDesk con capturador DRM.
+        En CachyOS recien instalado es normal que no haya paru: el kit lo pone.
+
 ------------------------------------------------------------------------
   PASO 1 — INSTALAR EL SISTEMA OPERATIVO
 ------------------------------------------------------------------------

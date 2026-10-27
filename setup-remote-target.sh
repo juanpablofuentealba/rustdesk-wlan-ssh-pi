@@ -387,32 +387,45 @@ ensure_aur() {
   local aur; aur="$(detect_aur)"
   if [[ -n "$aur" ]]; then printf '%s' "$aur"; return 0; fi
 
-  info "No hay ayudante de AUR (paru/yay). Instalando paru-bin..."
+  info "No hay ayudante de AUR (paru/yay). Instalando paru..."
+
+  # --- vía 1: el repo BINARIO (rápida y sin compilar) ---
+  # CachyOS trae `paru` en su repo oficial; Arch lo tiene en extra. Intentarlo
+  # primero evita compilar paru-bin desde AUR (que exige git + base-devel y
+  # tarda varios minutos). Antes se iba directo al AUR: funcionaba, pero era
+  # innecesariamente lento y frágil en un CachyOS recién instalado (H-25).
   if [[ $DRY_RUN -eq 1 ]]; then
-    info "(dry-run) instalaría base-devel + paru-bin desde AUR"
+    info "(dry-run) pacman -S paru   (desde el repo binario)"
+    info "(dry-run) si no está en los repos, compilaría paru-bin desde AUR"
     printf '%s' "paru"; return 0
   fi
 
-  # Comprobar red ANTES: sin internet no hay AUR ni paquetes.
-  # (en simulacro no, porque no se va a descargar nada)
-  if [[ $DRY_RUN -eq 0 ]] && ! curl -fsS --max-time 8 https://aur.archlinux.org >/dev/null 2>&1; then
+  if pacman -S --needed --noconfirm paru >/dev/null 2>&1 \
+     && command -v paru >/dev/null 2>&1; then
+    ok "paru instalado desde el repositorio (sin compilar)"
+    printf '%s' "paru"; return 0
+  fi
+  info "no está como paquete binario; paso a compilarlo desde AUR"
+
+  # --- vía 2: compilar paru-bin desde AUR ---
+  # Comprobar red ANTES: sin internet no hay AUR.
+  if ! curl -fsS --max-time 8 https://aur.archlinux.org >/dev/null 2>&1; then
     warn "SIN CONEXIÓN a aur.archlinux.org"
     warn "  · ¿conectaste el WiFi/hotspot? Comprobá:  curl -sI https://aur.archlinux.org | head -1"
     warn "  · Si no hay red, el AUR no se puede usar. Conectate y reintentá."
     printf ''; return 0
   fi
 
-  # paru-bin SÍ necesita git para clonarse; base-devel solo si se compila.
+  # paru-bin necesita git para clonarse; base-devel solo si se compila.
   info "Instalando git + base-devel..."
   if ! pacman -S --needed --noconfirm git base-devel >/dev/null 2>&1; then
     warn "no pude instalar git/base-devel"
     warn "  Probá a mano:  sudo pacman -S --needed git base-devel"
   fi
 
-  # OJO: el directorio de compilación debe pertenecer al USUARIO, no a root.
-  # `mktemp -d` crea en /tmp con dueño root y modo 700: makepkg (que corre
-  # como usuario) no podría escribir ahí. Por eso usamos el HOME del usuario
-  # objetivo.
+  # El directorio de compilación debe pertenecer al USUARIO, no a root:
+  # `mktemp -d` crea en /tmp con dueño root y modo 700, y makepkg (que corre
+  # como usuario) no podría escribir ahí.
   local ubuild="$TARGET_HOME/.cache/paru-build"
   mkdir -p "$ubuild"
   chown "$TARGET_USER" "$ubuild" 2>/dev/null || true
@@ -426,12 +439,11 @@ ensure_aur() {
   fi
 
   info "Compilando e instalando paru-bin (puede tardar un poco)..."
-  # --noconfirm evita preguntas; makepkg usa sudo internamente para instalar.
   if sudo -u "$TARGET_USER" -H bash -c \
        "cd '$ubuild/paru-bin' && makepkg -si --noconfirm" >/dev/null 2>&1 \
      && command -v paru >/dev/null 2>&1; then
     rm -rf "$ubuild"
-    ok "paru instalado"
+    ok "paru instalado (compilado desde AUR)"
     printf '%s' "paru"; return 0
   fi
 
