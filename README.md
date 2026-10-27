@@ -38,6 +38,7 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`reboot-remoto.sh`](reboot-remoto.sh) | **Reinicio remoto unattended**: NOPASSWD acotado (solo reboot) + espera la vuelta · ver [H-27](docs/hallazgos.md) |
 | [`make-kit.sh`](make-kit.sh) | **Empaqueta el kit para ir a un cliente** (pendrive/tarball autocontenido + `MANIFEST.sha256`) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive: los pasos en orden, para leer de un tirón |
+| [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | **Prompt para agentes IA** (OpenCode/Claude/pi): reglas duras + flujo, para que no reinventen lo ya resuelto |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen (se copia a la raíz del pendrive) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
@@ -362,6 +363,13 @@ ssh remoto
 ---
 
 ## 5. Flujo de trabajo con el agente IA
+
+> **Si vas a usar un agente IA** (OpenCode, Claude, Cursor, `pi`) para instalar
+> o diagnosticar el kit, empezá pegándole [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt).
+> Trae las reglas duras (firewalld vs ufw, el `.deb` con DRM en Fedora, `bash -s`
+> para objetivos con fish, no reiniciar sin avisar) y le ordena leer
+> `docs/hallazgos.md` antes de actuar. Sin eso, el agente reinventa soluciones
+> peores que las ya verificadas.
 
 Una vez que `ssh remoto` funciona, el agente `pi` puede ejecutar comandos en el
 equipo remoto con su herramienta de shell:

@@ -1,0 +1,99 @@
+========================================================================
+  PROMPT PARA AGENTES IA (OpenCode, Claude, Cursor, pi, etc.)
+  Kit de acceso remoto: RustDesk unattended + SSH + Tailscale
+========================================================================
+
+  CÓMO USAR ESTE ARCHIVO
+  ----------------------
+  Pegá su contenido como PRIMER mensaje al agente, o decile:
+
+      "Leé PROMPT-AGENTE.txt y seguilo al pie de la letra."
+
+  El kit tiene 28 problemas ya resueltos y documentados (docs/hallazgos.md).
+  Un agente que NO los lee va a reinventar soluciones peores.
+
+  Repositorio: https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+
+========================================================================
+  INSTRUCCIONES PARA EL AGENTE  (copiá desde acá hacia abajo)
+========================================================================
+
+Estás instalando el kit de acceso remoto (RustDesk unattended + SSH +
+Tailscale) en un equipo objetivo. El repositorio es:
+
+    https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+
+--- PASO 0: LEER ANTES DE ACTUAR (obligatorio) ---
+
+Antes de ejecutar CUALQUIER comando, leé COMPLETO:
+
+    PASOS-EN-ORDEN.txt        <- los pasos, en orden
+    docs/hallazgos.md         <- H-01..H-28: problemas ya resueltos
+    kit-rustdesk/INSTALAR.md  <- runbook detallado (si está)
+
+NO improvises soluciones que puedan estar documentadas. Si algo falla,
+BUSCÁ primero en docs/hallazgos.md por el error exacto.
+
+--- REGLAS DURAS ---
+
+1. FIREWALL: Fedora/RHEL usan firewalld; Debian/Ubuntu/Arch usan ufw.
+   El kit lo detecta solo. NO instales ufw en Fedora ni al revés.
+
+2. RUSTDESK EN FEDORA: debe usar el paquete .deb con capturador DRM
+   (install-rustdesk-unattended-fedora.sh), NO el .rpm estándar, que NO
+   trae libdrmtap (ver H-14 y H-24). Verificá en el log:
+       drm: consumer cache warmed (N displays) at startup
+
+3. SHELL DEL OBJETIVO: puede ser fish. Mandá los comandos remotos por
+   `bash -s` por stdin, NUNCA pegando bash suelto (ver H-23). Ejemplo:
+       ssh USUARIO@IP bash -s <<'EOF'
+       ... comandos ...
+       EOF
+
+4. NO REINICIES el equipo sin avisar. Si hace falta la prueba de reinicio,
+   usá ./reboot-remoto.sh (ver H-27) y avisá antes.
+
+5. NUNCA copies comandos multilínea largos pegados por SSH: se parten y
+   rompen (ver H-27). Usá scp de un script + ejecutarlo, o git clone.
+
+6. LA CONTRASEÑA DE RUSTDESK la elige el operador (--rdpass). No viene de
+   ningún panel. La AUTH KEY de Tailscale sale del panel web del cliente:
+       https://login.tailscale.com/admin/settings/keys
+       admin -> Settings -> pestaña "Keys" -> Generate auth key
+   (ver H-26 en docs/hallazgos.md). Solo se muestra UNA VEZ.
+
+7. SUDO: en un equipo recién instalado, sudo pide contraseña y systemctl
+   reboot/logind exigen auth interactiva (polkit). No es un bug (H-27).
+
+8. Clave SSH del operador: ya viene en operador.pub. No hay que generarla.
+
+--- FLUJO RECOMENDADO ---
+
+    git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
+    cd ~/kit
+
+    # 1. Diagnóstico (no modifica nada)
+    ./setup-remote-target.sh --check
+
+    # 2. Simulación (no modifica nada) -- hacerla SIEMPRE la primera vez
+    ./instalar-todo.sh --dry-run --authkey 'tskey-auth-XXXX' --rdpass 'CLAVE'
+
+    # 3. Aplicar de verdad (si el dry-run se ve bien)
+    sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'CLAVE'
+
+    # 4. Verificar
+    ./tests.sh "$USER@localhost"
+
+--- CÓMO REPORTAR ---
+
+Después de CADA paso, reportá:
+  - qué comando corriste
+  - qué salió (resumen; el error EXACTO si falló)
+  - si algo falló: qué dice docs/hallazgos.md sobre ese error
+
+Si un paso falla y no está en hallazgos.md, PARÁ y reportá: puede ser un
+problema nuevo que hay que documentar.
+
+========================================================================
+  FIN DE LAS INSTRUCCIONES
+========================================================================

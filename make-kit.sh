@@ -73,7 +73,7 @@ chmod +x "$DEST"/*.sh
 
 # --- runbook: INSTALAR.md (detalle) + PASOS-EN-ORDEN.txt (checklist) ---
 # Fuente única de verdad: los del repo. Si no existen, se avisa.
-for doc in INSTALAR.md PASOS-EN-ORDEN.txt REPO.txt; do
+for doc in INSTALAR.md PASOS-EN-ORDEN.txt REPO.txt PROMPT-AGENTE.txt; do
   if [[ -f "$SCRIPT_DIR/$doc" ]]; then
     cp -a "$SCRIPT_DIR/$doc" "$DEST/$doc"
   else
@@ -94,6 +94,7 @@ if [[ -f "$SCRIPT_DIR/LEEME-PRIMERO.txt" ]]; then
       cp -a "$SCRIPT_DIR/LEEME-PRIMERO.txt" "$KIT_PARENT/LEEME-PRIMERO.txt" 2>/dev/null || true
       cp -a "$SCRIPT_DIR/PASOS-EN-ORDEN.txt" "$KIT_PARENT/PASOS-EN-ORDEN.txt" 2>/dev/null || true
       cp -a "$SCRIPT_DIR/REPO.txt" "$KIT_PARENT/REPO.txt" 2>/dev/null || true
+      cp -a "$SCRIPT_DIR/PROMPT-AGENTE.txt" "$KIT_PARENT/PROMPT-AGENTE.txt" 2>/dev/null || true
       ;;
   esac
 fi

@@ -508,6 +508,29 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "Prompt para agentes IA (PROMPT-AGENTE.txt)"
+t "existe PROMPT-AGENTE.txt" bash -c 'test -f PROMPT-AGENTE.txt'
+t "ordena leer hallazgos ANTES de actuar" \
+  bash -c 'grep -q "LEER ANTES DE ACTUAR" PROMPT-AGENTE.txt'
+t "menciona firewalld vs ufw" \
+  bash -c 'grep -q "firewalld" PROMPT-AGENTE.txt'
+t "advierte del .deb con DRM en Fedora" \
+  bash -c 'grep -q "libdrmtap" PROMPT-AGENTE.txt'
+t "advierte de fish (bash -s)" \
+  bash -c 'grep -q "bash -s" PROMPT-AGENTE.txt'
+t "dice de dónde sale la auth key (H-26)" \
+  bash -c 'grep -q "settings/keys" PROMPT-AGENTE.txt'
+t "avisa que no reinicie sin permiso" \
+  bash -c 'grep -q "NO REINICIES" PROMPT-AGENTE.txt'
+t "make-kit incluye PROMPT-AGENTE.txt" \
+  bash -c 'grep -q "PROMPT-AGENTE.txt" make-kit.sh'
+t "el kit generado trae PROMPT-AGENTE.txt" \
+  bash -c 'd="$(mktemp -d)"; ./make-kit.sh --dest "$d/kit" >/dev/null 2>&1; test -f "$d/kit/PROMPT-AGENTE.txt"; r=$?; rm -rf "$d"; exit $r'
+t "LEEME-PRIMERO lista el prompt" \
+  bash -c 'grep -q "PROMPT-AGENTE.txt" LEEME-PRIMERO.txt'
+t "README enlaza el prompt" \
+  bash -c 'grep -q "PROMPT-AGENTE.txt" README.md'
+
 sect "Las pruebas nuevas están en TODOS los documentos"
 t "INSTALAR.md documenta la prueba de reinicio" \
   bash -c 'grep -q "reboot-remoto.sh" INSTALAR.md'

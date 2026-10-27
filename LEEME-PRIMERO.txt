@@ -13,6 +13,9 @@
   2) kit-rustdesk/           <- El kit (scripts + runbook detallado)
   3) ISOs arrancables        <- Para instalar el sistema operativo
   4) REPO.txt                <- Ruta del repositorio (documentacion y versiones)
+  5) PROMPT-AGENTE.txt       <- Si usas un agente IA (OpenCode/Claude/pi):
+                                pegalo como primer mensaje. Trae las reglas
+                                duras y evita que reinvente lo ya resuelto.
 
   PRUEBAS DE VALIDACION (dentro del kit, se corren DESDE tu equipo operador):
      ./verify-offlan.sh <hostname>    acceso fuera de la LAN (7 OK = listo)
