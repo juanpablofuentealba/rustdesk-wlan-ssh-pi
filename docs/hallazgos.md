@@ -484,6 +484,73 @@ seguridad que no se pudo comprobar.
 
 ---
 
+## H-13 — El portapapeles SPICE funciona en una sola dirección en Wayland
+
+**Verificado:** ✅ (VM Fedora 44 KDE, host CachyOS, ambos Wayland)
+
+Con `spice-vdagent` 0.23.0 corriendo en el guest:
+
+| Dirección | Resultado |
+|---|---|
+| host → guest | ✅ funciona |
+| guest → host | ❌ no funciona |
+
+**Causa:** el `spice-vdagent` de Fedora 44 es una build **solo X11** (enlaza
+contra `libX11.so.6` y su `--help` dice *"Spice session guest agent: X11"*).
+En una sesión Wayland el agente escribe el portapapeles vía X11/Xwayland y el
+compositor (KWin) lo lee — por eso host→guest va. Pero no ve los cambios que
+KWin hace en el portapapeles Wayland, así que guest→host no se propaga.
+
+```
+$ spice-vdagent --help | head -3
+  spice-vdagent [OPTION…]
+
+        Spice session guest agent: X11
+```
+
+No es falta de paquete ni de configuración: es la arquitectura del agente.
+El guest ya tenía `spice-vdagent-0.23.0-2.fc44` instalado y `spice-vdagentd`
+activo. El canal SPICE del host también estaba bien
+(`spicevmc,id=charchannel1,name=vdagent`).
+
+**Solución adoptada:** puente por SSH con `wl-clipboard` (`clip-vm.sh`), que
+funciona en ambas direcciones. Alternativa: cambiar el guest a sesión **X11**
+en el login de SDDM, con lo que vdagent sí propaga en ambas direcciones.
+
+### Trampas encontradas al implementar el puente
+
+**1. `wl-copy --paste-once` corrompe el portapapeles.** Verificado en
+`wl-clipboard 2.3.0` (CachyOS):
+
+```
+$ printf 'X' | wl-copy              ; wl-paste   →  X     ✅
+$ printf 'X' | wl-copy --paste-once ; wl-paste   →  1     ❌
+```
+
+Deja el carácter `1` en vez del contenido. **No usar ese flag.**
+
+**2. `wl-copy` se queda residente.** Sirve el portapapeles desde un proceso en
+segundo plano. Lanzado en primer plano por SSH, el comando **no termina nunca**
+(el SSH espera a que cierre). Lanzado con `&` simple, no hereda el stdin.
+
+Solución: guardar el contenido en un archivo del guest y lanzarlo desacoplado:
+
+```bash
+nohup wl-copy < "$f" >/dev/null 2>&1 &
+disown 2>/dev/null || true
+```
+
+**3. Sin contraseña, siempre.** Usar `BatchMode=yes`: sin él, SSH cae a pedir
+contraseña y el texto `usuario@host's password:` acaba dentro del portapapeles,
+contaminando el resultado (fue exactamente lo que pasó en la primera prueba).
+
+**4. El portapapeles del guest puede tener contenido viejo.** Si nadie sostiene
+el portapapeles en el guest, `wl-paste` devuelve el último texto aunque no haya
+proceso vivo. Conviene verificar con `clip-vm.sh show` antes de concluir que
+"no funciona".
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -502,9 +569,10 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-10 `hostname` ausente (Fedora 44 base) | `tests.sh` (local): `local_hostname` + respaldo `/proc` |
 | H-11 última sesión no es la gráfica (Fedora 44 KDE) | `tests.sh` (local): `graphical_session_type` prefiere seat |
 | H-12 `sin-herramientas` (imagen mínima sin systemctl) | `tests.sh` (local): `detect_firewall` distingue de `none` |
+| H-13 portapapeles SPICE en una dirección (Wayland) | `tests.sh` (local): `clip-vm.sh` sin `--paste-once`, con `nohup+disown` |
 
 ```fish
-./tests.sh                      # 97 comprobaciones (local)
+./tests.sh                      # 108 comprobaciones (local)
 ./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```

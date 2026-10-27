@@ -41,13 +41,13 @@ sect() { printf '\n%s== %s ==%s\n' "$BD" "$1" "$N"; }
 HOST="${1:-}"
 
 sect "Sintaxis (bash -n)"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh; do
+for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh; do
   t "bash -n $f" bash -n "$f"
 done
 t "Makefile parseable" make -n help
 
 sect "Permisos de ejecución"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh; do
+for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh; do
   t "$f es ejecutable" test -x "$f"
 done
 
@@ -56,6 +56,9 @@ t "setup --help sale 0"        ./setup-remote-target.sh --help
 t "setup sin args muestra usage y falla" bash -c './setup-remote-target.sh >/dev/null 2>&1; test $? -ne 0'
 tj "setup opción inválida falla" ./setup-remote-target.sh --nope
 t "inventory --help sale 0"    ./inventory.sh --help
+t "clip-vm --help sale 0"      ./clip-vm.sh --help
+tj "clip-vm comando invalido falla" ./clip-vm.sh comandoquenoexiste
+t "clip-vm sin args muestra ayuda" bash -c './clip-vm.sh >/dev/null 2>&1'
 
 sect "Soporte multi-distro (arch | debian | fedora)"
 t "detecta familia arch"    bash -c 'bash -c "id=arch; idlike=; case \" \$id \$idlike \" in *\" arch \"*) echo arch;; esac" | grep -q arch'
@@ -206,6 +209,20 @@ if command -v tailscale >/dev/null 2>&1; then
 else
   sk "tailscale no instalado"
 fi
+
+sect "clip-vm.sh (puente de portapapeles por SSH)"
+t "clip-vm define VM_DEFAULT configurable (CLIP_VM)" \
+  bash -c 'grep -q "CLIP_VM:-\|CLIP_VM:-" clip-vm.sh'
+t "clip-vm usa BatchMode (no pide password)" \
+  bash -c 'grep -q "BatchMode=yes" clip-vm.sh'
+t "clip-vm NO usa --paste-once (rompia el portapapeles)" \
+  bash -c '! grep -vE "^\s*#" clip-vm.sh | grep -q "paste-once"'
+t "clip-vm desacopla wl-copy con nohup+disown" \
+  bash -c 'grep -q "nohup wl-copy" clip-vm.sh && grep -q "disown" clip-vm.sh'
+t "clip-vm documenta por que existe (vdagent Wayland)" \
+  bash -c 'grep -qi "spice-vdagent\|vdagent" clip-vm.sh'
+t "clip-vm soporta get|put|show" \
+  bash -c 'for c in get put show; do grep -q "$c)" clip-vm.sh || exit 1; done'
 
 sect "Hallazgo H-09 (MagicDNS / resolved-NM)"
 t "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'

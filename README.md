@@ -25,6 +25,7 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | **Explicación para principiantes**: qué hace cada pieza y paso a paso |
 | [`setup-remote-target.sh`](setup-remote-target.sh) | Prepara el PC objetivo (RustDesk + SSH + firewall + clave) · **Arch/Debian/Fedora** |
 | [`inventory.sh`](inventory.sh) | Inventario de specs (texto / JSON / Markdown) |
+| [`clip-vm.sh`](clip-vm.sh) | Puente de portapapeles host↔VM por SSH (`get` / `put` / `show`) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
 | [`Makefile`](Makefile) | Atajos: `check`, `inventory`, `ssh`, `target-setup`… |
@@ -512,6 +513,29 @@ duplicar claves en `authorized_keys`. Pide **confirmación** antes de aplicar
 ./inventory.sh --markdown remoto     # Markdown (para issues/README)
 ```
 
+### `clip-vm.sh` — portapapeles host↔VM por SSH
+
+Si administras una **VM** (o cualquier equipo con sesión Wayland) y el
+portapapeles de SPICE solo funciona en una dirección, este script lo puentea por
+SSH. Ver [H-13](docs/hallazgos.md) para la explicación técnica.
+
+```fish
+./clip-vm.sh get                       # portapapeles de la VM → host
+./clip-vm.sh put                       # portapapeles del host → VM
+./clip-vm.sh show                      # qué hay en el portapapeles de la VM
+
+./clip-vm.sh get jp@10.0.0.5           # otro destino
+CLIP_VM=jp@10.0.0.5 ./clip-vm.sh get   # o export CLIP_VM (config de fish)
+```
+
+Requiere `wl-clipboard` en host y guest, y clave SSH autorizada (`BatchMode`).
+Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
+
+> **Nota:** en Wayland el `spice-vdagent` de Fedora solo propaga **host→guest**
+> (es una build X11 y no ve los cambios del compositor Wayland). Para
+> copy-paste nativo en ambas direcciones, cambia el guest a sesión **X11** en el
+> login de SDDM. `clip-vm.sh` es la alternativa que funciona sin tocar el guest.
+
 ### `tests.sh` — pruebas antes de un cliente nuevo
 
 > **¿Vas a preparar el PC de un cliente?** Lee
@@ -519,8 +543,8 @@ duplicar claves en `authorized_keys`. Pide **confirmación** antes de aplicar
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # 45 comprobaciones locales
-./tests.sh USUARIO@192.168.1.20 # 57 con un host real (+ tests de hallazgos)
+./tests.sh                      # 108 comprobaciones locales
+./tests.sh USUARIO@192.168.1.20 # + tests de hallazgos contra un host real
 ```
 
 Cubre: sintaxis, permisos, modos de salida (texto/JSON/Markdown), validez del
