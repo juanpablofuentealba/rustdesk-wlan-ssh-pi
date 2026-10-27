@@ -109,22 +109,10 @@ if [[ $WITH_KEY -eq 1 ]]; then
   fi
 fi
 
-# --- manifiesto de integridad ---
-(
-  set +e   # el último [[ -f ]] puede devolver 1 y matar el subshell con set -e
-  cd "$DEST"
-  shopt -s nullglob
-  for f in *.sh *.md *.txt operador.pub .kit-version; do
-    [[ -f "$f" ]] && sha256sum "$f"
-  done > MANIFEST.sha256
-  exit 0
-)
-nfiles="$(wc -l < "$DEST/MANIFEST.sha256" | tr -d ' ')"
-ok "MANIFEST.sha256 generado (${nfiles} archivos)"
-
 # --- versión del kit (#6 del reporte) ---
 # Sirve para depurar desde fuera: "¿qué versión del kit corrió ese cliente?".
 # Se toma del tag/commit de git; si no hay repo, de la fecha.
+# OJO: se genera ANTES del manifiesto, para que .kit-version quede cubierto.
 KIT_VER="$(git -C "$SCRIPT_DIR" describe --tags --always --dirty 2>/dev/null || date +%Y%m%d-%H%M)"
 KIT_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 {
@@ -133,6 +121,19 @@ KIT_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "repo=https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi"
 } > "$DEST/.kit-version"
 ok "Versión del kit: $KIT_VER"
+
+# --- manifiesto de integridad ---
+# Va AL FINAL y con find: así cubre también los archivos ocultos
+# (.rd-setpass-root.sh no matchea *.sh) y el propio .kit-version.
+(
+  set +e
+  cd "$DEST"
+  find . -maxdepth 1 -type f ! -name 'MANIFEST.sha256' -printf '%f\n' \
+    | sort | while IFS= read -r f; do sha256sum "$f"; done > MANIFEST.sha256
+  exit 0
+)
+nfiles="$(wc -l < "$DEST/MANIFEST.sha256" | tr -d ' ')"
+ok "MANIFEST.sha256 generado (${nfiles} archivos)"
 
 if [[ $TARBALL -eq 1 ]]; then
   tar -czf "$SCRIPT_DIR/kit-rustdesk.tar.gz" -C "$(dirname "$DEST")" "$(basename "$DEST")"

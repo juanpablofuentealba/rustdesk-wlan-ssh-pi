@@ -14,6 +14,10 @@
   3) ISOs arrancables        <- Para instalar el sistema operativo
   4) REPO.txt                <- Ruta del repositorio (documentacion y versiones)
 
+  PRUEBAS DE VALIDACION (dentro del kit, se corren DESDE tu equipo operador):
+     ./verify-offlan.sh <hostname>    acceso fuera de la LAN (7 OK = listo)
+     ./reboot-remoto.sh --host ... --all   prueba de reinicio unattended
+
   REPOSITORIO:  https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
   (todo lo de este pendrive sale de ahi; ver REPO.txt para como usarlo)
 
@@ -63,6 +67,14 @@
 
   "Pide aceptacion en cada conexion"
      -> Falta la contrasena permanente de RustDesk (paso del --rdpass).
+
+  "No puedo reiniciar el equipo por SSH (pide contrasena)"
+     -> Normal: sudo pide clave y polkit exige auth interactiva (H-27).
+        Usa:  ./reboot-remoto.sh --host USUARIO@IP --enable   (una vez)
+
+  "verify-offlan dice directo pero es la misma red"
+     -> Si operador y objetivo tienen la MISMA IP publica, es la misma casa
+        y la prueba NO vale. Compara:  curl -s https://api.ipify.org
 
   Diagnostico completo en cualquier momento:
      cd ~/kit && ./setup-remote-target.sh --check

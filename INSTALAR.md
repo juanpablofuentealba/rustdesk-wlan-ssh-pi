@@ -208,7 +208,8 @@ Guardá este archivo **fuera del repo público** (contiene datos del cliente).
       Machines → su equipo → **Disable**
 - [ ] Dejarle la **contraseña de RustDesk** por escrito (es suya)
 - [ ] Confirmar que el equipo se conecta solo: reiniciarlo y ver que vuelve
-      online sin intervención (ver H-01 y H-02 en `docs/hallazgos.md`)
+      online sin intervención (ver H-01 y H-02 en `docs/hallazgos.md`).
+      El script `reboot-remoto.sh` hace la prueba completa (ver abajo).
 
 ---
 
@@ -228,7 +229,39 @@ ssh -o BatchMode=yes USUARIO@<hostname> 'hostname'
 ./verify-offlan.sh <hostname>
 ```
 
+> **OJO con el paso 4:** la prueba solo vale si operador y objetivo salen por
+> **IPs públicas distintas**. Si tienen la misma (misma casa), la ruta es la LAN
+> y no prueba nada. Comprobá: `curl -s https://api.ipify.org` en cada equipo.
+> El caso limpio: operador en el **hotspot 4G** y objetivo en la casa.
+
+### Prueba de reinicio (la definitiva de unattended)
+
+Deja una regla **NOPASSWD acotada** (solo `reboot`/`poweroff`, no todo sudo),
+reinicia y espera que el equipo vuelva **solo**:
+
+```bash
+# una vez: habilita la regla (pide la clave de sudo del cliente)
+./reboot-remoto.sh --host USUARIO@<hostname> --enable
+
+# luego: reinicia y verifica la vuelta
+./reboot-remoto.sh --host USUARIO@<hostname> --all
+```
+
+Debe volver con **`boot_id` NUEVO** (no una simple reconexión) y los cuatro
+servicios `active` + `enabled`: `rustdesk`, `sshd`, `tailscaled`, `ufw`.
+
+Rollback (dejar el equipo como estaba):
+
+```bash
+./reboot-remoto.sh --host USUARIO@<hostname> --disable
+```
+
+Detalle del bloqueo que resuelve (sudo + polkit): **H-27** en
+`docs/hallazgos.md`.
+
 Y por **RustDesk**: conectate al ID del equipo con la contraseña permanente.
+Si al conectar da `os error 104`, desactivá audio/portapapeles en la GUI
+(es el H-19, no un fallo del acceso).
 
 ---
 

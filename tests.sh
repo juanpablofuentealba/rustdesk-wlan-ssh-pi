@@ -222,6 +222,12 @@ t "el kit tiene setup-remote-target.sh" \
   test -x "$_kitdir/kit/setup-remote-target.sh"
 t "el manifiesto valida (sha256sum -c)" \
   bash -c "cd '$_kitdir/kit' && sha256sum -c MANIFEST.sha256 >/dev/null 2>&1"
+t "el manifiesto cubre TODOS los archivos del kit (incl. ocultos)" \
+  bash -c "cd '$_kitdir/kit' && comm -13 <(grep -oP '(?<=  ).*' MANIFEST.sha256 | sort) <(ls -1a | grep -vE '^\\.\$|^\\.\\.\$|^MANIFEST' | sort) | grep -q . && exit 1 || exit 0"
+t "el manifiesto incluye .kit-version" \
+  bash -c "grep -q '.kit-version' '$_kitdir/kit/MANIFEST.sha256'"
+t "el manifiesto incluye .rd-setpass-root.sh (oculto)" \
+  bash -c "grep -q '.rd-setpass-root.sh' '$_kitdir/kit/MANIFEST.sha256'"
 t "el kit extraído pasa su propio --check" \
   bash -c "'$_kitdir/kit/setup-remote-target.sh' --check 2>&1 | grep -q 'Diagnóstico completo'"
 rm -rf "$_kitdir"
@@ -501,6 +507,20 @@ t "recuerda la auth key antes de salir" \
   bash -c 'grep -q "tskey-auth" PASOS-EN-ORDEN.txt'
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
+
+sect "Las pruebas nuevas están en TODOS los documentos"
+t "INSTALAR.md documenta la prueba de reinicio" \
+  bash -c 'grep -q "reboot-remoto.sh" INSTALAR.md'
+t "INSTALAR.md advierte de la IP pública compartida" \
+  bash -c 'grep -q "IPs públicas distintas" INSTALAR.md'
+t "LEEME-PRIMERO.txt lista las pruebas de validación" \
+  bash -c 'grep -q "PRUEBAS DE VALIDACION" LEEME-PRIMERO.txt'
+t "LEEME-PRIMERO.txt menciona reboot-remoto" \
+  bash -c 'grep -q "reboot-remoto.sh" LEEME-PRIMERO.txt'
+t "onboarding-cliente cubre las dos pruebas" \
+  bash -c 'grep -q "reboot-remoto.sh" docs/onboarding-cliente.md'
+t "guia-desde-cero menciona las dos pruebas" \
+  bash -c 'grep -q "reboot-remoto.sh" docs/guia-desde-cero.md'
 
 sect "Servidor RustDesk verificado (DRM + contraseña)"
 t "estado-sesion registra el servidor listo para unattended" \

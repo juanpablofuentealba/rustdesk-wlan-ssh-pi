@@ -180,7 +180,12 @@ hostname; uname -r; ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+'
 ### Después (desde tu PC)
 
 - [ ] `ssh usuario@100.x.y.z` funciona
-- [ ] Documentado: cliente, IP Tailscale, qué se instaló
+- [ ] **Acceso fuera de la LAN** verificado: `./verify-offlan.sh <hostname>`
+      (7 OK · 0 fallos). Ojo: si operador y objetivo tienen la misma IP pública
+      es la misma casa y la prueba no vale.
+- [ ] **Reinicio unattended** verificado: `./reboot-remoto.sh --host ... --all`
+      → vuelve con `boot_id` nuevo y los 4 servicios `active` (ver H-27)
+- [ ] Documentado: cliente, IP Tailscale, qué se instaló (ficha: `inventory.sh`)
 - [ ] Informado al cliente: **cómo revocar tu acceso**
 
 ---

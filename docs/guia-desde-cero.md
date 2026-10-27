@@ -153,7 +153,18 @@ cd ~/rustdesk-wlan-ssh-pi
 ./tests.sh USUARIO@IP
 ```
 
-`30 OK · 0 fallos` = todo bien.
+Todo en verde (`0 fallos`) = todo bien.
+
+Si vas a dejar el equipo **para acceso remoto de verdad** (fuera de tu casa),
+corré además las dos pruebas que valen:
+
+```fish
+# ¿Se alcanza desde otra red? (7 OK = sí)
+./verify-offlan.sh USUARIO@IP
+
+# ¿Vuelve solo tras un reinicio? (boot_id nuevo = sí)
+./reboot-remoto.sh --host USUARIO@IP --all
+```
 
 ### PASO 6 — Pedírselo a `pi`
 
