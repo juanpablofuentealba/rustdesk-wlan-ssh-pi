@@ -364,6 +364,61 @@ correcto (`/proc/sys/kernel/hostname` siempre está presente en Linux).
 
 ---
 
+## H-11 — En Fedora 44 con KDE la "última sesión" no es la gráfica
+
+**Verificado:** ✅ (bug real encontrado en VM Fedora 44 KDE, `192.168.122.11`)
+
+El kit detectaba el tipo de sesión con:
+
+```bash
+loginctl show-session "$(loginctl list-sessions --no-legend | awk '{print $1}' | tail -1)" -p Type --value
+```
+
+En Fedora 44 con KDE, `loginctl list-sessions` deja **al final** sesiones de
+tipo `manager` / `background`, cuyo `Type` es `unspecified`:
+
+```
+$ loginctl list-sessions --no-legend
+  2 1000 jp seat0 1429 user       tty2 no -
+ 21 1000 jp -     9012 user       -    no -
+  3 1000 jp -     1436 manager    -    no -
+c15 1000 jp -     5806 background -    no -
+```
+
+Con `tail -1` se elegía `c15` → `Type=unspecified`, y el diagnóstico decía:
+
+```
+● Tipo de sesión detectada: unspecified      ← incorrecto
+```
+
+cuando la sesión gráfica real es la `2` (`seat0`, `Type=wayland`, `kwin_wayland`).
+En CachyOS no se veía porque la sesión gráfica quedaba última.
+
+**Solución:** elegir por `seat`, no por posición:
+
+```bash
+graphical_session_type() {
+  local id t
+  while read -r id; do
+    [[ -z "$id" ]] && continue
+    t="$(loginctl show-session "$id" -p Type --value 2>/dev/null || true)"
+    case "$t" in wayland|x11) printf '%s' "$t"; return 0 ;; esac
+  done < <(loginctl list-sessions --no-legend 2>/dev/null \
+             | awk '$4 != "-" {print $1}')   # $4 = seat; '-' = sin seat
+  ...
+}
+```
+
+Tras el fix, en Fedora 44 KDE: `Tipo de sesión detectada: wayland` y se activa
+el aviso de DRM. Afecta a los **dos** sitios que consultaban la sesión
+(diagnóstico y aviso por familia en `--rustdesk`).
+
+**Nota:** importa porque de esta detección depende el aviso de que el `.rpm`
+oficial no trae el parche DRM de Arch y la captura desatendida puede caer al
+portal. Un `unspecified` silenciaba ese aviso justo en el caso de riesgo.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -380,9 +435,10 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-08 pipefail falsos negativos | `tests.sh` (local): `verify-docs` no usa `strings|grep -q` |
 | H-09 MagicDNS con aviso resolved-NM | `tests.sh <host>`: MagicDNS resuelve por nombre |
 | H-10 `hostname` ausente (Fedora 44 base) | `tests.sh` (local): `local_hostname` + respaldo `/proc` |
+| H-11 última sesión no es la gráfica (Fedora 44 KDE) | `tests.sh` (local): `graphical_session_type` prefiere seat |
 
 ```fish
-./tests.sh                      # 85 comprobaciones (local)
+./tests.sh                      # 89 comprobaciones (local)
 ./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```

@@ -292,6 +292,30 @@ local_hostname() {
   else uname -n; fi
 }
 
+# Tipo de sesión de la sesión GRÁFICA (wayland|x11|tty|...).
+# No sirve tomar la última de `loginctl list-sessions`: en Fedora 44 con KDE
+# las sesiones de tipo 'manager'/'background' (ej. 'c15') salen al final y su
+# Type es 'unspecified', ocultando el Wayland real de la sesión con seat.
+# Estrategia: preferir sesiones con seat asignado; si no hay, usar la Type
+# concreta más informativa que se encuentre.
+graphical_session_type() {
+  local id t
+  # 1) sesiones con seat (las gráficas de verdad), de la más antigua a la nueva
+  while read -r id; do
+    [[ -z "$id" ]] && continue
+    t="$(loginctl show-session "$id" -p Type --value 2>/dev/null || true)"
+    case "$t" in wayland|x11) printf '%s' "$t"; return 0 ;; esac
+  done < <(loginctl list-sessions --no-legend 2>/dev/null \
+             | awk '$4 != "-" {print $1}')
+  # 2) respaldo: cualquier sesión con Type concreto
+  while read -r id; do
+    [[ -z "$id" ]] && continue
+    t="$(loginctl show-session "$id" -p Type --value 2>/dev/null || true)"
+    case "$t" in wayland|x11|tty) printf '%s' "$t"; return 0 ;; esac
+  done < <(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}')
+  printf ''
+}
+
 # ---------- 1. diagnóstico ----------
 run_check() {
   hdr "Diagnóstico del sistema"
@@ -339,7 +363,7 @@ run_check() {
   lsmod 2>/dev/null | grep -q '^uinput' && ok "módulo uinput cargado" || warn "módulo uinput no cargado (se carga on-demand)"
   # sesión gráfica
   local sess_type
-  sess_type="$(loginctl show-session "$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | tail -1)" -p Type --value 2>/dev/null || true)"
+  sess_type="$(graphical_session_type)"
   info "Tipo de sesión detectada: ${sess_type:-desconocido}"
   [[ "$sess_type" == "wayland" ]] && ok "Wayland detectado (ruta DRM aplica)" || true
 
@@ -587,7 +611,7 @@ UDEV
   case "$DISTRO_FAMILY" in
     debian|fedora)
       local sess
-      sess="$(loginctl show-session "$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | tail -1)" -p Type --value 2>/dev/null || true)"
+      sess="$(graphical_session_type)"
       if [[ "$sess" == "wayland" ]]; then
         warn "Wayland detectado en $DISTRO_FAMILY: el paquete oficial NO incluye el parche DRM"
         warn "  de Arch. El acceso desatendido puede caer al portal (pide elegir pantalla)."

@@ -148,6 +148,16 @@ t "setup no llama hostname sin respaldo" \
   bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -qE "\$\(hostname\)"'
 t "inventory respalda hostname con /proc o uname -n" \
   bash -c 'grep -q "j HOSTNAME" inventory.sh && grep -q "/proc/sys/kernel/hostname" inventory.sh'
+# Fedora 44 con KDE: la ultima sesion de `loginctl list-sessions` es de tipo
+# 'background'/'manager' (Type=unspecified) y ocultaba el Wayland real.
+t "setup tiene graphical_session_type()" \
+  bash -c 'grep -q "^graphical_session_type()" setup-remote-target.sh'
+t "no elige sesion con tail -1 (bug Fedora 44 KDE)" \
+  bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -qE "list-sessions.*tail -1"'
+t "graphical_session_type prefiere sesiones con seat" \
+  bash -c 'awk "/^graphical_session_type\(\)/,/^}/" setup-remote-target.sh | grep -q "\$4 != \"-\""'
+t "ambos avisos usan graphical_session_type" \
+  bash -c '[[ $(grep -c "\$(graphical_session_type)" setup-remote-target.sh) -ge 2 ]]'
 
 sect "Hallazgo H-03 (login screen X11 vs Wayland)"
 if command -v pgrep >/dev/null 2>&1; then
