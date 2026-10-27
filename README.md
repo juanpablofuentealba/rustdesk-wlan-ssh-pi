@@ -515,6 +515,11 @@ sudo ./setup-remote-target.sh --all --key (cat ~/.ssh/id_ed25519.pub)
 # solo una parte
 sudo ./setup-remote-target.sh --ssh --key "ssh-ed25519 AAAA... operador@mipc"
 sudo ./setup-remote-target.sh --rustdesk
+
+# acceso fuera de la LAN (Tailscale, modelo B: cuenta del cliente)
+sudo ./setup-remote-target.sh --tailscale --authkey "tskey-auth-..."
+#                        ↑ la auth key la genera el CLIENTE en su panel
+#                          (Reusable: NO · Ephemeral: NO · Expiry: 1 día)
 ```
 
 Detecta el firewall (ufw/firewalld/nftables) y abre el puerto SSH solo. Evita

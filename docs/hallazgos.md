@@ -314,7 +314,8 @@ tailscale status | grep -A3 "Health check"    # sin aviso ✅
 ```
 
 **Conclusión:** el aviso es **real pero no bloqueante**: MagicDNS resolvía igual,
-pero conviene arreglarlo para que resolved gestione bien `search tailc15fd9.ts.net`.
+pero conviene arreglarlo para que resolved gestione bien
+`search <tailnet>.ts.net`.
 Tras el fix, el DNS normal (`getent hosts google.com`) y MagicDNS (`getent hosts
 <host>`) funcionan, y `ssh <nombre>` entra sin especificar IP.
 

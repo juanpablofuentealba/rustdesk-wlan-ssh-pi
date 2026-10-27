@@ -152,7 +152,7 @@ t "no hay claves en el árbol"  bash -c '! find . -name "id_*" -not -path "./.gi
 t "no hay .key/.pem"           bash -c '! find . \( -name "*.key" -o -name "*.pem" \) -not -path "./.git/*" | grep -q .'
 t "no hay tskey-auth real"     bash -c '! grep -rqE "tskey-auth-[A-Za-z0-9]{20}" --exclude-dir=.git .'
 # Excluye el propio tests.sh (contiene los patrones como literales de búsqueda)
-t "sin datos de infra real"    bash -c '! grep -rqE "jpfuentealba|100\.(68|97)\.|wikileaks|jp-rustdesk" --exclude-dir=.git --exclude=tests.sh .'
+t "sin datos de infra real"    bash -c '! grep -rqE "jpfuentealba|100\.(68|97|112)\.|wikileaks|jp-rustdesk|tailc15fd9" --exclude-dir=.git --exclude=tests.sh .'
 
 sect "Hallazgos H-07/H-08 (regresiones conocidas)"
 # H-07: hostname -I no existe en CachyOS → el kit debe usar 'ip route get'
@@ -261,6 +261,24 @@ t "H-15 rechaza password vacía" \
 
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
+
+sect "Tailscale integrado en setup-remote-target.sh"
+t "setup acepta --tailscale" \
+  bash -c './setup-remote-target.sh --tailscale --dry-run --yes 2>&1 | grep -q "Tailscale"'
+t "setup acepta --authkey" \
+  bash -c 'grep -q "\-\-authkey" setup-remote-target.sh'
+t "setup valida el prefijo tskey-" \
+  bash -c 'grep -q "tskey-" setup-remote-target.sh'
+t "setup hace enable de tailscaled" \
+  bash -c 'grep -q "enable --now tailscaled" setup-remote-target.sh'
+t "setup --check diagnostica Tailscale" \
+  bash -c 'grep -q "Tailscale (acceso fuera de la LAN)" setup-remote-target.sh'
+t "setup --all incluye tailscale" \
+  bash -c 'grep -q "DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1" setup-remote-target.sh'
+t "setup detecta tailscale ya unido (idempotente)" \
+  bash -c 'grep -q "Ya está en la tailnet" setup-remote-target.sh'
+t "setup usa --accept-dns=false (no romper DNS local)" \
+  bash -c 'grep -q "accept-dns=false" setup-remote-target.sh'
 
 sect "H-19 os error 104 (audio/portapapeles en bucle)"
 t "H-19 documentado" bash -c 'grep -q "H-19" docs/hallazgos.md'

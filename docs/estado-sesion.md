@@ -288,6 +288,54 @@ qué se necesita realmente.
 
 ---
 
+### Punto 2 resuelto: Tailscale (modelo B) en la VM
+
+Tailscale unido a la tailnet y verificado. **Instalado desde los repos oficiales
+de Fedora** (`tailscale 1.98.8-1.fc44`), sin repos externos.
+
+| Dato | Valor |
+|---|---|
+| IP Tailscale del guest | `100.x.y.z` |
+| Hostname en la tailnet | `<hostname>` |
+| MagicDNS | `fedora.<tailnet>.ts.net` |
+| Operador (esta máquina) | `100.a.b.c` (`<operador>`) |
+
+Evidencia:
+
+```
+$ tailscale ping -c 3 100.x.y.z
+pong from fedora (100.x.y.z) via 192.168.122.11:41641 in 1ms
+
+$ ssh -o BatchMode=yes jp@100.x.y.z 'hostname'
+fedora
+
+$ getent hosts fedora
+100.x.y.z   fedora.<tailnet>.ts.net
+```
+
+Configuración aplicada (`tailscale up --auth-key=... --accept-dns=false`):
+
+```json
+{ "WantRunning": true, "RouteAll": false, "CorpDNS": false }
+```
+
+- `RouteAll: false` → **no** enruta todo el tráfico (no es una VPN completa).
+- `CorpDNS: false` → respeta el DNS local; MagicDNS igual resuelve nombres.
+- `tailscaled` queda `enabled` (sobrevive el reinicio, ver H-01).
+
+**Ojo con el alcance de la prueba:** el `tailscale ping` reportó
+`via 192.168.122.11`, es decir, ahora mismo va por la **ruta LAN** (operador y VM
+están en la misma máquina física). Que la IP `100.x` funcione está verificado;
+la ruta **fuera de la LAN** requiere probar desde otra red.
+
+El flag `--tailscale` se **integró al kit** durante esta sesión (antes no existía):
+
+```fish
+sudo ./setup-remote-target.sh --tailscale --authkey "tskey-auth-..."
+```
+
+---
+
 ## Pendiente / ideas para retomar
 
 Ninguna de estas está empezada; son opciones, no deuda técnica:
@@ -297,7 +345,9 @@ Ninguna de estas está empezada; son opciones, no deuda técnica:
    `install-rustdesk-unattended-fedora.sh`, `rustdesk-password.sh`.
 2. **`clip-vm.sh` sin gestor de portapapeles** — probar en un guest sin Klipper
    (p. ej. Fedora KDE mínimo) y endurecer el script si se cuelga.
-3. **Tailscale en la VM** — extender el kit al acceso fuera de la LAN.
+3. ~~**Tailscale en la VM**~~ — **RESUELTO** (IP `100.x.y.z`). El kit ya
+   trae `--tailscale`/`--authkey` y lo diagnostica en `--check`. Falta probar
+   la ruta **fuera de la LAN** desde otra red.
 4. **`inventory.sh` en QEMU** — mapear el chasis virtual a `vm`.
    **Actualizado:** en Fedora 44 `hostnamectl` **sí** reporta `Chassis: vm`;
    conviene usar eso como respaldo cuando `/sys/class/dmi/id/chassis_type`

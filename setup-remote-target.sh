@@ -44,9 +44,11 @@ hdr()  { printf '\n%s%s== %s ==%s\n' "$BD" "$B" "$*" "$N"; }
 # ---------- estado ----------
 DO_RUSTDESK=0
 DO_SSH=0
+DO_TAILSCALE=0
 DO_CHECK=0
 SSH_PORT=22
 KEY=""
+TS_AUTHKEY=""
 DRY_RUN=0
 ASSUME_YES=0
 
@@ -57,10 +59,12 @@ usage() {
 Opciones:
   --rustdesk            Instala/configura RustDesk con unattended en Wayland
   --ssh                 Instala y habilita sshd + abre el firewall
+  --tailscale           Instala Tailscale y une el equipo (acceso fuera de LAN)
+  --authkey "<key>"     Auth key de Tailscale (tskey-auth-...) para --tailscale
   --key "<pubkey>"      Clave pública del operador a autorizar
   --port <n>            Puerto SSH (por defecto 22)
   --check               Solo diagnóstico (no cambia nada; no requiere root)
-  --all                 Equivale a --rustdesk --ssh
+  --all                 Equivale a --rustdesk --ssh --tailscale
   --dry-run             Muestra qué haría SIN aplicar cambios (seguro)
   --yes, -y             No preguntar confirmación antes de aplicar
   -h, --help            Muestra esta ayuda
@@ -78,12 +82,14 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --rustdesk) DO_RUSTDESK=1; shift ;;
-    --ssh)      DO_SSH=1; shift ;;
-    --key)      KEY="${2:-}"; shift 2 ;;
-    --port)     SSH_PORT="${2:-22}"; shift 2 ;;
-    --check)    DO_CHECK=1; shift ;;
-    --all)      DO_RUSTDESK=1; DO_SSH=1; shift ;;
+    --rustdesk)  DO_RUSTDESK=1; shift ;;
+    --ssh)       DO_SSH=1; shift ;;
+    --tailscale) DO_TAILSCALE=1; shift ;;
+    --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
+    --key)       KEY="${2:-}"; shift 2 ;;
+    --port)      SSH_PORT="${2:-22}"; shift 2 ;;
+    --check)     DO_CHECK=1; shift ;;
+    --all)       DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1; shift ;;
     --dry-run)  DRY_RUN=1; shift ;;
     --yes|-y)   ASSUME_YES=1; shift ;;
     -h|--help)  usage; exit 0 ;;
@@ -91,7 +97,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ $DO_RUSTDESK -eq 0 && $DO_SSH -eq 0 && $DO_CHECK -eq 0 ]]; then
+if [[ $DO_RUSTDESK -eq 0 && $DO_SSH -eq 0 && $DO_TAILSCALE -eq 0 && $DO_CHECK -eq 0 ]]; then
   usage; exit 1
 fi
 
@@ -455,6 +461,25 @@ run_check() {
   ip -br addr show 2>/dev/null | grep -vE '^lo' | sed 's/^/    /'
   info "IP local: $(local_ip)"
 
+  hdr "Tailscale (acceso fuera de la LAN)"
+  if command -v tailscale >/dev/null 2>&1; then
+    local tsip; tsip="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+    if [[ -n "$tsip" ]]; then
+      ok "En la tailnet: $tsip"
+      if systemctl is-active --quiet tailscaled 2>/dev/null; then
+        ok "tailscaled activo"
+      else
+        warn "tailscaled inactivo"
+      fi
+    else
+      warn "tailscale instalado pero NO unido a la tailnet"
+      info "Unir con: sudo $0 --tailscale --authkey \"tskey-auth-...\""
+    fi
+  else
+    info "Tailscale no instalado (solo acceso por LAN)"
+    info "Para acceso fuera de la LAN: sudo $0 --tailscale --authkey \"tskey-auth-...\""
+  fi
+
   hdr "Resumen"
   ok "Diagnóstico completo. Nada fue modificado."
   echo
@@ -802,6 +827,81 @@ setup_ssh() {
   info "  ssh -o BatchMode=yes ${TARGET_USER}@${ip} 'hostname'"
 }
 
+# ---------- 4. Tailscale ----------
+# Acceso fuera de la LAN sin abrir puertos. Modelo B (cuenta del cliente):
+# el cliente genera la auth key y la comparte; el equipo queda en SU tailnet,
+# así el cliente conserva el control y puede revocar cuando quiera.
+setup_tailscale() {
+  hdr "Tailscale (acceso fuera de la LAN)"
+
+  if command -v tailscale >/dev/null 2>&1; then
+    ok "tailscale ya instalado ($(tailscale version 2>/dev/null | head -1))"
+  else
+    info "Instalando Tailscale..."
+    case "$DISTRO_FAMILY" in
+      arch)   pkg_install tailscale ;;
+      debian) pkg_install tailscale ;;
+      fedora) pkg_install tailscale ;;
+      *)      pkg_install tailscale || return 1 ;;
+    esac
+    command -v tailscale >/dev/null 2>&1 && ok "Instalado" || { err "No se pudo instalar"; return 1; }
+  fi
+
+  run systemctl enable --now tailscaled >/dev/null 2>&1 || true
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) habilitaría tailscaled"
+  elif systemctl is-active --quiet tailscaled 2>/dev/null; then
+    ok "tailscaled activo"
+  else
+    warn "tailscaled no reporta activo; revisa: systemctl status tailscaled"
+  fi
+
+  # ¿Ya está unido?
+  local ip4=""
+  ip4="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+  if [[ -n "$ip4" ]]; then
+    ok "Ya está en la tailnet: $ip4"
+    info "Para forzar re-autenticación: sudo tailscale up --auth-key=... --force-reauth"
+    return 0
+  fi
+
+  if [[ -z "$TS_AUTHKEY" ]]; then
+    warn "Sin --authkey: el equipo NO se unirá a la tailnet"
+    info "Genera una auth key en el panel del cliente:"
+    info "  https://console.tailscale.com/admin/settings/keys"
+    info "  (Reusable: NO para un equipo · Ephemeral: NO · Expiry: 1 día)"
+    info "Luego: sudo $0 --tailscale --authkey \"tskey-auth-...\""
+    return 0
+  fi
+
+  case "$TS_AUTHKEY" in
+    tskey-*) : ;;
+    *) err "La auth key debe empezar con 'tskey-'. Recibido: ${TS_AUTHKEY:0:8}..."; return 1 ;;
+  esac
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) ejecutaría: tailscale up --auth-key=tskey-auth-*** --hostname=${TARGET_HOSTNAME:-$HOSTNAME}"
+    ok "(dry-run) el equipo se uniría a la tailnet"
+    return 0
+  fi
+
+  info "Uniendo el equipo a la tailnet..."
+  if tailscale up --auth-key="$TS_AUTHKEY" --hostname="$(hostname 2>/dev/null || echo cliente)" --accept-dns=false >/dev/null 2>&1; then
+    ok "Equipo unido"
+  else
+    warn "tailscale up no confirmó éxito (puede requerir autorización en el panel)"
+  fi
+
+  sleep 2
+  ip4="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+  if [[ -n "$ip4" ]]; then
+    ok "IP Tailscale: $ip4"
+    info "Prueba desde el operador: ssh ${TARGET_USER}@${ip4}"
+  else
+    warn "Aún sin IP Tailscale. Revisa: sudo tailscale status"
+  fi
+}
+
 # ---------- main ----------
 if [[ $DO_CHECK -eq 1 ]]; then
   run_check
@@ -812,6 +912,7 @@ fi
 hdr "Acciones a realizar"
 [[ $DO_RUSTDESK -eq 1 ]] && info "· RustDesk unattended (DRM + uinput)"
 [[ $DO_SSH -eq 1 ]] && info "· sshd habilitado + firewall :${SSH_PORT}"
+[[ $DO_TAILSCALE -eq 1 ]] && info "· Tailscale (acceso fuera de la LAN)"
 if [[ -n "$KEY" ]]; then info "· Autorizar la clave del operador"; else
   [[ $DO_SSH -eq 1 ]] && warn "· Sin --key: el operador no podrá entrar sin contraseña"; fi
 info "· Usuario objetivo: ${TARGET_USER} (HOME: ${TARGET_HOME})"
@@ -824,6 +925,7 @@ confirm
 if [[ $DRY_RUN -eq 0 ]]; then need_root; fi
 if [[ $DO_RUSTDESK -eq 1 ]]; then setup_rustdesk; fi
 if [[ $DO_SSH -eq 1 ]]; then setup_ssh; fi
+if [[ $DO_TAILSCALE -eq 1 ]]; then setup_tailscale; fi
 
 if [[ $DRY_RUN -eq 1 ]]; then
   hdr "Fin del simulacro"
