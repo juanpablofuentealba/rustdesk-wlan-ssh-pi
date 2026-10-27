@@ -13,6 +13,8 @@
 #   rustdesk-password.sh   ← fija la contraseña permanente de RustDesk
 #   install-rustdesk-unattended-fedora.sh  (Fedora/RHEL)
 #   .rd-setpass-root.sh    ← auxiliar de rustdesk-password.sh
+#   verify-offlan.sh       ← prueba el acceso desde fuera de la LAN
+#   make-kit.sh            ← para regenerar el kit desde el propio pendrive
 #   tests.sh               ← verificación
 #   MANIFEST.sha256        ← integridad del paquete
 #
@@ -50,6 +52,8 @@ FILES=(
   rustdesk-password.sh
   install-rustdesk-unattended-fedora.sh
   .rd-setpass-root.sh
+  verify-offlan.sh
+  make-kit.sh
   tests.sh
 )
 
@@ -64,88 +68,14 @@ done
 chmod +x "$DEST"/*.sh
 
 # --- runbook INSTALAR.md ---
-cat > "$DEST/INSTALAR.md" <<'RUNBOOK'
-# Preparar el PC de un cliente (presencial)
+# Fuente única de verdad: INSTALAR.md del repo. Si no existe, se avisa.
+if [[ -f "$SCRIPT_DIR/INSTALAR.md" ]]; then
+  cp -a "$SCRIPT_DIR/INSTALAR.md" "$DEST/INSTALAR.md"
+else
+  echo "error: falta INSTALAR.md en el repo (es el runbook del kit)" >&2
+  exit 1
+fi
 
-> Este paquete tiene todo lo necesario. No necesitás internet para traer el kit;
-> sí lo vas a necesitar para que se descarguen los paquetes del sistema.
-
-## Antes de salir (en tu PC)
-
-- [ ] Copiar este kit a un pendrive
-- [ ] Tener a mano tu **clave pública SSH** (`cat ~/.ssh/id_ed25519.pub`)
-- [ ] Pedirle al cliente una **auth key de Tailscale** (modelo B):
-      `https://console.tailscale.com/admin/settings/keys`
-      → Reusable: **NO** · Ephemeral: **NO** · Expiry: **1 día**
-- [ ] Definir la **contraseña permanente de RustDesk** para ese equipo
-
-## En casa del cliente
-
-### 0. Copiar el kit al PC
-
-```bash
-# desde el pendrive (ajustá el punto de montaje)
-cp -r /run/media/$USER/PENDRIVE/kit-rustdesk ~/kit
-cd ~/kit
-```
-
-### 1. Diagnóstico (no cambia nada)
-
-```bash
-./setup-remote-target.sh --check
-```
-
-Anotá: familia de distro, si hay firewall, si el RustDesk ya está instalado y el
-tipo de sesión (Wayland/X11).
-
-### 2. Inventario de specs (para la ficha del cliente)
-
-```bash
-./inventory.sh | tee fichas/<cliente>-$(date +%F).txt
-```
-
-### 3. RustDesk con contraseña permanente
-
-```bash
-# 3a. fijar la contraseña permanente (imprescindible para desatendido)
-SUDO_PASS='<clave-sudo>' ./rustdesk-password.sh install "$USER@localhost" '<password>'
-#     (con el equipo delante, el "install" remoto también sirve a localhost)
-
-# 3b. en Fedora/RHEL, instalar el paquete con capturador DRM
-sudo ./install-rustdesk-unattended-fedora.sh
-#     en Arch/CachyOS: paru -S rustdesk-unattended-wayland
-#     en Debian/Mint:  el .deb oficial (lo hace setup-remote-target.sh --rustdesk)
-```
-
-### 4. SSH + firewall + tu clave + Tailscale
-
-```bash
-sudo ./setup-remote-target.sh --all \
-  --key "$(cat ~/.ssh/id_ed25519.pub)" \
-  --authkey 'tskey-auth-XXXX'
-```
-
-### 5. Verificar
-
-```bash
-./tests.sh "$USER@localhost"          # suite de humo
-sudo tail -20 /var/lib/plasmalogin/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log
-#     debe aparecer: drm: consumer cache warmed (N displays) at startup
-```
-
-### 6. Entregar al cliente
-
-- [ ] Mostrarle que el equipo aparece en SU panel de Tailscale
-- [ ] Explicarle que puede revocarlo cuando quiera (Machines → Disable)
-- [ ] Dejarle la contraseña permanente de RustDesk en un papel/gestor suyo
-- [ ] Completa la ficha con el checklist de `docs/onboarding-cliente.md`
-
-## Verificar la integridad del paquete
-
-```bash
-sha256sum -c MANIFEST.sha256
-```
-RUNBOOK
 
 # --- clave pública del operador (opcional) ---
 if [[ $WITH_KEY -eq 1 ]]; then

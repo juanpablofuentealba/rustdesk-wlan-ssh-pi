@@ -22,13 +22,28 @@ done
 if [[ -t 1 ]]; then G=$'\e[32m'; R=$'\e[31m'; Y=$'\e[33m'; N=$'\e[0m'; BD=$'\e[1m';
 else G=''; R=''; Y=''; N=''; BD=''; fi
 
+# Detecta si un test depende de archivos que solo existen en el repo completo
+# (docs/, README.md, Makefile, .gitignore). Fuera del repo (kit copiado) esos
+# tests se OMITEN: el kit no está roto, simplemente no trae la documentación.
+needs_repo() {
+  [[ $IN_REPO -eq 1 ]] && return 1
+  local joined="$*"
+  [[ "$joined" == *docs/* || "$joined" == *README.md* || "$joined" == *Makefile* \
+     || "$joined" == *.gitignore* || "$joined" == *estado-sesion* \
+     || "$joined" == *hallazgos* || "$joined" == *clip-vm* \
+     || "$joined" == *verify-docs* ]] && return 0
+  return 1
+}
+
 t() {  # t "descripcion" comando...
   local desc="$1"; shift
+  if needs_repo "$@" "$desc"; then sk "$desc (requiere el repo)"; return; fi
   if "$@" >/dev/null 2>&1; then printf '%s✔%s %s\n' "$G" "$N" "$desc"; PASS=$((PASS+1));
   else printf '%s✘%s %s\n' "$R" "$N" "$desc"; FAIL=$((FAIL+1)); fi
 }
 tj() { # tj "descripcion" comando...  (espera exit != 0)
   local desc="$1"; shift
+  if needs_repo "$@" "$desc"; then sk "$desc (requiere el repo)"; return; fi
   if "$@" >/dev/null 2>&1; then printf '%s✘%s %s (debería fallar)' "$R" "$N" "$desc"; FAIL=$((FAIL+1));
   else printf '%s✔%s %s\n' "$G" "$N" "$desc"; PASS=$((PASS+1)); fi
 }
@@ -38,30 +53,52 @@ sk() { # sk "descripcion"  (omitido: no cuenta como fallo)
 }
 sect() { printf '\n%s== %s ==%s\n' "$BD" "$1" "$N"; }
 
+# --- ¿estamos en el repo completo o en un kit copiado? ---
+# El kit (make-kit.sh) copia los scripts pero NO docs/ ni README.md ni Makefile.
+# Las pruebas que verifican esos archivos se OMITEN fuera del repo, en vez de
+# fallar: el kit no está roto, simplemente no trae la documentación.
+IN_REPO=0
+[[ -d docs && -f README.md && -f Makefile ]] && IN_REPO=1
+
+# tdoc: como t(), pero se omite si no estamos en el repo (exige docs/README/Makefile)
+tdoc() {
+  local desc="$1"; shift
+  if [[ $IN_REPO -eq 1 ]]; then t "$desc" "$@"; else sk "$desc (requiere el repo)"; fi
+}
+tjdoc() {
+  local desc="$1"; shift
+  if [[ $IN_REPO -eq 1 ]]; then tj "$desc" "$@"; else sk "$desc (requiere el repo)"; fi
+}
+
 HOST="${1:-}"
 
 sect "Sintaxis (bash -n)"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh \
+for f in setup-remote-target.sh inventory.sh tests.sh clip-vm.sh \
          install-rustdesk-unattended-fedora.sh rustdesk-password.sh \
-         .rd-setpass-root.sh; do
+         .rd-setpass-root.sh verify-offlan.sh make-kit.sh; do
+  [[ -f "$f" ]] || continue
   t "bash -n $f" bash -n "$f"
 done
-t "Makefile parseable" make -n help
+tdoc "bash -n verify-docs.sh" bash -n verify-docs.sh
+tdoc "Makefile parseable" make -n help
 
 sect "Permisos de ejecución"
-for f in setup-remote-target.sh inventory.sh tests.sh verify-docs.sh clip-vm.sh \
-         install-rustdesk-unattended-fedora.sh rustdesk-password.sh; do
+for f in setup-remote-target.sh inventory.sh tests.sh clip-vm.sh \
+         install-rustdesk-unattended-fedora.sh rustdesk-password.sh \
+         verify-offlan.sh make-kit.sh; do
+  [[ -f "$f" ]] || continue
   t "$f es ejecutable" test -x "$f"
 done
+tdoc "verify-docs.sh es ejecutable" test -x verify-docs.sh
 
 sect "Ayuda / usage"
 t "setup --help sale 0"        ./setup-remote-target.sh --help
 t "setup sin args muestra usage y falla" bash -c './setup-remote-target.sh >/dev/null 2>&1; test $? -ne 0'
 tj "setup opción inválida falla" ./setup-remote-target.sh --nope
 t "inventory --help sale 0"    ./inventory.sh --help
-t "clip-vm --help sale 0"      ./clip-vm.sh --help
+tdoc "clip-vm --help sale 0"      ./clip-vm.sh --help
 tj "clip-vm comando invalido falla" ./clip-vm.sh comandoquenoexiste
-t "clip-vm sin args muestra ayuda" bash -c './clip-vm.sh >/dev/null 2>&1'
+tdoc "clip-vm sin args muestra ayuda" bash -c './clip-vm.sh >/dev/null 2>&1'
 
 sect "Soporte multi-distro (arch | debian | fedora)"
 t "detecta familia arch"    bash -c 'bash -c "id=arch; idlike=; case \" \$id \$idlike \" in *\" arch \"*) echo arch;; esac" | grep -q arch'
@@ -109,8 +146,8 @@ t "--check maneja sin-herramientas (no afirma seguro)" \
 t "--check dice no verificable sin loginctl" \
   bash -c 'grep -q "no verificable (falta loginctl)" setup-remote-target.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
-t "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
-t "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'
+tdoc "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
+tdoc "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'
 # dry-run de distro desconocida no debe romper
 
 sect "setup --dry-run (seguridad para clientes)"
@@ -159,8 +196,8 @@ sect "Kit de instalación (make-kit.sh / punto 3)"
 t "bash -n make-kit.sh"        bash -n make-kit.sh
 t "make-kit.sh es ejecutable"  test -x make-kit.sh
 t "make-kit --help sale 0"     ./make-kit.sh --help
-t "Makefile tiene target kit"  bash -c 'make -n kit >/dev/null 2>&1'
-t "Makefile tiene target kit-usb" bash -c 'grep -q "^kit-usb:" Makefile'
+tdoc "Makefile tiene target kit"  bash -c 'make -n kit >/dev/null 2>&1'
+tdoc "Makefile tiene target kit-usb" bash -c 'grep -q "^kit-usb:" Makefile'
 t "make-kit genera el runbook INSTALAR.md" \
   bash -c 'grep -q "INSTALAR.md" make-kit.sh'
 t "make-kit incluye el generador de contraseña" \
@@ -272,7 +309,7 @@ if command -v pgrep >/dev/null 2>&1; then
   if [[ -r /usr/share/rustdesk/lib/librustdesk.so ]] && command -v strings >/dev/null 2>&1; then
     so_strings="$(strings -a /usr/share/rustdesk/lib/librustdesk.so 2>/dev/null || true)"
     if grep -q "Wayland login screen is not supported" <<<"$so_strings"; then
-      t "docs/hallazgos.md refleja el aviso de Wayland" \
+      tdoc "docs/hallazgos.md refleja el aviso de Wayland" \
         bash -c 'grep -q "Wayland login screen is not supported" docs/hallazgos.md'
     else
       sk "el binario no incluye el aviso de Wayland login screen"
@@ -286,8 +323,8 @@ fi
 
 sect "Hallazgo H-05 (tailscale descrito en docs)"
 if command -v tailscale >/dev/null 2>&1; then
-  t "docs/tailscale.md menciona tailscale ping" bash -c 'grep -q "tailscale ping" docs/tailscale.md'
-  t "docs/tailscale.md menciona netcheck" bash -c 'grep -q "netcheck" docs/tailscale.md'
+  tdoc "docs/tailscale.md menciona tailscale ping" bash -c 'grep -q "tailscale ping" docs/tailscale.md'
+  tdoc "docs/tailscale.md menciona netcheck" bash -c 'grep -q "netcheck" docs/tailscale.md'
 else
   sk "tailscale no instalado"
 fi
@@ -360,7 +397,7 @@ t "setup usa --accept-dns=false (no romper DNS local)" \
   bash -c 'grep -q "accept-dns=false" setup-remote-target.sh'
 
 sect "H-19 os error 104 (audio/portapapeles en bucle)"
-t "H-19 documentado" bash -c 'grep -q "H-19" docs/hallazgos.md'
+tdoc "H-19 documentado" bash -c 'grep -q "H-19" docs/hallazgos.md'
 t "H-19 explica la causa (arboard/X11)" \
   bash -c 'grep -q "arboard" docs/hallazgos.md'
 t "H-19 da la mitigación desde el cliente" \
@@ -373,8 +410,8 @@ t "estado-sesion guarda la evidencia (libdrmtap/encoder)" \
   bash -c 'grep -q "libdrmtap loaded" docs/estado-sesion.md && grep -q "new encoder" docs/estado-sesion.md'
 
 sect "H-16/H-17/H-18 documentación de hallazgos"
-t "H-14 documentado" bash -c 'grep -q "H-14" docs/hallazgos.md'
-t "H-15 documentado" bash -c 'grep -q "H-15" docs/hallazgos.md'
+tdoc "H-14 documentado" bash -c 'grep -q "H-14" docs/hallazgos.md'
+tdoc "H-15 documentado" bash -c 'grep -q "H-15" docs/hallazgos.md'
 t "H-16 documentado (rutas de log)" \
   bash -c 'grep -q "plasmalogin/.local/share/logs" docs/hallazgos.md'
 t "H-17 documentado (sin CLI de conexión)" \
@@ -405,9 +442,9 @@ t "clip-vm soporta get|put|show" \
   bash -c 'for c in get put show; do grep -q "$c)" clip-vm.sh || exit 1; done'
 
 sect "Hallazgo H-09 (MagicDNS / resolved-NM)"
-t "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'
-t "H-09 menciona resolved-NM"       bash -c 'grep -qi "resolved-nm\|systemd-resolved" docs/hallazgos.md'
-t "H-09 menciona resolv.conf stub"  bash -c 'grep -q "stub-resolv.conf" docs/hallazgos.md'
+tdoc "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'
+tdoc "H-09 menciona resolved-NM"       bash -c 'grep -qi "resolved-nm\|systemd-resolved" docs/hallazgos.md'
+tdoc "H-09 menciona resolv.conf stub"  bash -c 'grep -q "stub-resolv.conf" docs/hallazgos.md'
 if command -v tailscale >/dev/null 2>&1; then
   # Si resolved gestiona resolv.conf, el modo debe ser 'stub' (no 'foreign')
   if command -v resolvectl >/dev/null 2>&1; then
@@ -439,16 +476,16 @@ for d in docs/guia-desde-cero.md docs/tailscale.md docs/vpn-remoto.md \
          docs/onboarding-cliente.md docs/hallazgos.md docs/estado-sesion.md; do
   t "existe $d" test -f "$d"
 done
-t "README enlaza hallazgos"     bash -c 'grep -q "docs/hallazgos.md" README.md'
-t "README enlaza onboarding"    bash -c 'grep -q "docs/onboarding-cliente.md" README.md'
-t "README enlaza tailscale"     bash -c 'grep -q "docs/tailscale.md" README.md'
-t "README enlaza estado-sesion" bash -c 'grep -q "docs/estado-sesion.md" README.md'
+tdoc "README enlaza hallazgos"     bash -c 'grep -q "docs/hallazgos.md" README.md'
+tdoc "README enlaza onboarding"    bash -c 'grep -q "docs/onboarding-cliente.md" README.md'
+tdoc "README enlaza tailscale"     bash -c 'grep -q "docs/tailscale.md" README.md'
+tdoc "README enlaza estado-sesion" bash -c 'grep -q "docs/estado-sesion.md" README.md'
 # El estado de sesión debe registrar el entorno de prueba para poder retomarlo
-t "estado-sesion registra la IP de la VM" bash -c 'grep -q "192.168.122.11" docs/estado-sesion.md'
-t "estado-sesion avisa que el guest es Wayland" bash -c 'grep -qi "wayland" docs/estado-sesion.md'
-t "estado-sesion registra el bloqueo de sudo" bash -c 'grep -qi "sudo.*contraseña\|pide contraseña" docs/estado-sesion.md'
+tdoc "estado-sesion registra la IP de la VM" bash -c 'grep -q "192.168.122.11" docs/estado-sesion.md'
+tdoc "estado-sesion avisa que el guest es Wayland" bash -c 'grep -qi "wayland" docs/estado-sesion.md'
+tdoc "estado-sesion registra el bloqueo de sudo" bash -c 'grep -qi "sudo.*contraseña\|pide contraseña" docs/estado-sesion.md'
 # La doc debe distinguir roles (operador no necesita sshd; el objetivo sí)
-t "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
+tdoc "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
 t "README aclara que el operador no necesita sshd" \
   bash -c 'grep -qE "sshd.*no necesita|no necesita.*sshd" README.md'
 # El agente IA (pi) es herramienta del OPERADOR: NO se instala en el cliente.
