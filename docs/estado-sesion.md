@@ -60,8 +60,31 @@ Volcado completo guardado en el repo:
 | **H-16** | Con solo el greeter, el log de captura NO está donde el kit lo busca | Fedora 44 Wayland |
 | **H-17** | RustDesk 1.5.0 no tiene CLI de conexión (es GUI pura) | CachyOS + Fedora 44 |
 | **H-18** | El server se ancla a la sesión gráfica de seat0 (incluido el greeter) | Fedora 44 Wayland |
+| **H-19** | `os error 104` al conectar: audio/portapapeles en bucle | Fedora 44 Wayland |
+| **H-20** | `inventory.sh` clasificaba las VMs como `desconocido` | Fedora 44 en QEMU/KVM |
+| **H-21** | `paru` era un punto único de falla (el AUR solo empaqueta el `.deb` oficial) | CachyOS virgen |
+| **H-22** | Fallos silenciosos: instalar sin red y `tailscale up` sin salida | CachyOS virgen |
 
 Detalle completo en [`hallazgos.md`](hallazgos.md).
+
+### Prueba A superada: acceso fuera de la LAN
+
+Verificado en hardware real (27 oct 2026):
+
+| Equipo | Rol | Red |
+|---|---|---|
+| **MSI desktop** | operador | casa (`192.168.1.12`) |
+| **HP laptop** | PC del cliente (simulado) | **hotspot 4G** (`10.x.y.z`) |
+
+```
+pong from <objetivo> (100.p.q.r) via DERP(sao) in 361ms   <- primer intento
+pong from <objetivo> (100.p.q.r) via 198.51.100.7:4941 in 52ms   <- ruta directa
+ssh <usuario>@100.p.q.r 'hostname'  -> <hostname>
+```
+
+Redes distintas confirmadas, conexión **directa** (perforación de NAT) y SSH
+funcionando. El kit completó la instalación de la contraseña de RustDesk en el
+objetivo **a través de Tailscale**.
 
 ### Punto 1 resuelto: unattended en Wayland sobre el greeter
 

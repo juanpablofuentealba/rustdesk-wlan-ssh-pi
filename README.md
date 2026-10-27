@@ -28,7 +28,10 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`clip-vm.sh`](clip-vm.sh) | Puente de portapapeles host↔VM por SSH (`get` / `put` / `show`) |
 | [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | Instala el paquete **unattended Wayland** (con `libdrmtap`) en Fedora/RHEL desde el `.deb` oficial · ver [H-14](docs/hallazgos.md) |
 | [`rustdesk-password.sh`](rustdesk-password.sh) | Fija la **contraseña permanente** de RustDesk (necesaria para unattended) · ver [H-15](docs/hallazgos.md) |
+| [`instalar-todo.sh`](instalar-todo.sh) | **Un solo comando**: RustDesk unattended + SSH + firewall + clave + Tailscale + contraseña + verificación |
 | [`make-kit.sh`](make-kit.sh) | **Empaqueta el kit para ir a un cliente** (pendrive/tarball autocontenido + `MANIFEST.sha256`) |
+| [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive: los pasos en orden, para leer de un tirón |
+| [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen (se copia a la raíz del pendrive) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |
 | [`verify-docs.sh`](verify-docs.sh) | Valida que los comandos de Tailscale y las URLs de la doc sigan vigentes |
 | [`Makefile`](Makefile) | Atajos: `check`, `inventory`, `ssh`, `target-setup`… |

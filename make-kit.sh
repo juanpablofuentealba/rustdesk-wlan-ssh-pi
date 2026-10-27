@@ -80,6 +80,21 @@ for doc in INSTALAR.md PASOS-EN-ORDEN.txt; do
   fi
 done
 
+# --- LEEME-PRIMERO.txt: también en la raíz del pendrive si el destino es uno ---
+# El pendrive tiene el kit en una subcarpeta; el LEEME va al lado, para que se
+# vea al abrirlo. Se copia a la raíz del disco que contiene el destino.
+if [[ -f "$SCRIPT_DIR/LEEME-PRIMERO.txt" ]]; then
+  cp -a "$SCRIPT_DIR/LEEME-PRIMERO.txt" "$DEST/LEEME-PRIMERO.txt"
+  KIT_PARENT="$(dirname "$DEST")"
+  # Solo si el destino está dentro de un punto de montaje (/run/media, /mnt)
+  case "$KIT_PARENT" in
+    /run/media/*|/mnt/*|/media/*)
+      cp -a "$SCRIPT_DIR/LEEME-PRIMERO.txt" "$KIT_PARENT/LEEME-PRIMERO.txt" 2>/dev/null || true
+      cp -a "$SCRIPT_DIR/PASOS-EN-ORDEN.txt" "$KIT_PARENT/PASOS-EN-ORDEN.txt" 2>/dev/null || true
+      ;;
+  esac
+fi
+
 
 # --- clave pública del operador (opcional) ---
 if [[ $WITH_KEY -eq 1 ]]; then

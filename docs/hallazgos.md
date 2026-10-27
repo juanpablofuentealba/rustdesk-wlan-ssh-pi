@@ -867,6 +867,114 @@ Resultado:
 
 ---
 
+## H-21 — `paru` era un punto único de falla en Arch (y no hace falta)
+
+**Verificado:** ✅ (CachyOS recién instalado, 27 oct 2026)
+
+Síntoma reportado en una instalación real desde cero:
+
+> *"me dice que no hay aur helper paru"*
+
+**Causa:** la rama Arch dependía de un ayudante de AUR (paru/yay) para instalar
+`rustdesk-unattended-wayland`. Eso encadena dependencias:
+
+```
+paru → git + base-devel + red + makepkg (compilar) → paquete
+```
+
+Si falla **cualquier** eslabón (sin red, sin git, sin base-devel, makepkg sin
+TTY, directorio de build sin permisos), no hay RustDesk → no hay captura DRM →
+no hay acceso desatendido.
+
+**Lo importante:** el paquete de AUR **no compila nada especial**: su `PKGBUILD`
+se limita a extraer el `.deb` que RustDesk publica en su release de GitHub
+(mismo sha256 que el usado en Fedora, ver H-14). O sea, **el AUR es un
+intermediario innecesario**.
+
+**Solución:** cascada de 3 vías, de la más simple a la más compleja:
+
+| Vía | Necesita | Cuándo se usa |
+|---|---|---|
+| 1. paru/yay | si ya existe | primero |
+| 2. **`.deb` oficial extraído a mano** | solo `curl` + `ar` + `tar` | si paru falta o falla |
+| 3. instalar paru | red + compilar | último recurso |
+
+La vía 2 (`install_rustdesk_unattended_deb_arch`) descarga el `.deb`, verifica
+el **sha256**, lo extrae con `ar`+`tar` y lo instala en `/usr/share/rustdesk` +
+`/usr/lib/rustdesk` (donde va `libdrmtap.so`).
+
+Verificado por separado:
+
+```
+sha256 verificado
+libdrmtap.so.0 / libdrmtap.so.0.5.8 presentes
+rustdesk.service presente
+```
+
+**Lección:** cuando un paquete de AUR solo empaqueta un binario ya publicado,
+depender del AUR agrega fragilidad sin beneficio. Mejor bajar el binario oficial
+directo, con verificación de integridad.
+
+---
+
+## H-22 — Fallos silenciosos: instalar sin red y `tailscale up` sin salida
+
+**Verificado:** ✅ (CachyOS virgen, 27 oct 2026)
+
+Dos clases de fallo que hacían imposible diagnosticar desde el PC del cliente:
+
+### 1. Instalar sin comprobar la red
+
+El kit intentaba instalar paquetes y, si no había internet, fallaba con un error
+genérico. **No decía que el problema era la red.**
+
+Ahora se comprueba antes:
+
+```
+SIN CONEXIÓN a internet: no puedo instalar Tailscale
+  Comprobá:  curl -sI https://archlinux.org | head -1
+  Conectá el WiFi/hotspot y reintentá.
+```
+
+### 2. `tailscale up` ocultaba su error
+
+La llamada iba con `>/dev/null 2>&1` y solo imprimía *"no confirmó éxito (puede
+requerir autorización)"*. Eso no distingue entre: auth key vencida, key no
+reusable, o sin red.
+
+Ahora se captura la salida **y se muestra**:
+
+```
+tailscale up FALLÓ. Salida:
+    <mensaje real de tailscale>
+  Causas típicas:
+   · auth key vencida o ya usada (generá otra)
+   · auth key no 'reusable' y este equipo ya estaba en la tailnet
+   · sin internet en este momento
+```
+
+Además: se **espera hasta 10 s** a que `tailscaled` quede activo (con
+`systemctl status` si no) y **hasta 15 s** a que aparezca la IP (antes eran 2 s,
+lo que producía falsos *"aún sin IP"*).
+
+### 3. Diagnóstico de dependencias en `--check`
+
+`setup-remote-target.sh --check` ahora informa qué falta de un vistazo:
+
+```
+== Dependencias que suelen faltar ==
+✔ curl presente
+✔ ar + tar presentes (vía .deb)
+● sin paru/yay (el kit usará el .deb oficial, no hace falta)
+✔ internet: github.com alcanzable
+```
+
+**Lección:** en un equipo al que no vas a volver (el PC del cliente), un fallo
+silencioso cuesta una visita. Todo comando que pueda fallar debe **mostrar su
+salida** y decir **qué comprobar**.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -893,6 +1001,8 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-18 server anclado a seat0/greeter | `tests.sh <host>`: detecta el usuario de la sesión gráfica |
 | H-19 `os error 104` por audio/clipboard | `tests.sh`: existe la sección H-19 en este documento |
 | H-20 tipo de equipo en VMs | `tests.sh`: `inventory.sh` usa `systemd-detect-virt` y mapea a `vm` |
+| H-21 `paru` no es necesario (cascada de 3 vías) | `tests.sh`: existe `install_rustdesk_unattended_deb_arch` y la cascada |
+| H-22 fallos silenciosos (red / tailscale up) | `tests.sh`: el kit comprueba la red y muestra la salida de `tailscale up` |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

@@ -1,0 +1,74 @@
+========================================================================
+  PENDRIVE DE INSTALACION — Admin remota de PC de cliente
+  (RustDesk unattended + SSH + Tailscale)
+========================================================================
+
+  >>> LEE ESTE ARCHIVO, Y DESPUES "PASOS-EN-ORDEN.txt" <<<
+
+------------------------------------------------------------------------
+  QUE HAY EN ESTE PENDRIVE
+------------------------------------------------------------------------
+
+  1) PASOS-EN-ORDEN.txt      <- EMPIEZA ACA. Los pasos, en orden.
+  2) kit-rustdesk/           <- El kit (scripts + runbook detallado)
+  3) ISOs arrancables        <- Para instalar el sistema operativo
+
+  Las ISOs NO se copian: se ARRANCAN desde el pendrive.
+  La carpeta kit-rustdesk/ NO se arranca: se COPIA al PC ya instalado.
+
+------------------------------------------------------------------------
+  RESUMEN EN 4 LINEAS
+------------------------------------------------------------------------
+
+  1. Arranca el pendrive -> instala CachyOS CON WiFi
+  2. Reinicia sin el pendrive -> conecta el HOTSPOT 4G del telefono
+  3. Copia el kit:  cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit
+  4. UN SOLO COMANDO (hace todo: RustDesk + SSH + Tailscale + contrasena):
+
+       cd ~/kit
+       sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
+
+     Sigue PASOS-EN-ORDEN.txt para el detalle, o kit-rustdesk/INSTALAR.md
+
+------------------------------------------------------------------------
+  ANTES DE SALIR DE CASA
+------------------------------------------------------------------------
+
+  [ ] Auth key de Tailscale      (tskey-auth-...)
+  [ ] Contrasena permanente de RustDesk que le vas a poner
+  [ ] Contrasena de sudo que elegiras al instalar el SO
+  [x] Tu clave publica SSH       (ya viene en kit-rustdesk/operador.pub)
+
+------------------------------------------------------------------------
+  SI ALGO FALLA
+------------------------------------------------------------------------
+
+  El propio kit te dice que hacer. Los casos ya conocidos:
+
+  "no hay aur helper paru"
+     -> Ya NO es un problema: el kit tiene 3 vias (paru si existe, el .deb
+        oficial sin AUR, o instalar paru). Si aun asi falla, es falta de RED.
+        Comproba:  curl -sI https://github.com | head -1
+
+  "tailscale no une"
+     -> El kit ahora muestra el error real de `tailscale up`.
+        Causas: key vencida, key no reusable, o sin internet.
+
+  "Wayland portal handshake failed"
+     -> Falta el capturador DRM. El kit lo detecta y dice como arreglarlo.
+
+  "Pide aceptacion en cada conexion"
+     -> Falta la contrasena permanente de RustDesk (paso del --rdpass).
+
+  Diagnostico completo en cualquier momento:
+     cd ~/kit && ./setup-remote-target.sh --check
+
+------------------------------------------------------------------------
+  DOCUMENTACION DE FONDO
+------------------------------------------------------------------------
+
+  kit-rustdesk/INSTALAR.md   -> runbook detallado, con el porque de cada paso
+  github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi  -> hallazgos tecnicos
+
+  Verificar el kit:  cd kit-rustdesk && sha256sum -c MANIFEST.sha256
+========================================================================
