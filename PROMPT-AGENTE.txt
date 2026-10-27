@@ -67,6 +67,10 @@ BUSCÁ primero en docs/hallazgos.md por el error exacto.
 
 8. Clave SSH del operador: ya viene en operador.pub. No hay que generarla.
 
+9. PORTÁTIL: si el objetivo es un portátil, cerrar la tapa o dejarlo inactivo
+   lo suspende y se PIERDE el acceso (ver H-29). El flag --laptop (incluido en
+   --all) lo evita. Si instalas a mano, corré ./laptop-no-suspend.sh --apply.
+
 --- FLUJO RECOMENDADO ---
 
     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit

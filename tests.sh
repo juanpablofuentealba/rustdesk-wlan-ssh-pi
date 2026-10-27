@@ -508,6 +508,28 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "H-29 anti-suspensión para portátiles"
+t "H-29 documentado" bash -c 'grep -q "H-29" docs/hallazgos.md'
+t "H-29 explica el riesgo (pierde acceso)" \
+  bash -c 'grep -q "pierde el acceso remoto" docs/hallazgos.md'
+t "existe laptop-no-suspend.sh" bash -c 'test -f laptop-no-suspend.sh'
+t "laptop-no-suspend es ejecutable" bash -c 'test -x laptop-no-suspend.sh'
+t "laptop-no-suspend tiene sintaxis OK" bash -c 'bash -n laptop-no-suspend.sh'
+t "laptop-no-suspend soporta --check/--apply/--revert" \
+  bash -c 'grep -q -- "--check|--apply|--revert" laptop-no-suspend.sh'
+t "escribe HandleLidSwitch=ignore" \
+  bash -c 'grep -q "HandleLidSwitch=ignore" laptop-no-suspend.sh'
+t "setup-remote-target tiene --laptop" \
+  bash -c 'grep -q -- "--laptop" setup-remote-target.sh'
+t "--all incluye --laptop" \
+  bash -c 'grep -q "DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1; DO_LAPTOP=1" setup-remote-target.sh'
+t "el --check diagnostica la energía" \
+  bash -c './setup-remote-target.sh --check 2>&1 | grep -q "Energía / suspensión"'
+t "make-kit incluye laptop-no-suspend.sh" \
+  bash -c 'grep -q "laptop-no-suspend.sh" make-kit.sh'
+t "el kit generado trae laptop-no-suspend.sh" \
+  bash -c 'd="$(mktemp -d)"; ./make-kit.sh --dest "$d/kit" >/dev/null 2>&1; test -f "$d/kit/laptop-no-suspend.sh"; r=$?; rm -rf "$d"; exit $r'
+
 sect "Prompt para agentes IA (PROMPT-AGENTE.txt)"
 t "existe PROMPT-AGENTE.txt" bash -c 'test -f PROMPT-AGENTE.txt'
 t "ordena leer hallazgos ANTES de actuar" \

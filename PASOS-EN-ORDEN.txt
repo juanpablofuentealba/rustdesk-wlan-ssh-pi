@@ -99,8 +99,13 @@
   Este comando hace los pasos 5, 6 y 7 de una vez:
      - diagnóstico previo
      - RustDesk unattended + sshd + firewall + tu clave + Tailscale
+     - si es PORTÁTIL: evita que suspenda (tapa cerrada / inactividad) -> H-29
      - contraseña permanente de RustDesk
      - verificación final
+
+  OJO SI ES UN PORTÁTIL: cerrar la tapa suspende el equipo y PIERDES el acceso
+  remoto (Tailscale/SSH/RustDesk se caen). --all ya lo previene. Si instalás
+  por partes, agregá --laptop o corré:  sudo ./laptop-no-suspend.sh --apply
 
          sudo ./instalar-todo.sh \
            --authkey 'tskey-auth-XXXX' \

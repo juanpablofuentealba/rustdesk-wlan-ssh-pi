@@ -70,6 +70,7 @@ hdr()  { printf '\n%s%s== %s ==%s\n' "$BD" "$B" "$*" "$N"; }
 DO_RUSTDESK=0
 DO_SSH=0
 DO_TAILSCALE=0
+DO_LAPTOP=0
 DO_CHECK=0
 SSH_PORT=22
 KEY=""
@@ -90,8 +91,9 @@ Opciones:
   --authkey "<key>"     Auth key de Tailscale (tskey-auth-...) para --tailscale
   --key "<pubkey>"      Clave pública del operador a autorizar
   --port <n>            Puerto SSH (por defecto 22)
+  --laptop              Portátil: evita que suspenda (tapa/inactividad) -> H-29
   --check               Solo diagnóstico (no cambia nada; no requiere root)
-  --all                 Equivale a --rustdesk --ssh --tailscale
+  --all                 Equivale a --rustdesk --ssh --tailscale --laptop
   --dry-run             Muestra qué haría SIN aplicar cambios (seguro)
   --yes, -y             No preguntar confirmación antes de aplicar
   -h, --help            Muestra esta ayuda
@@ -116,11 +118,12 @@ while [[ $# -gt 0 ]]; do
     --rustdesk)  DO_RUSTDESK=1; shift ;;
     --ssh)       DO_SSH=1; shift ;;
     --tailscale) DO_TAILSCALE=1; shift ;;
+    --laptop)    DO_LAPTOP=1; shift ;;
     --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
     --check)     DO_CHECK=1; shift ;;
-    --all)       DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1; shift ;;
+    --all)       DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1; DO_LAPTOP=1; shift ;;
     --dry-run)  DRY_RUN=1; shift ;;
     --yes|-y)   ASSUME_YES=1; shift ;;
     -h|--help)  usage; exit 0 ;;
@@ -128,7 +131,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ $DO_RUSTDESK -eq 0 && $DO_SSH -eq 0 && $DO_TAILSCALE -eq 0 && $DO_CHECK -eq 0 ]]; then
+if [[ $DO_RUSTDESK -eq 0 && $DO_SSH -eq 0 && $DO_TAILSCALE -eq 0 && $DO_LAPTOP -eq 0 && $DO_CHECK -eq 0 ]]; then
   usage; exit 1
 fi
 
@@ -709,6 +712,23 @@ run_check() {
   ip -br addr show 2>/dev/null | grep -vE '^lo' | sed 's/^/    /'
   info "IP local: $(local_ip)"
 
+  hdr "Energía / suspensión (H-29)"
+  # En un portátil, cerrar la tapa o dejarlo inactivo suspende el equipo y se
+  # pierde el acceso remoto hasta que alguien lo abra.
+  local is_lap=0
+  if ls /sys/class/power_supply 2>/dev/null | grep -qiE 'BAT'; then is_lap=1; fi
+  [[ -e /proc/acpi/button/lid ]] && is_lap=1
+  if [[ $is_lap -eq 1 ]]; then
+    warn "Portátil detectado (batería/tapa): puede suspender y perder el acceso"
+    if [[ -f /etc/systemd/logind.conf.d/99-no-suspend-laptop.conf ]]; then
+      ok "Suspensión por tapa YA desactivada (99-no-suspend-laptop.conf)"
+    else
+      info "  Arreglo:  sudo $0 --laptop   (o --all, que lo incluye)"
+    fi
+  else
+    info "sin batería/tapa: parece un equipo de escritorio o VM (no aplica)"
+  fi
+
   hdr "Dependencias que suelen faltar"
   if command -v curl >/dev/null 2>&1; then ok "curl presente"
   else warn "FALTA curl (necesario para descargar el .deb oficial de RustDesk)"; fi
@@ -1251,6 +1271,59 @@ setup_tailscale() {
   fi
 }
 
+# H-29: un portátil que suspende (tapa cerrada o inactividad) PIERDE el
+# acceso remoto: Tailscale/sshd/RustDesk se caen hasta que alguien abra la
+# tapa. En un PC de escritorio no pasa. Esto lo desactiva (reversible).
+setup_laptop() {
+  hdr "Portátil: impedir suspensión (H-29)"
+  local logind_dir="/etc/systemd/logind.conf.d"
+  local logind_file="$logind_dir/99-no-suspend-laptop.conf"
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    warn "sin systemd: no puedo configurar logind; hacelo a mano si es portátil"
+    return 0
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) escribiría $logind_file con HandleLidSwitch=ignore"
+    info "(dry-run) reiniciaría systemd-logind y quitaría la suspensión por inactividad en KDE"
+    return 0
+  fi
+
+  mkdir -p "$logind_dir"
+  cat > "$logind_file" <<'EOF'
+# Generado por setup-remote-target.sh --laptop (H-29).
+# Evita que el portátil suspenda y se pierda el acceso remoto.
+# Revertir: borrar este archivo y: systemctl restart systemd-logind
+[Login]
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore
+EOF
+  ok "escrito $logind_file (tapa ya no suspende)"
+
+  if systemctl restart systemd-logind 2>/dev/null; then
+    ok "systemd-logind recargado"
+  else
+    warn "no pude recargar systemd-logind; aplica al reiniciar"
+  fi
+
+  # KDE: sin suspensión por inactividad (AC y batería).
+  if command -v kwriteconfig6 >/dev/null 2>&1; then
+    local grp
+    for grp in AC Battery LowBattery; do
+      kwriteconfig6 --file powermanagementprofilesrc --group "$grp" \
+        --group SuspendSession --key idleTime 0 2>/dev/null || true
+      kwriteconfig6 --file powermanagementprofilesrc --group "$grp" \
+        --group SuspendSession --key suspendType 0 2>/dev/null || true
+    done
+    ok "KDE: suspensión por inactividad desactivada"
+  else
+    warn "kwriteconfig6 ausente: desactivá a mano en Energía → Suspender sesión"
+  fi
+  info "Reversible: ./laptop-no-suspend.sh --revert"
+}
+
 # ---------- main ----------
 if [[ $DO_CHECK -eq 1 ]]; then
   run_check
@@ -1262,6 +1335,7 @@ hdr "Acciones a realizar"
 [[ $DO_RUSTDESK -eq 1 ]] && info "· RustDesk unattended (DRM + uinput)"
 [[ $DO_SSH -eq 1 ]] && info "· sshd habilitado + firewall :${SSH_PORT}"
 [[ $DO_TAILSCALE -eq 1 ]] && info "· Tailscale (acceso fuera de la LAN)"
+[[ $DO_LAPTOP -eq 1 ]] && info "· Portátil: impedir suspensión por tapa/inactividad (H-29)"
 if [[ -n "$KEY" ]]; then info "· Autorizar la clave del operador"; else
   [[ $DO_SSH -eq 1 ]] && warn "· Sin --key: el operador no podrá entrar sin contraseña"; fi
 info "· Usuario objetivo: ${TARGET_USER} (HOME: ${TARGET_HOME})"
@@ -1275,6 +1349,7 @@ if [[ $DRY_RUN -eq 0 ]]; then need_root; fi
 if [[ $DO_RUSTDESK -eq 1 ]]; then setup_rustdesk; fi
 if [[ $DO_SSH -eq 1 ]]; then setup_ssh; fi
 if [[ $DO_TAILSCALE -eq 1 ]]; then setup_tailscale; fi
+if [[ $DO_LAPTOP -eq 1 ]]; then setup_laptop; fi
 
 if [[ $DRY_RUN -eq 1 ]]; then
   hdr "Fin del simulacro"

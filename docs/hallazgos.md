@@ -1287,6 +1287,68 @@ interfaz real antes de darlo por listo.
 
 ---
 
+## H-29 — Un portátil suspende y se pierde el acceso remoto
+
+**Verificado:** ✅ (27 oct 2026)
+
+Síntoma: en un **portátil**, cerrar la tapa o dejarlo inactivo hace que
+systemd-logind **suspenda** el equipo. Al suspender:
+
+- Tailscale deja de responder (el peer pasa a `offline`)
+- `sshd` no acepta conexiones
+- RustDesk no captura
+
+El operador **pierde el acceso remoto** y no puede recuperarlo hasta que
+alguien abra la tapa o toque el equipo. En un **PC de escritorio esto no pasa**
+(no tiene tapa ni batería), por eso el desarrollo previo no lo había expuesto.
+
+Es el riesgo más serio en una entrega real con portátil: el equipo "está
+instalado y funciona", y a la hora el cliente cierra la tapa → inaccesible.
+
+### Detección
+
+```fish
+ls /sys/class/power_supply | grep -i BAT   # hay batería -> es portátil
+grep -E '^#?HandleLidSwitch' /etc/systemd/logind.conf
+```
+
+Si `HandleLidSwitch` está comentado (o en `suspend`), cerrar la tapa suspende.
+
+### Solución (reversible)
+
+`laptop-no-suspend.sh` (o `setup-remote-target.sh --laptop`, incluido en `--all`):
+
+1. Crea `/etc/systemd/logind.conf.d/99-no-suspend-laptop.conf`:
+   ```
+   [Login]
+   HandleLidSwitch=ignore
+   HandleLidSwitchExternalPower=ignore
+   HandleLidSwitchDocked=ignore
+   ```
+2. Recarga `systemd-logind` (aplica sin reiniciar el equipo).
+3. En KDE, desactiva la **suspensión por inactividad** (AC y batería) vía
+   `kwriteconfig6` en `powermanagementprofilesrc`.
+
+No toca apagado, reinicio ni bloqueo de pantalla.
+
+```fish
+sudo ./laptop-no-suspend.sh --apply     # aplica
+sudo ./laptop-no-suspend.sh --revert    # deshace
+./laptop-no-suspend.sh --check          # solo muestra
+```
+
+### Trampa: `systemctl restart systemd-logind` puede cortar la sesión
+
+Recargar logind puede **cerrar la sesión gráfica** en algunos equipos. Por eso
+el kit lo hace **después** de configurar RustDesk, y el PASO de instalación
+corre primero. Si corta la sesión: volvé a entrar; el cambio ya quedó aplicado.
+
+**Lección:** todo supuesto "de escritorio" (sin tapa, sin batería, sin WiFi
+variable) puede romper el unattended en un portátil. Antes de entregar un
+portátil, verificar explícitamente que no suspenda.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1320,6 +1382,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-26 ubicación de la auth key en el panel | `tests.sh`: existe la sección H-26; `verify-docs.sh` comprueba la URL |
 | H-27 reinicio remoto (sudo/polkit) | `tests.sh`: existe la sección H-27; documenta NOPASSWD acotado y rollback |
 | H-28 `local-ip-addr` obsoleto tras cambiar de red | `tests.sh`: existe la sección H-28; documenta detección, corrección y el restart |
+| H-29 portátil que suspende y pierde el acceso | `tests.sh`: existe `laptop-no-suspend.sh`; `setup-remote-target.sh` tiene `--laptop` |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

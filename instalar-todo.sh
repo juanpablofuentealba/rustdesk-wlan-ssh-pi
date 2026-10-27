@@ -236,7 +236,7 @@ FAM="$(grep -E 'Familia:' <<<"$CHECK_OUT" | awk '{print $3}' | head -1)"
 info "familia detectada: ${FAM:-?}"
 
 # ---------- 2 y 3. kit completo ----------
-hdr "2/5 · RustDesk unattended + SSH + firewall$([[ $SKIP_TS -eq 0 ]] && echo ' + Tailscale')"
+hdr "2/5 · RustDesk unattended + SSH + firewall$([[ $SKIP_TS -eq 0 ]] && echo ' + Tailscale') + anti-suspensión (portátil)"
 if ! ./setup-remote-target.sh "${ARGS_ALL[@]}"; then
   err "setup-remote-target.sh falló. Revisá la salida de arriba."
   err "  Reintentá solo esa parte para ver el detalle:"
