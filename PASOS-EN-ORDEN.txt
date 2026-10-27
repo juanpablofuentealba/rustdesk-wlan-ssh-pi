@@ -175,7 +175,20 @@
 
          ./verify-offlan.sh <hostname>
 
-  8.5  Y por RustDesk: conectate al ID del equipo con la contraseña
+       OJO: si operador y objetivo tienen la MISMA IP pública (misma casa),
+       la prueba es LAN-local y NO vale. Compará:  curl -s https://api.ipify.org
+
+  8.5  Prueba de REINICIO unattended (la definitiva):
+       deja una regla NOPASSWD acotada (solo reboot), reinicia y espera que
+       vuelva solo. Pide la clave de sudo UNA vez, para habilitar.
+
+         ./reboot-remoto.sh --host USUARIO@<hostname> --enable
+         ./reboot-remoto.sh --host USUARIO@<hostname> --all
+
+       Debe volver con boot_id NUEVO y los 4 servicios active/enabled.
+       Rollback (quitar la regla):  ./reboot-remoto.sh --host ... --disable
+
+  8.6  Y por RustDesk: conectate al ID del equipo con la contraseña
        permanente del PASO 6.
 
 ------------------------------------------------------------------------

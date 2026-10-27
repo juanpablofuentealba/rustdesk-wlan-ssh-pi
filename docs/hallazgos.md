@@ -1153,6 +1153,64 @@ una instalación detenida. Ver [`tailscale.md`](tailscale.md#generar-la-auth-key
 
 ---
 
+## H-27 — Reinicio remoto bloqueado por sudo + polkit
+
+**Verificado:** ✅ (27 oct 2026)
+
+Síntoma: no se puede reiniciar el equipo objetivo por SSH para la prueba de
+unattended. Todas las vías "normales" piden autenticación interactiva:
+
+| Vía | Resultado en el objetivo |
+|---|---|
+| `sudo -n systemctl reboot` | ❌ `sudo: a password is required` |
+| `systemctl reboot` (sin sudo) | ❌ *Access denied … requires interactive authentication* |
+| `logind` por D-Bus (`Manager.Reboot`) | ❌ `InteractiveAuthorizationRequired` |
+
+El usuario estaba en `wheel`, pero **sudo pide contraseña** y **polkit exige
+consentimiento interactivo** (no hay sesión de escritorio que lo conceda). Desde
+SSH **no hay forma** de autorizar sin un secreto.
+
+### Solución: NOPASSWD acotado al reboot (no a todo sudo)
+
+Regla en `/etc/sudoers.d/99-reboot-jp`:
+
+```
+jp ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /usr/bin/systemctl poweroff
+```
+
+Aplicación **siempre validando antes** (un sudoers roto puede dejar el equipo sin
+sudo; `visudo -cf` lo evita):
+
+```fish
+# El script se copia por scp (sin contraseña, usa la clave SSH) y se ejecuta con sudo
+scp fix-reboot-nopasswd.sh jp@100.x.y.z:/tmp/
+ssh -t jp@100.x.y.z 'sudo sh /tmp/fix-reboot-nopasswd.sh'
+```
+
+Disparo del reinicio (ya sin contraseña):
+
+```fish
+ssh jp@100.x.y.z 'sudo -n /usr/bin/systemctl reboot'
+```
+
+**Rollback:** `sudo rm /etc/sudoers.d/99-reboot-jp`.
+
+### Trampas encontradas al aplicar la regla
+
+| Trampa | Qué pasó | Lección |
+|---|---|---|
+| Copiar/pegar multilínea por SSH | El `>` o el `chmod` quedaron al final de una línea partida → `sh: error de sintaxis` o `chmod: falta un operando` | Para comandos con redirección, usar un **script** (`scp` + `sh`), no una línea larga |
+| Escribir sin `chmod 440` | El archivo quedó con permisos incorrectos; sudoers.d los exige | `chmod 440` **y** `visudo -cf` en el mismo paso |
+| `sudo -n systemctl reboot --help` | Falla aunque la regla sea correcta | El sudoers autoriza **el binario y args exactos**; verificar con `sudo -n -l`, no inventando variantes |
+| Comando a un objetivo con **fish** | `$$`, `for … end` y otros rompen; el heredoc a fish da error de sintaxis | Enviar por `bash -s` por stdin (H-23) |
+
+**Distinción importante:** esto habilita *disparar* el reinicio. La prueba de que
+el equipo **vuelve solo** es independiente y se verificó aparte: `boot_id`
+distinto + servicios `active` sin intervención (ver
+[`estado-sesion.md`](estado-sesion.md#prueba-de-reinicio-unattended-real-superada)).
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1184,6 +1242,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-23 objetivo con fish (no mandar bash suelto) | `tests.sh`: los comandos remotos van por `bash -s`; `make check` también |
 | H-24 Fedora con DRM (no `.rpm` estándar) | `tests.sh <host>`: la rama fedora intenta primero el `.deb` con `libdrmtap` |
 | H-26 ubicación de la auth key en el panel | `tests.sh`: existe la sección H-26; `verify-docs.sh` comprueba la URL |
+| H-27 reinicio remoto (sudo/polkit) | `tests.sh`: existe la sección H-27; documenta NOPASSWD acotado y rollback |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

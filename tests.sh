@@ -502,6 +502,40 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "H-27 herramienta reboot-remoto.sh"
+t "existe reboot-remoto.sh" bash -c 'test -f reboot-remoto.sh'
+t "es ejecutable" bash -c 'test -x reboot-remoto.sh'
+t "sintaxis OK" bash -c 'bash -n reboot-remoto.sh'
+t "tiene --help" bash -c './reboot-remoto.sh --help | grep -q "reinicio remoto"'
+t "soporta --enable/--reboot/--verify/--disable/--all" \
+  bash -c 'grep -q -- "--enable|--reboot|--verify|--disable|--all" reboot-remoto.sh'
+t "usa NOPASSWD acotado (no ALL)" \
+  bash -c 'grep -q "NOPASSWD: /usr/bin/systemctl reboot" reboot-remoto.sh'
+t "valida con visudo -cf antes de aplicar" \
+  bash -c 'grep -q "visudo -cf" reboot-remoto.sh'
+t "documenta el rollback" bash -c 'grep -q -- "--disable" reboot-remoto.sh'
+t "envia comandos con bash -s (objetivo fish)" \
+  bash -c 'grep -q "bash -s" reboot-remoto.sh'
+t "make-kit incluye reboot-remoto.sh" \
+  bash -c 'grep -q "reboot-remoto.sh" make-kit.sh'
+t "PASOS menciona la prueba de reinicio" \
+  bash -c 'grep -q "reboot-remoto.sh --host" PASOS-EN-ORDEN.txt'
+
+sect "H-27 reinicio remoto (bloqueo sudo/polkit)"
+t "H-27 documentado" bash -c 'grep -q "H-27" docs/hallazgos.md'
+t "H-27 explica el bloqueo de polkit" \
+  bash -c 'grep -qi "polkit\|InteractiveAuthorizationRequired" docs/hallazgos.md'
+t "H-27 propone NOPASSWD acotado (no todo sudo)" \
+  bash -c 'grep -q "NOPASSWD: /usr/bin/systemctl reboot" docs/hallazgos.md'
+t "H-27 da el rollback" \
+  bash -c 'grep -q "rm /etc/sudoers.d" docs/hallazgos.md'
+t "H-27 advierte validar con visudo -cf" \
+  bash -c 'grep -q "visudo -cf" docs/hallazgos.md'
+t "estado-sesion registra la prueba de reinicio" \
+  bash -c 'grep -q "Prueba de reinicio (unattended real): superada" docs/estado-sesion.md'
+t "estado-sesion muestra boot_id distinto" \
+  bash -c 'grep -q "fue un reinicio real" docs/estado-sesion.md'
+
 sect "Prueba fuera de LAN: ruta directa vs LAN-local"
 t "verify-offlan.sh distingue ruta directa de DERP" \
   bash -c 'grep -q "ruta DIRECTA (perforación de NAT)" verify-offlan.sh'

@@ -121,7 +121,7 @@ done
 [[ $bad -eq 0 ]] && ok "enlaces relativos entre docs válidos"
 
 sect "Scripts del kit"
-for s in setup-remote-target.sh inventory.sh tests.sh; do
+for s in setup-remote-target.sh inventory.sh tests.sh reboot-remoto.sh; do
   [[ -f "$s" ]] || { ko "FALTA $s"; continue; }
   bash -n "$s" && ok "sintaxis OK: $s" || ko "error de sintaxis: $s"
   [[ -x "$s" ]] && ok "ejecutable: $s" || sk "no ejecutable: $s (chmod +x)"

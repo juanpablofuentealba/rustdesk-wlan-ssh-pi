@@ -15,6 +15,7 @@
 #   install-rustdesk-unattended-fedora.sh  (Fedora/RHEL)
 #   .rd-setpass-root.sh    ← auxiliar de rustdesk-password.sh
 #   verify-offlan.sh       ← prueba el acceso desde fuera de la LAN
+#   reboot-remoto.sh       ← reinicio remoto unattended (NOPASSWD acotado, H-27)
 #   make-kit.sh            ← para regenerar el kit desde el propio pendrive
 #   tests.sh               ← verificación
 #   MANIFEST.sha256        ← integridad del paquete
@@ -55,6 +56,7 @@ FILES=(
   install-rustdesk-unattended-fedora.sh
   .rd-setpass-root.sh
   verify-offlan.sh
+  reboot-remoto.sh
   make-kit.sh
   tests.sh
 )

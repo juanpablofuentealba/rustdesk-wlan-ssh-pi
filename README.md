@@ -35,6 +35,7 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | Instala el paquete **unattended Wayland** (con `libdrmtap`) en Fedora/RHEL desde el `.deb` oficial · ver [H-14](docs/hallazgos.md) |
 | [`rustdesk-password.sh`](rustdesk-password.sh) | Fija la **contraseña permanente** de RustDesk (necesaria para unattended) · ver [H-15](docs/hallazgos.md) |
 | [`instalar-todo.sh`](instalar-todo.sh) | **Un solo comando**: RustDesk unattended + SSH + firewall + clave + Tailscale + contraseña + verificación |
+| [`reboot-remoto.sh`](reboot-remoto.sh) | **Reinicio remoto unattended**: NOPASSWD acotado (solo reboot) + espera la vuelta · ver [H-27](docs/hallazgos.md) |
 | [`make-kit.sh`](make-kit.sh) | **Empaqueta el kit para ir a un cliente** (pendrive/tarball autocontenido + `MANIFEST.sha256`) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive: los pasos en orden, para leer de un tirón |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen (se copia a la raíz del pendrive) |

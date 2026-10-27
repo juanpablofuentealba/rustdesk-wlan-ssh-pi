@@ -109,6 +109,43 @@ ssh <usuario>@100.<ip>  -> <hostname>  ·  uptime OK
 Veredicto de `verify-offlan.sh`: **7 OK · 0 fallos — el acceso remoto funciona
 fuera de la LAN** (ruta DIRECTA por perforación de NAT, no DERP).
 
+### Prueba de reinicio (unattended real): superada
+
+Tercera verificación, en el mismo PC real: **reinicio disparado por SSH y vuelta
+sin intervención de nadie**. Es la prueba definitiva de unattended (simula un
+corte de luz o un update automático).
+
+| Momento | `boot_id` | uptime |
+|---|---|---|
+| Antes | `6e0e0034-…` | 1 h 13 min |
+| Después | `0f1cd5f1-…` (distinto) | 2 min |
+
+Arranque registrado a las `14:31:42`; el reboot se disparó a las `14:31:23`.
+`boot_id` distinto ⇒ **fue un reinicio real**, no una reconexión.
+
+#### Servicios: arrancaron SOLOS (sin tocar nada)
+
+| Servicio | Estado | Al boot |
+|---|---|---|
+| rustdesk | `active` | `enabled` |
+| sshd | `active` | `enabled` |
+| tailscaled | `active` | `enabled` |
+| ufw | `active` | `enabled` |
+
+RustDesk levantó con **PID nuevo** (`--service`, `--server`). Tailscale recuperó
+la IP `100.x.y.z` y el ping respondió por ruta directa tras el arranque.
+
+#### Cómo se disparó el reinicio (el punto que costó)
+
+En el objetivo, **`sudo` pide contraseña** y `systemctl reboot`/`logind` por
+D-Bus exigen **autenticación interactiva** (polkit). Un reinicio remoto
+unattended necesita una de estas:
+
+1. **NOPASSWD acotado** (lo usado y recomendado): autorizar *solo* el reboot,
+   no todo sudo. Ver **H-27** en [`hallazgos.md`](hallazgos.md#h-27--reinicio-remoto-bloqueado-por-sudo--polkit).
+2. Pasar la clave sudo por `-S` (funciona, pero deja la clave en el historial).
+3. Reinicio presencial.
+
 #### Trampa: la prueba LAN-local que parece fuera de LAN
 
 Primer intento de esta sesión se dio por buena **siendo falsa**: ambos equipos
@@ -418,6 +455,9 @@ Ninguna de estas está empezada; son opciones, no deuda técnica:
    trae `--tailscale`/`--authkey` y lo diagnostica en `--check`. La ruta
    **fuera de la LAN** quedó verificada en PC real (ver *Prueba A confirmada*,
    arriba): `7 OK · 0 fallos`.
+4. ~~**Prueba de reinicio remoto**~~ — **RESUELTO**. Reinicio disparado por SSH
+   con NOPASSWD acotado (H-27) y el equipo volvió solo: `boot_id` distinto y los
+   4 servicios `active` sin intervención (ver *Prueba de reinicio*, arriba).
 4. ~~**`inventory.sh` en QEMU**~~ — **RESUELTO** (H-20). En QEMU el
    `chassis_type` de SMBIOS es `1` ("Other"), así que caía en `desconocido`.
    Ahora `inventory.sh` consulta `systemd-detect-virt` en el objetivo y
