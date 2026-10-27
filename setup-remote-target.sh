@@ -71,6 +71,7 @@ DO_RUSTDESK=0
 DO_SSH=0
 DO_TAILSCALE=0
 DO_LAPTOP=0
+INSTALL_TS=0
 DO_CHECK=0
 SSH_PORT=22
 KEY=""
@@ -92,6 +93,7 @@ Opciones:
   --key "<pubkey>"      Clave pública del operador a autorizar
   --port <n>            Puerto SSH (por defecto 22)
   --laptop              Portátil: evita que suspenda (tapa/inactividad) -> H-29
+  --install-tailscale   Instala Tailscale pero NO lo une (la key se pide despues)
   --check               Solo diagnóstico (no cambia nada; no requiere root)
   --all                 Equivale a --rustdesk --ssh --tailscale --laptop
   --dry-run             Muestra qué haría SIN aplicar cambios (seguro)
@@ -119,6 +121,7 @@ while [[ $# -gt 0 ]]; do
     --ssh)       DO_SSH=1; shift ;;
     --tailscale) DO_TAILSCALE=1; shift ;;
     --laptop)    DO_LAPTOP=1; shift ;;
+    --install-tailscale) DO_TAILSCALE=1; INSTALL_TS=1; shift ;;
     --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
@@ -1213,13 +1216,22 @@ setup_tailscale() {
   fi
 
   if [[ -z "$TS_AUTHKEY" ]]; then
-    warn "Sin --authkey: el equipo NO se unirá a la tailnet"
-    info "Genera una auth key en el panel del cliente:"
-    info "  https://login.tailscale.com/admin/settings/keys"
-    info "  (admin -> Settings -> pestaña Keys -> Generate auth key)"
-    info "  (Reusable: NO para un equipo · Ephemeral: NO · Expiry: 1 día)"
-    info "  La key solo se muestra UNA VEZ al generarla."
-    info "Luego: sudo $0 --tailscale --authkey \"tskey-auth-...\""
+    warn "Sin --authkey: Tailscale quedó INSTALADO pero SIN unir a la tailnet"
+    info ""
+    info "  La auth key NO se genera en este equipo."
+    info "  Se crea en la WEB y se copia acá. Desde CUALQUIER navegador"
+    info "  (tu celular sirve; no hace falta Tailscale instalado):"
+    info ""
+    info "    1) Abrí: https://login.tailscale.com/admin/settings/keys"
+    info "       (admin -> Settings -> pestaña 'Keys')"
+    info "    2) Click en 'Generate auth key...'"
+    info "       Description: lo que quieras   Reusable: NO   Ephemeral: NO"
+    info "       Expiry: 1 día (o 90 si vas a instalar varios)"
+    info "    3) Copiá el string 'tskey-auth-...' (se muestra UNA SOLA VEZ)"
+    info ""
+    info "  Y uní el equipo con:"
+    info "    ./unir-tailscale.sh "
+    info "    (o: sudo tailscale up --auth-key='tskey-auth-...' --hostname=$(local_hostname))"
     return 0
   fi
 

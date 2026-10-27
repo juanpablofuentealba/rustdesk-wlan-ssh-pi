@@ -522,6 +522,30 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "H-30 la auth key se genera en la web (no en el equipo)"
+t "H-30 documentado" bash -c 'grep -q "H-30" docs/hallazgos.md'
+t "H-30 dice que se crea en la WEB" \
+  bash -c 'grep -q "se \*\*crea en la WEB\*\*" docs/hallazgos.md'
+t "existe unir-tailscale.sh" bash -c 'test -f unir-tailscale.sh'
+t "unir-tailscale es ejecutable" bash -c 'test -x unir-tailscale.sh'
+t "unir-tailscale sintaxis OK" bash -c 'bash -n unir-tailscale.sh'
+t "unir-tailscale explica de dónde sale la key" \
+  bash -c 'grep -q "De dónde sale la auth key" unir-tailscale.sh'
+t "unir-tailscale apunta a la URL de keys" \
+  bash -c 'grep -q "login.tailscale.com/admin/settings/keys" unir-tailscale.sh'
+t "unir-tailscale valida el formato tskey-" \
+  bash -c 'grep -q "debe empezar con .tskey-" unir-tailscale.sh'
+t "instalar-todo tiene --tailscale-luego" \
+  bash -c 'grep -q -- "--tailscale-luego" instalar-todo.sh'
+t "setup-remote-target tiene --install-tailscale" \
+  bash -c 'grep -q -- "--install-tailscale" setup-remote-target.sh'
+t "el mensaje sin authkey explica de dónde sale" \
+  bash -c 'grep -q "NO se genera en este equipo" setup-remote-target.sh'
+t "make-kit incluye unir-tailscale.sh" \
+  bash -c 'grep -q "unir-tailscale.sh" make-kit.sh'
+t "el kit generado trae unir-tailscale.sh" \
+  bash -c 'd="$(mktemp -d)"; ./make-kit.sh --dest "$d/kit" >/dev/null 2>&1; test -f "$d/kit/unir-tailscale.sh"; r=$?; rm -rf "$d"; exit $r'
+
 sect "H-29 anti-suspensión para portátiles"
 t "H-29 documentado" bash -c 'grep -q "H-29" docs/hallazgos.md'
 t "H-29 explica el riesgo (pierde acceso)" \

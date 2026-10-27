@@ -37,8 +37,9 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`instalar-todo.sh`](instalar-todo.sh) | **Un solo comando**: RustDesk unattended + SSH + firewall + clave + Tailscale + contraseña + verificación |
 | [`reboot-remoto.sh`](reboot-remoto.sh) | **Reinicio remoto unattended**: NOPASSWD acotado (solo reboot) + espera la vuelta · ver [H-27](docs/hallazgos.md) |
 | [`laptop-no-suspend.sh`](laptop-no-suspend.sh) | **Portátiles**: evita que suspenda (tapa/inactividad) y se pierda el acceso · ver [H-29](docs/hallazgos.md) |
+| [`unir-tailscale.sh`](unir-tailscale.sh) | **Unir a la tailnet** pidiendo/pegando la auth key + explica de dónde sale · ver [H-30](docs/hallazgos.md) |
 | [`make-kit.sh`](make-kit.sh) | **Empaqueta el kit para ir a un cliente** (pendrive/tarball autocontenido + `MANIFEST.sha256`) |
-| [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive: los pasos en orden, para leer de un tirón |
+| [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive: los pasos en orden, para leer de un tirón (incluye `--tailscale-luego` si aún no tenés la auth key) |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | **Prompt para agentes IA** (OpenCode/Claude/pi): reglas duras + flujo, para que no reinventen lo ya resuelto |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen (se copia a la raíz del pendrive) |
 | [`tests.sh`](tests.sh) | Pruebas de humo (sintaxis, salidas, remoto) — **córrelo antes de un cliente nuevo** |

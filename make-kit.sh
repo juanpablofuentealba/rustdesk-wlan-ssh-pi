@@ -17,6 +17,7 @@
 #   verify-offlan.sh       ← prueba el acceso desde fuera de la LAN
 #   reboot-remoto.sh       ← reinicio remoto unattended (NOPASSWD acotado, H-27)
 #   laptop-no-suspend.sh   ← evita que un portátil suspenda y pierda el acceso (H-29)
+#   unir-tailscale.sh      ← unir a la tailnet pidiendo/pegando la auth key
 #   make-kit.sh            ← para regenerar el kit desde el propio pendrive
 #   tests.sh               ← verificación
 #   MANIFEST.sha256        ← integridad del paquete
@@ -59,6 +60,7 @@ FILES=(
   verify-offlan.sh
   reboot-remoto.sh
   laptop-no-suspend.sh
+  unir-tailscale.sh
   make-kit.sh
   tests.sh
 )

@@ -1349,6 +1349,63 @@ portátil, verificar explícitamente que no suspenda.
 
 ---
 
+## H-30 — La auth key no sale del equipo: se genera en la web
+
+**Verificado:** ✅ (27 oct 2026)
+
+Síntoma real (bloqueó una instalación en un laptop de cliente): el kit pide
+`--authkey` **antes** de unir Tailscale, el operador no la tiene a mano, y la
+instalación queda a mitad. La pregunta que aparece es:
+
+> "¿Cómo obtengo la auth key si todavía no tengo Tailscale instalado?"
+
+**La confusión:** se cree que la key "sale" de Tailscale o del equipo. No es así.
+
+**La respuesta:** la auth key se **crea en la WEB** de Tailscale, logueado con la
+cuenta, desde **cualquier navegador** (el celular alcanza). No requiere Tailscale
+instalado en el dispositivo donde la generás. Es simplemente un **string de
+texto** que se copia de la web y se pega en el equipo.
+
+```
+1. En un navegador (celular o cualquier PC):
+     https://login.tailscale.com/admin/settings/keys
+     admin -> Settings -> pestaña "Keys" -> "Generate auth key..."
+2. Copiar el string  tskey-auth-...   (se muestra UNA SOLA VEZ)
+3. Pegarlo en el equipo objetivo (--authkey, o ./unir-tailscale.sh)
+```
+
+### Solución: separar instalar de autenticar
+
+El kit pedía la key de entrada y bloqueaba. Ahora hay dos modos que **no
+bloquean** si todavía no tenés la key:
+
+| Modo | Qué hace |
+|---|---|
+| `--tailscale-luego` | Instala Tailscale y deja el daemon **sin unir**; explica cómo obtener la key |
+| `--skip-tailscale` | No toca Tailscale (solo LAN) |
+
+Y una segunda etapa explícita:
+
+```fish
+# Etapa 1 (no necesita la key)
+sudo ./instalar-todo.sh --tailscale-luego --rdpass 'ClaveCliente'
+# Etapa 2 (cuando ya tenés la key, generada en la web)
+./unir-tailscale.sh --hostname laptop-cliente
+```
+
+`unir-tailscale.sh` imprime el paso a paso de dónde sale la key, valida el
+formato (`tskey-`), une el equipo y verifica la IP `100.x`.
+
+**Por qué es mejor partir el flujo:** la auth key **expira**. Generarla al
+principio y tardar una hora instalando puede vencerla. Generarla al final (o en
+el momento) evita esa carrera.
+
+**Lección:** una credencial que se crea en la web debe documentarse como parte
+del flujo, no como un prerrequisito "obvio". El operador novato no sabe que la
+key se genera fuera del equipo.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1383,6 +1440,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-27 reinicio remoto (sudo/polkit) | `tests.sh`: existe la sección H-27; documenta NOPASSWD acotado y rollback |
 | H-28 `local-ip-addr` obsoleto tras cambiar de red | `tests.sh`: existe la sección H-28; documenta detección, corrección y el restart |
 | H-29 portátil que suspende y pierde el acceso | `tests.sh`: existe `laptop-no-suspend.sh`; `setup-remote-target.sh` tiene `--laptop` |
+| H-30 la auth key se genera en la web | `tests.sh`: existe `unir-tailscale.sh`; `instalar-todo.sh` tiene `--tailscale-luego` |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

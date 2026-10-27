@@ -45,6 +45,7 @@
   rustdesk-password.sh     contrasena permanente de RustDesk
   install-rustdesk-unattended-fedora.sh   Fedora/RHEL con capturador DRM
   laptop-no-suspend.sh     portatiles: evita que suspenda y se pierda acceso
+  unir-tailscale.sh        unir a la tailnet pidiendo/pegando la auth key
   inventory.sh             ficha de specs del equipo
   make-kit.sh              empaquetar el kit para un pendrive
 
@@ -55,7 +56,7 @@
   verify-docs.sh           valida comandos y URLs de la doc
 
   -- Documentacion --
-  docs/hallazgos.md        H-01..H-29: problemas y soluciones verificadas
+  docs/hallazgos.md        H-01..H-30: problemas y soluciones verificadas
   docs/tailscale.md        acceso remoto sin abrir puertos
   docs/onboarding-cliente.md  como dar de alta un cliente (modelo B)
   docs/estado-sesion.md    estado del trabajo, para retomar

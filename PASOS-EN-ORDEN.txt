@@ -107,6 +107,14 @@
   remoto (Tailscale/SSH/RustDesk se caen). --all ya lo previene. Si instalás
   por partes, agregá --laptop o corré:  sudo ./laptop-no-suspend.sh --apply
 
+  ¿TODAVÍA NO TENES LA AUTH KEY?  La key NO se genera en el equipo: se crea
+  en la web (login.tailscale.com -> Settings -> pestana Keys) desde cualquier
+  navegador, y se copia. Para no quedarte a mitad, usa --tailscale-luego:
+
+     sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
+     # ... despues, con la key a mano:
+     ./unir-tailscale.sh --hostname laptop-cliente
+
          sudo ./instalar-todo.sh \
            --authkey 'tskey-auth-XXXX' \
            --rdpass  'MiClaveRustDesk2026' \

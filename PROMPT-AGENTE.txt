@@ -71,6 +71,12 @@ BUSCÁ primero en docs/hallazgos.md por el error exacto.
    lo suspende y se PIERDE el acceso (ver H-29). El flag --laptop (incluido en
    --all) lo evita. Si instalas a mano, corré ./laptop-no-suspend.sh --apply.
 
+10. LA AUTH KEY NO SALE DEL EQUIPO (H-30): se crea en la WEB de Tailscale
+    (login.tailscale.com -> Settings -> pestaña Keys) desde cualquier navegador
+    y se copia. NO hace falta tener Tailscale instalado para generarla. Si no
+    la tenés a mano, NO uses --authkey: usá --tailscale-luego (instala TS sin
+    unir) y después ./unir-tailscale.sh. Así no te quedás a mitad.
+
 --- FLUJO RECOMENDADO ---
 
     git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit

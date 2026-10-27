@@ -18,14 +18,20 @@
 # --key. Si no hay ninguna, se avisa (el operador no podría entrar por SSH).
 #
 # Opciones:
-#   --authkey "tskey-auth-..."  Auth key de Tailscale (obligatoria)
+#   --authkey "tskey-auth-..."  Auth key de Tailscale (obligatoria salvo -luego/-skip)
 #   --rdpass  "..."             Contraseña permanente de RustDesk (obligatoria)
 #   --key "ssh-ed25519 ..."     Clave pública del operador (o usa operador.pub)
 #   --sudopass "..."            Contraseña de sudo, si sudo la pide
-#   --skip-tailscale            No unir a Tailscale (solo LAN)
+#   --tailscale-luego           Instala Tailscale SIN unir; te guia para unir despues
+#                               (util si todavia no tenes la auth key: no bloquea)
+#   --skip-tailscale            No tocar Tailscale (instalar solo para LAN)
 #   --dry-run                   Muestra qué haría, sin aplicar nada
 #   --yes, -y                   No preguntar (modo desatendido)
 #   -h, --help                  Esta ayuda
+#
+# ¿NO TENES LA AUTH KEY TODAVIA?  No se genera en el equipo: se crea en la WEB
+# (login.tailscale.com -> Settings -> Keys) desde cualquier navegador y se copia.
+# Para no quedarte a mitad, usa --tailscale-luego y luego: ./unir-tailscale.sh
 #
 # Repositorio (documentación completa, hallazgos y versiones nuevas):
 #   https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
@@ -43,6 +49,7 @@ RDPASS=""
 OPKEY=""
 SUDOPASS=""
 SKIP_TS=0
+TS_LUEGO=0
 DRY_RUN=0
 ASSUME_YES=0
 
@@ -52,7 +59,7 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
 hdr()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -61,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --key)            OPKEY="${2:-}"; shift 2 ;;
     --sudopass)       SUDOPASS="${2:-}"; shift 2 ;;
     --skip-tailscale) SKIP_TS=1; shift ;;
+    --tailscale-luego) TS_LUEGO=1; AUTHKEY="__PENDIENTE__"; shift ;;
     --dry-run)        DRY_RUN=1; shift ;;
     --yes|-y)         ASSUME_YES=1; shift ;;
     -h|--help)        usage; exit 0 ;;
@@ -88,11 +96,19 @@ if [[ -z "$RDPASS" ]]; then
 fi
 
 # auth key de Tailscale
-if [[ $SKIP_TS -eq 0 ]]; then
+if [[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 1 ]]; then
+  warn "--tailscale-luego: se instala Tailscale pero NO se une todavia"
+  info "  Al terminar, el script te dice como obtener la key y unir el equipo."
+elif [[ $SKIP_TS -eq 0 ]]; then
   if [[ -z "$AUTHKEY" ]]; then
     err "falta --authkey (auth key de Tailscale)."
-    err "  Generala en: https://console.tailscale.com/admin/settings/keys"
-    err "  O usá --skip-tailscale para instalar solo para LAN."
+    err "  NO se genera en el equipo: se crea en la WEB y se copia aca."
+    err "  Desde cualquier navegador (tu celular sirve):"
+    err "    1) https://login.tailscale.com/admin/settings/keys"
+    err "    2) pestana 'Keys' -> 'Generate auth key...'"
+    err "    3) copiar el string tskey-auth-..."
+    err "  O usá --tailscale-luego (instala TS y te guia para unir despues)"
+    err "  O usá --skip-tailscale (instalar solo para LAN)."
     exit 1
   fi
   case "$AUTHKEY" in
@@ -200,7 +216,8 @@ fi
 hdr "Se va a hacer"
 info "1. Diagnóstico del sistema"
 info "2. RustDesk unattended + sshd + firewall + clave del operador"
-[[ $SKIP_TS -eq 0 ]] && info "3. Tailscale: unir el equipo a la tailnet"
+[[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 0 ]] && info "3. Tailscale: unir el equipo a la tailnet"
+[[ $TS_LUEGO -eq 1 ]] && info "3. Tailscale: INSTALAR (unir queda para la etapa 2)"
 info "4. Contraseña permanente de RustDesk"
 info "5. Verificación final"
 echo
@@ -223,7 +240,9 @@ fi
 
 ARGS_ALL=(--all --yes)
 [[ -n "$OPKEY" ]] && ARGS_ALL+=(--key "$OPKEY")
-[[ $SKIP_TS -eq 0 ]] && ARGS_ALL+=(--authkey "$AUTHKEY")
+[[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 0 ]] && ARGS_ALL+=(--authkey "$AUTHKEY")
+# Con --tailscale-luego NO se une: se instala el daemon y se unira en la etapa 2
+[[ $TS_LUEGO -eq 1 ]] && ARGS_ALL+=(--install-tailscale)
 [[ $DRY_RUN -eq 1 ]] && ARGS_ALL+=(--dry-run)
 
 # ---------- 1. diagnóstico ----------
