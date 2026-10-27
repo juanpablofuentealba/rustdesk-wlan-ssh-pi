@@ -502,19 +502,53 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "H-24 Fedora con capturador DRM (no el .rpm estándar)"
+t "la función del .deb es portable (no _arch)" \
+  bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
+t "Fedora intenta PRIMERO el .deb con DRM" \
+  bash -c 'sed -n "/^    fedora)$/,/^      ;;$/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb"'
+t "Fedora avisa si cae al .rpm estándar (sin DRM)" \
+  bash -c 'grep -q "se instaló el .rpm estándar: SIN capturador DRM" setup-remote-target.sh'
+t "Fedora sugiere el instalador especializado como alternativa" \
+  bash -c 'grep -q "install-rustdesk-unattended-fedora.sh" setup-remote-target.sh'
+
+sect "Hardening y comodidad (reporte GLM)"
+t "ufw usa limit (rate-limit), no solo allow" \
+  bash -c 'grep -q "ufw limit" setup-remote-target.sh'
+t "firewalld tiene rate-limit" \
+  bash -c 'grep -q "limit value=\"6/m\"" setup-remote-target.sh'
+t "enable-drm-display-wake se APLICA (no solo sugiere)" \
+  bash -c 'grep -q "_set_drm_wake" setup-remote-target.sh'
+t "drm-wake valida el TOML tras escribirlo" \
+  bash -c 'sed -n "/_set_drm_wake /,+20p" setup-remote-target.sh | grep -q tomllib'
+t "verify-offlan autodetecta el peer (sin default 'fedora')" \
+  bash -c '! grep -q "PEER=\"\${1:-fedora}\"" verify-offlan.sh && grep -q "autodetect" verify-offlan.sh'
+t "verify-offlan no usa la función 'info' (colisiona con info(1))" \
+  bash -c '! grep -qE "^info\(\)" verify-offlan.sh && grep -q "^say()" verify-offlan.sh'
+t "instalar-todo corre --check UNA sola vez" \
+  bash -c '[ "$(grep -c "setup-remote-target.sh --check" instalar-todo.sh)" -le 1 ]'
+t "el kit lleva versión (.kit-version)" \
+  bash -c 'grep -q "kit-version" make-kit.sh'
+t "los backups del helper rotan (no acumulan)" \
+  bash -c 'grep -q "tail -n +4" .rd-setpass-root.sh'
+t "el helper remoto se limpia con trap" \
+  bash -c 'grep -q "trap .*rm -f /tmp/rd-setpass-root.sh" rustdesk-password.sh'
+t "README ya no presenta paru como ruta primaria en Arch" \
+  bash -c 'grep -q "Ruta recomendada" README.md'
+
 sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
 t "existe la vía .deb sin AUR" \
-  bash -c 'grep -q "^install_rustdesk_unattended_deb_arch()" setup-remote-target.sh'
+  bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
 t "la vía .deb verifica el sha256" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "sha256"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "sha256"'
 t "la vía .deb comprueba la red antes" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "github.com"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "github.com"'
 t "la vía .deb instala libdrmtap" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "libdrmtap"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "libdrmtap"'
 t "arch prueba 3 vías en cascada" \
   bash -c 'grep -q "^install_rustdesk_arch_unattended()" setup-remote-target.sh'
 t "la cascada usa el .deb si el AUR falla" \
-  bash -c 'sed -n "/^install_rustdesk_arch_unattended()/,/^}/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb_arch"'
+  bash -c 'sed -n "/^install_rustdesk_arch_unattended()/,/^}/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb"'
 t "avisa si falta red antes de instalar RustDesk" \
   bash -c 'grep -q "SIN CONEXIÓN a aur.archlinux.org" setup-remote-target.sh'
 t "tailscale avisa si falta red" \

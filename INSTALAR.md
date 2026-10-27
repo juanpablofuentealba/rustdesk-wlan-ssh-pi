@@ -114,8 +114,11 @@ tipo de sesión (Wayland/X11).
 Elegí la contraseña **permanente** de RustDesk para este equipo. Guárdala en tu
 gestor: la vas a necesitar cada vez que te conectes.
 
-**En CachyOS/Arch** (tu caso): el kit instala el paquete de AUR con el parche
-DRM, que es lo que permite capturar la pantalla en Wayland.
+**Sobre el paquete de RustDesk:** el kit instala la build con **capturador DRM**
+(`libdrmtap.so`), que es lo que permite capturar la pantalla en Wayland sin
+depender del portal. Esa build solo existe como `.deb` en el release oficial de
+RustDesk, así que el kit lo descarga, **verifica su sha256** y lo extrae a mano.
+Funciona igual en Arch, Fedora y Debian, y **no necesita AUR ni compilar**.
 
 ### Paso 3 — Aplicar TODO con un solo comando
 
@@ -133,11 +136,11 @@ Qué hace `--all`:
 | `--ssh` | Instala y habilita `sshd` + abre el firewall solo |
 | `--tailscale` | Instala Tailscale y une el equipo con la auth key |
 
-> **CachyOS recién instalado:** puede que no tenga `paru` ni `yay`. El kit lo
-detecta e **instala `paru-bin` solo** (precompilado, no hace falta compilar).
-> Si tampoco pudiera, te dice exactamente qué hacer a mano.
+> **En Arch/CachyOS** puede que no haya `paru` ni `yay`: **no importa**, la vía
+> del `.deb` no los necesita. Si el `.deb` fallara, el kit instala `paru-bin`
+> solo y reintenta por AUR como último recurso.
 
-Si preferís instalarlo antes:
+Si igualmente preferís el AUR (y tenés paru/yay):
 
 ```bash
 paru -S --needed rustdesk-unattended-wayland

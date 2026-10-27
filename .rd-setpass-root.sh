@@ -48,7 +48,13 @@ apply() {
     echo "  (omitido: no existe $f)"
     return 0
   fi
-  cp -a "$f" "$f.bak-$(date +%s)"
+  # Backup con sufijo único (date +%s colisiona si dos corridas caen en el
+  # mismo segundo y la segunda pisa a la primera) y rotación: se conservan los
+  # 3 más recientes para no acumular archivos sin fin en el cliente.
+  local bk
+  bk="$(mktemp -u "$f.bak-XXXXXXXX")"
+  cp -a "$f" "$bk"
+  ls -1t "$f".bak-* 2>/dev/null | tail -n +4 | xargs -r rm -f 2>/dev/null || true
 
   # salt/storage por variables de entorno, no como argv de python (no aparecen
   # en /proc/<pid>/cmdline).

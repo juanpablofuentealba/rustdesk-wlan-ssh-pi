@@ -69,6 +69,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ---------- validaciones previas ----------
+# Versión del kit, si viene de make-kit.sh (para depurar desde fuera).
+KV=""
+[[ -f "$SCRIPT_DIR/.kit-version" ]] && KV="$(sed -n 's/^kit_version=//p' "$SCRIPT_DIR/.kit-version" | head -1)"
+[[ -n "$KV" ]] && info "kit versión: $KV"
+
 hdr "Comprobaciones previas"
 
 # Primero validamos los ARGUMENTOS (así el mensaje de error es el correcto,
@@ -223,12 +228,12 @@ ARGS_ALL=(--all --yes)
 
 # ---------- 1. diagnóstico ----------
 hdr "1/5 · Diagnóstico"
-./setup-remote-target.sh --check 2>&1 | tail -n +1 | sed 's/^/  /' || true
-
-if [[ $DRY_RUN -eq 0 ]]; then
-  FAM="$(grep -E '^● Familia:' <(./setup-remote-target.sh --check 2>/dev/null) | awk '{print $3}')"
-  info "familia detectada: ${FAM:-?}"
-fi
+# Se corre UNA sola vez y se reutiliza la salida: antes se ejecutaba dos veces
+# (una para mostrar y otra solo para sacar la familia).
+CHECK_OUT="$(./setup-remote-target.sh --check 2>&1 || true)"
+printf '%s\n' "$CHECK_OUT" | sed 's/^/  /'
+FAM="$(grep -E 'Familia:' <<<"$CHECK_OUT" | awk '{print $3}' | head -1)"
+info "familia detectada: ${FAM:-?}"
 
 # ---------- 2 y 3. kit completo ----------
 hdr "2/5 · RustDesk unattended + SSH + firewall$([[ $SKIP_TS -eq 0 ]] && echo ' + Tailscale')"

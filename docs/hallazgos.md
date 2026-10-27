@@ -1055,6 +1055,57 @@ del comando pueden ser interceptados por el intérprete.
 
 ---
 
+## H-24 — Fedora instalaba el `.rpm` sin capturador DRM
+
+**Verificado:** ✅ (revisión de código, 27 oct 2026)
+
+Síntoma latente: en un cliente **Fedora**, `setup-remote-target.sh --rustdesk`
+instalaba `install_rustdesk_rpm` — el **build estándar**, que **no incluye
+`libdrmtap.so`** (ver H-14). El acceso desatendido en Wayland habría cascado al
+portal y fallado en silencio, exactamente el problema que en Fedora 44 ya
+habíamos visto.
+
+La vía buena (`install-rustdesk-unattended-fedora.sh`, que extrae el `.deb` con
+DRM) **existía pero no estaba enganchada al flujo**: había que ejecutarla aparte.
+
+**Por qué pasó:** la función que instalaba el `.deb` se llamaba
+`install_rustdesk_unattended_deb_arch` y solo se invocaba desde la rama `arch`.
+El nombre limitaba su uso aunque la lógica es **portable** (solo `curl` + `ar` +
+`tar`, sin `dpkg` ni AUR).
+
+**Solución:** renombrada a `install_rustdesk_unattended_deb` y enganchada como
+**primera opción en Fedora**, con el `.rpm` como respaldo y un aviso explícito:
+
+```
+fedora)
+  if install_rustdesk_unattended_deb; then        # capturador DRM
+    :
+  elif install_rustdesk_rpm; then
+    warn "se instaló el .rpm estándar: SIN capturador DRM"
+    warn "  En Wayland el acceso desatendido puede cascar al portal."
+  fi
+```
+
+**Lección:** un nombre que menciona una distro (`_arch`) cuando la lógica no
+depende de ella invita a no reutilizarla. Si la función es portable, el nombre
+debe decirlo.
+
+### Mejoras aplicadas junto con este hallazgo
+
+| Mejora | Antes | Ahora |
+|---|---|---|
+| **Hardening SSH** | `ufw allow 22/tcp` | `ufw limit` (6 conexiones/30 s por IP) + rich rule en firewalld |
+| **drm-wake** | Solo se *sugería* editar el TOML | Se **aplica** (usuario + root) y se **valida** el TOML resultante |
+| **`verify-offlan.sh`** | `PEER=fedora` por defecto (resto de desarrollo) | Autodetecta el primer peer online; error claro si no hay |
+| **Función `info`** | `verify-offlan.sh` la definía → colisiona con `info(1)` | Renombrada a `say` (mismo bug que en H-15) |
+| **`--check` duplicado** | `instalar-todo.sh` lo corría dos veces | Se ejecuta una vez y se reutiliza la salida |
+| **Backups** | `.bak-$(date +%s)` (colisiona) y acumulaban sin fin | Sufijo `mktemp -u` + rotación a los 3 últimos |
+| **Limpieza remota** | El helper podía quedar en `/tmp` del cliente | `trap` de salida que lo borra |
+| **Versionado** | Ningún script conocía su versión | `.kit-version` (de `git describe`) + `instalar-todo.sh` lo imprime |
+| **Doc (drift)** | README/INSTALAR presentaban `paru` como ruta primaria | El `.deb` con DRM es la principal; AUR queda como alternativa |
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1084,6 +1135,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-21 `paru` no es necesario (cascada de 3 vías) | `tests.sh`: existe `install_rustdesk_unattended_deb_arch` y la cascada |
 | H-22 fallos silenciosos (red / tailscale up) | `tests.sh`: el kit comprueba la red y muestra la salida de `tailscale up` |
 | H-23 objetivo con fish (no mandar bash suelto) | `tests.sh`: los comandos remotos van por `bash -s`; `make check` también |
+| H-24 Fedora con DRM (no `.rpm` estándar) | `tests.sh <host>`: la rama fedora intenta primero el `.deb` con `libdrmtap` |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

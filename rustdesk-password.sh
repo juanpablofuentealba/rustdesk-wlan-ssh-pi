@@ -220,6 +220,9 @@ install_remote() {
     # --- REMOTO: helper por scp, args por stdin ---
     # NO usamos `bash -s < archivo`: sudo -S lee la contraseña de stdin.
     scp -q -o BatchMode=yes "$helper" "$target:/tmp/rd-setpass-root.sh"
+    # Trap: si algo falla de aquí en adelante (sudo mal, corte de red), el
+    # helper no debe quedar en el /tmp del cliente.
+    trap 'ssh -o BatchMode=yes "$target" "rm -f /tmp/rd-setpass-root.sh" 2>/dev/null || true' EXIT
     if [[ -n "$sudo_pass" ]]; then
       printf '%s\n%s\n%s\n' "$sudo_pass" "$salt" "$storage" | \
         ssh -o BatchMode=yes "$target" "sudo -S -p '' bash /tmp/rd-setpass-root.sh --stdin-with-pass"
@@ -227,7 +230,9 @@ install_remote() {
       printf '%s\n%s\n' "$salt" "$storage" | \
         ssh -o BatchMode=yes "$target" "sudo -n bash /tmp/rd-setpass-root.sh --stdin"
     fi
-    ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' || true
+    # Limpiar SIEMPRE el helper del /tmp del objetivo, aunque sudo fallara:
+    # aquí (caso normal) y en el trap de salida (casos de error).
+    ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true
   fi
 
   echo "→ Reiniciando rustdesk.service ..."

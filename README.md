@@ -10,9 +10,15 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 
 | Familia | Distros | Gestor | RustDesk |
 |---|---|---|---|
-| **Arch** | CachyOS, Arch, Manjaro, EndeavourOS | `pacman` + AUR (`paru`/`yay`) | `rustdesk-unattended-wayland` (AUR) |
+| **Arch** | CachyOS, Arch, Manjaro, EndeavourOS | `pacman` (+ AUR si hay helper) | **`.deb` oficial unattended** → AUR como alternativa |
 | **Debian** | Debian, Ubuntu, **Linux Mint**, Pop!_OS | `apt` | `.deb` oficial |
-| **Fedora** | Fedora, RHEL, Rocky, AlmaLinux | `dnf` | `.rpm` oficial |
+| **Fedora** | Fedora, RHEL, Rocky, AlmaLinux | `dnf` | **`.deb` oficial unattended** → `.rpm` como alternativa |
+
+> **¿Por qué el `.deb` también en Arch y Fedora?** Porque es el único paquete que
+> trae `libdrmtap.so`, el capturador DRM que habilita el acceso desatendido en
+> Wayland. Ni el `.rpm` oficial ni `rustdesk-bin` de chaotic-aur lo incluyen
+> (ver [H-14](docs/hallazgos.md)). El kit lo descarga, verifica su sha256 y lo
+> extrae a mano: **no necesita AUR, ni dpkg, ni compilar** (solo `curl`+`ar`+`tar`).
 
 El script detecta la familia vía `/etc/os-release` y usa el camino correcto.
 Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
@@ -142,8 +148,9 @@ No es simétrico. El **operador** solo necesita *salir* hacia los clientes; el
 > (para entender qué hace). El script ejecuta exactamente los pasos manuales,
 > pero además resuelve el usuario correcto bajo `sudo`, evita claves duplicadas
 > y detecta el firewall. **Soporta Arch, Debian/Ubuntu y Fedora/RHEL** con
-> ramas separadas por familia. Los pasos manuales de abajo usan `paru`/`pacman`
-> (Arch); para otras familias ver [§ 11](#11-soporte-multi-distro-arch--debian--fedora).
+> ramas separadas por familia. En **todas** el kit prefiere el `.deb` con
+> capturador DRM; los gestores nativos (`pacman`/`apt`/`dnf`) se usan para el
+> resto de los paquetes. Ver [§ 11](#11-soporte-multi-distro-arch--debian--fedora).
 
 ### 3.0 Automático (recomendado)
 
@@ -172,6 +179,10 @@ Si ya lo copiaste vía `make target-setup`, el comando exacto se te imprime al f
 Instalar el paquete con soporte de captura DRM:
 
 ```fish
+# Ruta recomendada (la que usa el kit): el kit baja y verifica el .deb oficial
+sudo ./setup-remote-target.sh --rustdesk
+
+# Alternativa en Arch, si preferís el AUR y tenés paru/yay:
 paru -S rustdesk-unattended-wayland
 ```
 
@@ -436,9 +447,9 @@ ssh <objetivo> → por WLAN, latencia ~2 ms, throughput estable
 - [ ] Verificar `drm: consumer cache warmed` en los logs de RustDesk
 
 **En el PC objetivo (primera vez) — manual, si prefieres paso a paso:**
-- [ ] `paru -S rustdesk-unattended-wayland`
+- [ ] `sudo ./setup-remote-target.sh --rustdesk` (instala el `.deb` con DRM)
 - [ ] `sudo pacman -S --needed openssh; and sudo systemctl enable --now sshd`
-- [ ] **`sudo ufw allow 22/tcp`** ← el paso que se olvida
+- [ ] **`sudo ufw limit 22/tcp`** ← el paso que se olvida (limit = rate-limit)
 - [ ] Autorizar la clave del operador (ojo con `sudo` → ver 3.4)
 - [ ] Verificar `drm: consumer cache warmed` en los logs de RustDesk
 
@@ -626,7 +637,7 @@ $ ./setup-remote-target.sh --check
 
 | Familia | Detección | Gestor | Instalación de RustDesk |
 |---|---|---|---|
-| `arch` | ID/ID_LIKE contiene `arch` (o existe `pacman`) | `pacman` | `rustdesk-unattended-wayland` vía AUR (`paru`/`yay`) |
+| `arch` | ID/ID_LIKE contiene `arch` (o existe `pacman`) | `pacman` | `.deb` oficial con DRM; AUR (`paru`/`yay`) como alternativa |
 | `debian` | `debian`/`ubuntu`/`linuxmint` (o existe `apt-get`) | `apt-get` | `.deb` oficial (resuelto en la API de GitHub) |
 | `fedora` | `fedora`/`rhel` (o existe `dnf`) | `dnf`¹ | `.rpm` oficial (resuelto en la API de GitHub) |
 

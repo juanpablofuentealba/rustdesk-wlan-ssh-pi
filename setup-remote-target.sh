@@ -285,7 +285,7 @@ install_rustdesk_arch_unattended() {
   fi
 
   # --- vía 2: el .deb oficial, extraído a mano ---
-  if install_rustdesk_unattended_deb_arch; then return 0; fi
+  if install_rustdesk_unattended_deb; then return 0; fi
 
   # --- vía 3: instalar paru y reintentar ---
   warn "El .deb oficial tampoco funcionó; probando instalar paru..."
@@ -300,9 +300,17 @@ install_rustdesk_arch_unattended() {
   return 1
 }
 
-# Instala el .deb oficial "rustdesk-unattended-wayland" en Arch sin dpkg.
-# Mismo enfoque que install-rustdesk-unattended-fedora.sh, pero integrado.
-install_rustdesk_unattended_deb_arch() {
+# Instala el .deb oficial "rustdesk-unattended-wayland" SIN dpkg.
+#
+# Es PORTABLE: solo necesita curl + ar + tar, así que sirve igual en Arch,
+# Fedora, Debian y cualquier otra. Es la vía que trae libdrmtap.so (captura
+# DRM en Wayland), a diferencia del .rpm/.deb estándar (ver H-14).
+#
+# El nombre lleva _deb (no _arch) desde H-24: antes se llamaba
+# install_rustdesk_unattended_deb_arch y solo se usaba en la rama arch, así
+# que Fedora instalaba el .rpm SIN capturador DRM y el desatendido cascaba al
+# portal en silencio.
+install_rustdesk_unattended_deb() {
   local ver="${RD_VERSION:-1.5.0}"
   local url="https://github.com/rustdesk/rustdesk/releases/download/${ver}/rustdesk-unattended-wayland-${ver}-x86_64.deb"
   local sha_ok="9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09"
@@ -810,7 +818,17 @@ setup_rustdesk() {
       install_rustdesk_deb
       ;;
     fedora)
-      install_rustdesk_rpm
+      # OJO: el .rpm oficial NO trae libdrmtap.so (captura DRM en Wayland), así
+      # que el acceso desatendido caería al portal y fallaría (H-14).
+      # Por eso se intenta PRIMERO la vía portable del .deb con DRM; el .rpm
+      # queda como respaldo (funciona bien en X11 y como GUI normal).
+      if install_rustdesk_unattended_deb; then
+        :
+      elif install_rustdesk_rpm; then
+        warn "se instaló el .rpm estándar: SIN capturador DRM"
+        warn "  En Wayland el acceso desatendido puede cascar al portal."
+        warn "  Alternativa: sudo ./install-rustdesk-unattended-fedora.sh"
+      fi
       ;;
     *)
       err "Familia de distro no soportada para RustDesk automático."
@@ -857,19 +875,40 @@ UDEV
   run systemctl restart rustdesk 2>/dev/null || true
   ok "rustdesk.service habilitado y reiniciado"
 
-  # sugerir enable-drm-display-wake en la config del usuario objetivo
+  # enable-drm-display-wake: APLICARLO, no solo sugerirlo (H-24).
+  # Evita que la captura falle si el monitor se apagó por inactividad.
+  # Se escribe en la config del usuario objetivo Y en la de root (el servicio
+  # corre como root y sincroniza la del usuario).
   local rd2="$TARGET_HOME/.config/rustdesk/RustDesk2.toml"
-  if [[ -f "$rd2" ]]; then
-    if grep -q "enable-drm-display-wake" "$rd2"; then
-      ok "enable-drm-display-wake ya configurado"
+  _set_drm_wake() {
+    local f="$1"
+    [[ -f "$f" ]] || return 1
+    grep -q "enable-drm-display-wake" "$f" && return 0
+    cp -a "$f" "$f.bak-$(date +%s)" 2>/dev/null || true
+    if grep -q '^\[options\]' "$f"; then
+      printf "enable-drm-display-wake = 'Y'\n" >> "$f"
     else
-      warn "Recomendado: añadir a $rd2"
-      warn "  [options]"
-      warn "  enable-drm-display-wake = 'Y'"
-      warn "  (evita fallos de captura si el monitor se apaga)"
+      printf "\n[options]\nenable-drm-display-wake = 'Y'\n" >> "$f"
     fi
+    return 0
+  }
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) escribiría enable-drm-display-wake = 'Y' en la config de RustDesk"
   else
-    warn "No existe $rd2 todavía (RustDesk lo crea al primer arranque de la GUI)"
+    local applied=0
+    _set_drm_wake "$rd2" && applied=1
+    _set_drm_wake /root/.config/rustdesk/RustDesk2.toml && applied=1
+    # validar el TOML (un archivo inválido rompe RustDesk al arrancar)
+    if [[ $applied -eq 1 ]]; then
+      if python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))" "$rd2" 2>/dev/null \
+         || [[ ! -f "$rd2" ]]; then
+        ok "enable-drm-display-wake aplicado (evita fallos si el monitor se apaga)"
+      else
+        warn "el TOML quedó inválido; restaurá el .bak-* de $rd2"
+      fi
+    else
+      info "RustDesk aún no creó RustDesk2.toml (se crea al primer arranque de la GUI)"
+    fi
   fi
 
   hdr "Verificación"
@@ -939,12 +978,16 @@ setup_ssh() {
   info "Detectado: $fw"
   case "$fw" in
     ufw)
-      run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
+      # 'limit' en vez de 'allow': ufw aplica rate-limit (6 conexiones/30 s
+      # por IP). Frena la fuerza bruta de bots y no afecta el uso legítimo
+      # (ni siquiera reconexiones normales de SSH).
+      run ufw limit "${SSH_PORT}/tcp" >/dev/null 2>&1 \
+        || run ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
       run ufw reload >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
-        info "(dry-run) ufw permitiría ${SSH_PORT}/tcp"
+        info "(dry-run) ufw limitaría ${SSH_PORT}/tcp (rate-limit anti fuerza bruta)"
       else
-        ufw_verify "ufw: ${SSH_PORT}/tcp permitido"
+        ufw_verify "ufw: ${SSH_PORT}/tcp limitado (rate-limit)"
       fi
       ;;
     firewalld)
@@ -984,9 +1027,11 @@ setup_ssh() {
       info "Activando firewalld y permitiendo ssh..."
       run systemctl enable --now firewalld >/dev/null 2>&1 || true
       run firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1 || true
+      # rich rule con rate-limit, además del servicio ssh (cinturón y tirantes)
+      run firewall-cmd --permanent --add-rich-rule='rule service name="ssh" limit value="6/m" accept' >/dev/null 2>&1 || true
       run firewall-cmd --reload >/dev/null 2>&1 || true
       if [[ $DRY_RUN -eq 1 ]]; then
-        info "(dry-run) firewalld se activaría y permitiría ssh"
+        info "(dry-run) firewalld se activaría y permitiría ssh (con rate-limit)"
       else
         ok "firewalld activado con servicio ssh permitido"
       fi
