@@ -256,12 +256,17 @@ fi
 
 sect "Documentación presente y enlazada"
 for d in docs/guia-desde-cero.md docs/tailscale.md docs/vpn-remoto.md \
-         docs/onboarding-cliente.md docs/hallazgos.md; do
+         docs/onboarding-cliente.md docs/hallazgos.md docs/estado-sesion.md; do
   t "existe $d" test -f "$d"
 done
 t "README enlaza hallazgos"     bash -c 'grep -q "docs/hallazgos.md" README.md'
 t "README enlaza onboarding"    bash -c 'grep -q "docs/onboarding-cliente.md" README.md'
 t "README enlaza tailscale"     bash -c 'grep -q "docs/tailscale.md" README.md'
+t "README enlaza estado-sesion" bash -c 'grep -q "docs/estado-sesion.md" README.md'
+# El estado de sesión debe registrar el entorno de prueba para poder retomarlo
+t "estado-sesion registra la IP de la VM" bash -c 'grep -q "192.168.122.11" docs/estado-sesion.md'
+t "estado-sesion avisa que el guest es Wayland" bash -c 'grep -qi "wayland" docs/estado-sesion.md'
+t "estado-sesion registra el bloqueo de sudo" bash -c 'grep -qi "sudo.*contraseña\|pide contraseña" docs/estado-sesion.md'
 # La doc debe distinguir roles (operador no necesita sshd; el objetivo sí)
 t "README distingue OPERADOR/OBJETIVO" bash -c 'grep -q "PC OPERADOR" README.md && grep -q "PC OBJETIVO" README.md'
 t "README aclara que el operador no necesita sshd" \

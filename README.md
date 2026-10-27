@@ -33,6 +33,7 @@ Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 | [`docs/tailscale.md`](docs/tailscale.md) | **Guía dedicada de Tailscale**: acceso sin abrir puertos (recomendado) |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | **Cómo preparar el PC de un cliente** (modelos de acceso, auth keys verificadas) |
 | [`docs/hallazgos.md`](docs/hallazgos.md) | **Hallazgos verificados en pruebas reales** (reinicio, login screen Wayland, etc.) |
+| [`docs/estado-sesion.md`](docs/estado-sesion.md) | **Estado del trabajo con Fedora 44**: entorno de prueba, trampas y pendientes |
 | [`LICENSE`](LICENSE) | MIT |
 
 ---
@@ -543,7 +544,7 @@ Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # 108 comprobaciones locales
+./tests.sh                      # 113 comprobaciones locales
 ./tests.sh USUARIO@192.168.1.20 # + tests de hallazgos contra un host real
 ```
 
