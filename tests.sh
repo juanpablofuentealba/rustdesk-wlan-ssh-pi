@@ -138,6 +138,16 @@ t "setup usa ip route (no hostname -I)" \
 # H-08: strings|grep -q con pipefail → verify-docs debe capturar a variable
 t "verify-docs evita strings|grep -q" \
   bash -c '! grep -qE "strings -a .*\| *grep -q" verify-docs.sh'
+# Fedora 44 (imagen base mínima) NO trae el binario 'hostname': el kit debe
+# tener respaldo (/proc/sys/kernel/hostname o uname -n) para no mostrar vacío.
+t "setup tiene hostname portable (local_hostname)" \
+  bash -c 'grep -q "^local_hostname()" setup-remote-target.sh'
+t "local_hostname respalda con /proc/sys/kernel/hostname" \
+  bash -c 'awk "/^local_hostname\(\)/,/^}/" setup-remote-target.sh | grep -q "/proc/sys/kernel/hostname"'
+t "setup no llama hostname sin respaldo" \
+  bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -qE "\$\(hostname\)"'
+t "inventory respalda hostname con /proc o uname -n" \
+  bash -c 'grep -q "j HOSTNAME" inventory.sh && grep -q "/proc/sys/kernel/hostname" inventory.sh'
 
 sect "Hallazgo H-03 (login screen X11 vs Wayland)"
 if command -v pgrep >/dev/null 2>&1; then

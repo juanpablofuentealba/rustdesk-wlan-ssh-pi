@@ -30,7 +30,7 @@ done
 read -r -d '' REMOTE_SCRIPT <<'REMOTE_EOF' || true
 j() { printf '%s=%s\n' "$1" "$2"; }
 
-j HOSTNAME "$(hostname 2>/dev/null)"
+j HOSTNAME "$(hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || uname -n)"
 j USER "$(whoami 2>/dev/null)"
 j OS "$(grep -s PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '\"')"
 j KERNEL "$(uname -r)"
@@ -64,7 +64,7 @@ REMOTE_EOF
 # ---------- ejecutar ----------
 if [[ -z "$TARGET" || "$TARGET" == "local" || "$TARGET" == "." ]]; then
   RAW="$(printf '%s\n' "$REMOTE_SCRIPT" | bash -s 2>/dev/null)"
-  WHERE="local ($(hostname))"
+  WHERE="local ($(hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || uname -n))"
 else
   RAW="$(printf '%s\n' "$REMOTE_SCRIPT" | ssh -o BatchMode=yes -o ConnectTimeout=10 "$TARGET" 'bash -s' 2>/dev/null)"
   WHERE="$TARGET"

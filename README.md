@@ -345,6 +345,11 @@ Caso real: dos equipos CachyOS en la misma red WiFi de 5 GHz.
 >
 > Probado contra ISOs reales: **Linux Mint 22.3 "Zena"** (familia debian) y
 > **Fedora 44** (`Fedora-Workstation-Live-44-1.7.x86_64.iso`, familia fedora).
+>
+> **Fedora 44 (imagen base):** `docker.io/library/fedora:44` detecta como
+> `Familia: fedora` con **dnf5 5.4.3**. Ojo: esa imagen **no trae el binario
+> `hostname`** — ver [H-10](docs/hallazgos.md). El kit ya usa respaldo
+> (`/proc/sys/kernel/hostname` → `uname -n`).
 
 ### Equipos (ejemplo real de la prueba)
 

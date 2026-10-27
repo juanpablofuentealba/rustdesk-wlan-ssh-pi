@@ -320,6 +320,50 @@ Tras el fix, el DNS normal (`getent hosts google.com`) y MagicDNS (`getent hosts
 
 ---
 
+## H-10 — Fedora 44 (imagen base) no trae el binario `hostname`
+
+**Verificado:** ✅ (bug real encontrado probando en `fedora:44`)
+
+La imagen base de **Fedora 44** (`docker.io/library/fedora:44`) **no instala el
+paquete `hostname`**, así que el binario no existe:
+
+```
+$ rpm -q hostname
+package hostname is not installed
+$ command -v hostname || echo "NO hostname binary"
+NO hostname binary
+$ ./setup-remote-target.sh --check
+● Hostname:                 ← vacío (hostname: command not found)
+```
+
+Es un problema de **portabilidad**, no de Fedora en sí: el kit corría
+`$(hostname)` sin respaldo. Lo mismo afecta a `inventory.sh` (`j HOSTNAME`, y el
+encabezado `Inventario: local (...)`).
+
+**Solución:** respaldo en cadena — binario → `/proc/sys/kernel/hostname` →
+`uname -n`:
+
+```bash
+# setup-remote-target.sh
+local_hostname() {
+  if command -v hostname >/dev/null 2>&1; then hostname
+  elif [[ -r /proc/sys/kernel/hostname ]]; then cat /proc/sys/kernel/hostname
+  else uname -n; fi
+}
+
+# inventory.sh (one-liner)
+hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || uname -n
+```
+
+Tras el fix, en `fedora:44` el diagnóstico y el inventario muestran el nombre
+correcto (`/proc/sys/kernel/hostname` siempre está presente en Linux).
+
+**Nota:** relacionado con H-07 (`hostname -I`): en ambos casos el binario
+`hostname` es poco fiable fuera de un escritorio completo, y conviene preferir
+`ip` / `/proc` / `uname`.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -335,9 +379,10 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-07 `hostname -I` | `tests.sh` (local): los scripts usan `ip route get` |
 | H-08 pipefail falsos negativos | `tests.sh` (local): `verify-docs` no usa `strings|grep -q` |
 | H-09 MagicDNS con aviso resolved-NM | `tests.sh <host>`: MagicDNS resuelve por nombre |
+| H-10 `hostname` ausente (Fedora 44 base) | `tests.sh` (local): `local_hostname` + respaldo `/proc` |
 
 ```fish
-./tests.sh                      # 50 comprobaciones (local)
+./tests.sh                      # 85 comprobaciones (local)
 ./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```

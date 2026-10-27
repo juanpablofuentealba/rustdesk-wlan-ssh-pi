@@ -284,13 +284,21 @@ local_ip() {
   ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}'
 }
 
+# Nombre del host portable: el binario 'hostname' NO existe en imágenes base
+# mínimas (p. ej. fedora:44 trae solo /proc/sys/kernel/hostname).
+local_hostname() {
+  if command -v hostname >/dev/null 2>&1; then hostname
+  elif [[ -r /proc/sys/kernel/hostname ]]; then cat /proc/sys/kernel/hostname
+  else uname -n; fi
+}
+
 # ---------- 1. diagnóstico ----------
 run_check() {
   hdr "Diagnóstico del sistema"
   info "OS: $(grep -s PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
   info "Familia: $DISTRO_FAMILY"
   info "Kernel: $(uname -r)"
-  info "Hostname: $(hostname)"
+  info "Hostname: $(local_hostname)"
   info "Usuario objetivo: $TARGET_USER  (HOME: $TARGET_HOME)"
   if [[ $EUID -eq 0 ]]; then info "Ejecutando como: root (correcto para --ssh/--rustdesk)";
   else warn "Ejecutando como usuario normal: --ssh/--rustdesk requerirán sudo"; fi
