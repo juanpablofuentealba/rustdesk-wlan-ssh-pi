@@ -25,7 +25,9 @@
 
   [ ] La contraseña de sudo que vas a elegir al instalar CachyOS
 
-  [ ] Tu clave publica SSH: ya viene en  kit-rustdesk/operador.pub
+  [ ] Tu clave publica SSH: la pone  make-kit.sh --with-key  en
+      kit-rustdesk/operador.pub  (el repo NO la trae: si clonaste, pasala
+      a mano con  --key "$(cat ~/.ssh/id_ed25519.pub)")
 
   NOTA: NO hace falta instalar nada a mano antes de empezar.
         El kit instala solo: paru (desde el repo, sin compilar), PyNaCl,
@@ -119,7 +121,9 @@
      tu-clave-sudo       -> la contraseña de sudo de este equipo
                             (omití --sudopass si sudo no la pide)
 
-  La clave del operador la toma sola de operador.pub (viene en el kit).
+  La clave del operador la toma sola de operador.pub SI empaquetaste el kit con
+  --with-key. Si clonaste el repo, esa clave no existe: pasala a mano con
+  --key "$(cat ~/.ssh/id_ed25519.pub)".
 
   Para simular sin aplicar nada:  agregá  --dry-run
 
