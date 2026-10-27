@@ -29,29 +29,51 @@ ping: ## Comprueba alcance del host
 	@echo "→ ping $(HOST)"
 	@ping -c 2 -W 2 $${HOST#*@} 2>/dev/null | tail -2 || echo "  (sin ping; puede estar filtrando ICMP)"
 
+# check: verifica SSH + RustDesk + firewall en el host.
+#
+# OJO: NUNCA mandar sintaxis bash suelta por ssh. El shell del objetivo puede
+# ser fish (CachyOS lo usa por defecto) y entonces falla con errores como
+# "fish: Uso no soportado de '='" aunque el equipo esté perfecto (H-23).
+# Solución: enviar el script por STDIN a `bash -s`, que no depende del shell
+# del objetivo ni reinterpreta argumentos.
+RCHK = printf '%s\n' "$$SCRIPT" | $(SSH) $(HOST) bash -s
+
 check: ## Verifica SSH + RustDesk + firewall en el host
 	@echo "→ conectividad SSH a $(HOST)"
-	@$(SSH) $(HOST) 'echo "  ✔ SSH OK: $$(hostname) — $$(uname -r)"' || { echo "  ✘ SSH falló"; exit 1; }
+	@printf '%s\n' 'echo "  ✔ SSH OK: $$(hostname) — $$(uname -r)"' \
+	  | $(SSH) $(HOST) bash -s || { echo "  ✘ SSH falló"; exit 1; }
 	@echo "→ sshd"
-	@$(SSH) $(HOST) 'u=""; for x in sshd ssh; do systemctl list-unit-files "$$x.service" 2>/dev/null | grep -q "^$$x.service" && { u=$$x; break; }; done; u=$${u:-sshd}; printf "  unidad : %s\n" "$$u"; printf "  enabled: %s\n" "$$(systemctl is-enabled $$u 2>/dev/null || echo desconocido)"; printf "  active : %s\n" "$$(systemctl is-active $$u 2>/dev/null || echo inactivo)"'
+	@printf '%s\n' \
+	  'u=""; for x in sshd ssh; do systemctl list-unit-files "$$x.service" 2>/dev/null | grep -q "^$$x.service" && { u=$$x; break; }; done' \
+	  'u=$${u:-sshd}' \
+	  'printf "  unidad : %s\n" "$$u"' \
+	  'printf "  enabled: %s\n" "$$(systemctl is-enabled $$u 2>/dev/null || echo desconocido)"' \
+	  'printf "  active : %s\n" "$$(systemctl is-active $$u 2>/dev/null || echo inactivo)"' \
+	  | $(SSH) $(HOST) bash -s
 	@echo "→ firewall"
-	@$(SSH) $(HOST) 'if command -v ufw >/dev/null 2>&1; then \
-	  if sudo -n true 2>/dev/null; then sudo -n ufw status 2>/dev/null | head -6 | sed "s/^/  /"; \
-	  else \
-	    st="$$(grep -is ^ENABLED /etc/ufw/ufw.conf 2>/dev/null || echo ENABLED=desconocido)"; \
-	    printf "  %s (no se puede leer con sudo -n; usa: sudo ufw status)\n" "$$st"; \
-	    printf "  hint: añade --key al setup o revisa el firewall en el host\n"; \
-	  fi; \
-	elif command -v firewall-cmd >/dev/null 2>&1; then \
-	  firewall-cmd --state 2>/dev/null | sed "s/^/  firewalld: /" || echo "  firewalld: no consultable"; \
-	else echo "  (sin ufw ni firewalld)"; fi'
+	@printf '%s\n' \
+	  'if command -v ufw >/dev/null 2>&1; then' \
+	  '  if sudo -n true 2>/dev/null; then sudo -n ufw status 2>/dev/null | head -6 | sed "s/^/  /";' \
+	  '  else' \
+	  '    st="$$(grep -is ^ENABLED /etc/ufw/ufw.conf 2>/dev/null || echo ENABLED=desconocido)"' \
+	  '    printf "  %s (no se puede leer con sudo -n; usa: sudo ufw status)\n" "$$st"' \
+	  '    printf "  hint: añade --key al setup o revisa el firewall en el host\n"' \
+	  '  fi' \
+	  'elif command -v firewall-cmd >/dev/null 2>&1; then' \
+	  '  firewall-cmd --state 2>/dev/null | sed "s/^/  firewalld: /" || echo "  firewalld: no consultable"' \
+	  'else echo "  (sin ufw ni firewalld)"; fi' \
+	  | $(SSH) $(HOST) bash -s
 	@echo "→ RustDesk"
-	@$(SSH) $(HOST) 'if command -v dpkg >/dev/null 2>&1; then dpkg -s rustdesk 2>/dev/null | grep -E "^Version:" | sed "s/^/  pkg: rustdesk /"; \
-	elif command -v rpm >/dev/null 2>&1; then rpm -q rustdesk 2>/dev/null | sed "s/^/  pkg: /"; \
-	elif command -v pacman >/dev/null 2>&1; then pacman -Q rustdesk-unattended-wayland 2>/dev/null | sed "s/^/  pkg: /" || pacman -Q rustdesk 2>/dev/null | sed "s/^/  pkg: /"; fi; \
-	true'
-	@$(SSH) $(HOST) 'systemctl is-active rustdesk 2>/dev/null | sed "s/^/  servicio: /"'
-	@$(SSH) $(HOST) 'grep -hiE "UInput|drm: consumer|ipc server" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log 2>/dev/null | tail -3 | sed "s/^/  /" || echo "  (sin log)"'
+	@printf '%s\n' \
+	  'if command -v dpkg >/dev/null 2>&1; then dpkg -s rustdesk 2>/dev/null | grep -E "^Version:" | sed "s/^/  pkg: rustdesk /";' \
+	  'elif command -v rpm >/dev/null 2>&1; then rpm -q rustdesk 2>/dev/null | sed "s/^/  pkg: /";' \
+	  'elif command -v pacman >/dev/null 2>&1; then pacman -Q rustdesk-unattended-wayland 2>/dev/null | sed "s/^/  pkg: /" || pacman -Q rustdesk 2>/dev/null | sed "s/^/  pkg: /"; fi' \
+	  'true' \
+	  'systemctl is-active rustdesk 2>/dev/null | sed "s/^/  servicio: /"' \
+	  'for L in /var/lib/plasmalogin/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log "$$HOME"/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log; do' \
+	  '  [ -f "$$L" ] && grep -hiE "UInput|drm: consumer|ipc server" "$$L" 2>/dev/null | tail -3 | sed "s/^/  /"' \
+	  'done' \
+	  | $(SSH) $(HOST) bash -s
 
 test: ## Ejecuta las pruebas de humo (local; añade HOST=... para remoto)
 	@./tests.sh $(HOST)

@@ -64,6 +64,7 @@ Volcado completo guardado en el repo:
 | **H-20** | `inventory.sh` clasificaba las VMs como `desconocido` | Fedora 44 en QEMU/KVM |
 | **H-21** | `paru` era un punto único de falla (el AUR solo empaqueta el `.deb` oficial) | CachyOS virgen |
 | **H-22** | Fallos silenciosos: instalar sin red y `tailscale up` sin salida | CachyOS virgen |
+| **H-23** | Enviar sintaxis bash a un objetivo con `fish` da falsos fallos | CachyOS virgen (`jp-cachyos`) |
 
 Detalle completo en [`hallazgos.md`](hallazgos.md).
 

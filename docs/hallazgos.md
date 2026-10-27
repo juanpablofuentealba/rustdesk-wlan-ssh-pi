@@ -975,6 +975,86 @@ salida** y decir **qué comprobar**.
 
 ---
 
+## H-23 — Enviar sintaxis bash a un objetivo con `fish` da falsos fallos
+
+**Verificado:** ✅ (CachyOS recién instalado, shell `fish`, 27 oct 2026)
+
+Síntoma: `make check` y `tests.sh <host>` reportaban fallos **aunque el kit
+estaba perfectamente instalado**:
+
+```
+✘ make check
+
+fish: Uso no soportado de '='. En fish, utiliza 'set u ""'.
+u=""; for x in sshd ssh; do ...
+^~~
+```
+
+Y en `tests.sh`, peor: **omitía** 4 pruebas de hallazgos porque creía que
+Tailscale no estaba instalado:
+
+```
+▲ H-01 Tailscale no instalado en el objetivo (acceso por LAN)
+▲ H-04 no se pudo determinar el tipo de sesión del objetivo
+▲ H-05 el objetivo no tiene Tailscale (acceso por LAN): H-05 no aplica
+```
+
+**Causa doble:**
+
+### 1. El shell del objetivo es `fish`
+
+CachyOS usa **fish por defecto**. Los comandos remotos se escribían en sintaxis
+bash (`u=""`, `$(...)`, `>/dev/null 2>&1`, `awk "{print $1}"`) y fish los
+rechaza:
+
+```
+fish: Uso no soportado de '='
+fish: $$ no corresponde al PID. En fish, usa $fish_pid.
+```
+
+### 2. `ssh host bash -lc 'cmd'` se come los flags del comando
+
+Al expandir una variable como `$RH` (con `RH="ssh ... bash -lc"`), **ssh recibe
+los argumentos por separado** y bash interpreta los flags del comando como
+propios. Caso real:
+
+```console
+$ ssh host bash -lc 'tailscale ip -4'
+The easiest, most secure way to use WireGuard.   <- ¡imprime la AYUDA!
+USAGE
+  tailscale [flags] <subcommand> [command flags]
+```
+
+`-4` se lo comía bash, así que `tailscale ip` iba sin flags y mostraba ayuda.
+Por eso `H-01 tiene IP Tailscale` fallaba aunque `tailscale ip -4` funcionara
+perfecto al ejecutarlo a mano.
+
+### Solución
+
+**Enviar el script por STDIN a `bash -s`**, que ni depende del shell del
+objetivo ni reinterpreta argumentos:
+
+```bash
+rsh() { printf '%s\n' "$*" | ssh -o BatchMode=yes "$HOST" bash -s; }
+```
+
+Y en el Makefile, todo el bloque `check` va por `printf '%s\n' 'linea1' 'linea2'
+... | $(SSH) $(HOST) bash -s`, una línea de script por argumento.
+
+Resultado en el mismo equipo (antes: 7 fallos / 74 omitidos):
+
+```
+288 OK · 0 fallos · 0 omitidos
+```
+
+**Lección:** un objetivo con shell distinto (fish, csh, zsh) rompe cualquier
+comando que se le mande "suelto" por SSH. Enviar siempre el script por stdin a
+un intérprete explícito (`bash -s`) elimina la clase entera de problemas. Y ojo
+con `ssh host bash -lc 'cmd' >>>usado a través de una variable<<<`: los flags
+del comando pueden ser interceptados por el intérprete.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1003,6 +1083,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-20 tipo de equipo en VMs | `tests.sh`: `inventory.sh` usa `systemd-detect-virt` y mapea a `vm` |
 | H-21 `paru` no es necesario (cascada de 3 vías) | `tests.sh`: existe `install_rustdesk_unattended_deb_arch` y la cascada |
 | H-22 fallos silenciosos (red / tailscale up) | `tests.sh`: el kit comprueba la red y muestra la salida de `tailscale up` |
+| H-23 objetivo con fish (no mandar bash suelto) | `tests.sh`: los comandos remotos van por `bash -s`; `make check` también |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

@@ -409,6 +409,25 @@ t "resume con el ID de RustDesk y la IP Tailscale" \
 t "make-kit incluye instalar-todo.sh" \
   bash -c 'grep -q "instalar-todo.sh" make-kit.sh'
 
+sect "H-23 compatibilidad con objetivos de shell fish"
+t "tests.sh envía los comandos por bash -s" \
+  bash -c 'grep -q "HOST bash -s" tests.sh'
+t "tests.sh NO ejecuta bash -lc en el código" \
+  bash -c '! grep -E "^[[:space:]]*(RH=|rsh\(\))" tests.sh | grep -q "bash -l"'
+t "tests.sh define rsh() para comandos remotos" \
+  bash -c 'grep -q "^  rsh() " tests.sh'
+t "tests.sh documenta por qué (flags comidos por bash)" \
+  bash -c 'grep -q "se come los flags" tests.sh'
+t "make check usa bash -s por stdin" \
+  bash -c 'grep -q "HOST) bash -s" Makefile'
+t "make check ya no manda bash suelto" \
+  bash -c '! grep -qE "\\\$\(SSH\) \\\$\(HOST\) .[a-z]+=" Makefile'
+t "make check busca el log también en plasmalogin (H-16)" \
+  bash -c 'grep -q "plasmalogin" Makefile'
+t "H-23 documentado" bash -c 'grep -q "H-23" docs/hallazgos.md'
+t "H-23 explica el caso tailscale ip -4 / ayuda" \
+  bash -c 'grep -q "tailscale ip -4\|imprime la AYUDA" docs/hallazgos.md'
+
 sect "Ruta del repositorio (visible en todo el material)"
 REPO_URL="github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi"
 t "existe REPO.txt"                 test -f REPO.txt
