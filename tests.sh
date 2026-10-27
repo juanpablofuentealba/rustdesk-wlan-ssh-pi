@@ -262,6 +262,19 @@ t "H-15 rechaza password vacía" \
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
 
+sect "H-19 os error 104 (audio/portapapeles en bucle)"
+t "H-19 documentado" bash -c 'grep -q "H-19" docs/hallazgos.md'
+t "H-19 explica la causa (arboard/X11)" \
+  bash -c 'grep -q "arboard" docs/hallazgos.md'
+t "H-19 da la mitigación desde el cliente" \
+  bash -c 'grep -q "disable_audio" docs/hallazgos.md'
+t "H-19 avisa validar el TOML tras editarlo" \
+  bash -c 'grep -q "tomllib" docs/hallazgos.md'
+t "estado-sesion registra la conexión confirmada" \
+  bash -c 'grep -q "CONECTADO" docs/estado-sesion.md'
+t "estado-sesion guarda la evidencia (libdrmtap/encoder)" \
+  bash -c 'grep -q "libdrmtap loaded" docs/estado-sesion.md && grep -q "new encoder" docs/estado-sesion.md'
+
 sect "H-16/H-17/H-18 documentación de hallazgos"
 t "H-14 documentado" bash -c 'grep -q "H-14" docs/hallazgos.md'
 t "H-15 documentado" bash -c 'grep -q "H-15" docs/hallazgos.md'

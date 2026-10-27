@@ -80,9 +80,53 @@ La contraseña de prueba se fija con `rustdesk-password.sh install`. **No se
 escribe en este repo** (es un secreto operativo): usar una distinta en cada
 cliente.
 
-**Nota de alcance:** falta la confirmación visual de extremo a extremo (abrir la
-GUI de RustDesk y ver la pantalla de login). El binario no permite conectar por
-CLI (**H-17**), así que esa prueba es manual.
+### Confirmación visual: ✅ CONECTADO
+
+Prueba manual de extremo a extremo **exitosa** (27 oct 2026). El operador se
+conectó desde CachyOS (`192.168.1.12`) y entró a la VM de inmediato.
+
+Evidencia en el log del servidor:
+
+```
+Connection opened from 192.168.1.12:38837
+Start cm
+libdrmtap loaded: /usr/lib/rustdesk/libdrmtap.so.0 (v0.5.8)
+drm: cursor calibration for display 0 (Virtual-1): Ok(...)
+new encoder: VPX(width: 1280, height: 800, codec: VP8, quality: 0.67)
+```
+
+Y del lado del sistema: conexión TCP `ESTAB` y el `--server` al 33 % de CPU
+(capturando y codificando).
+
+### H-19 — `os error 104` al conectar: portapapeles/audio en bucle sin contexto gráfico
+
+**Verificado:** ✅ (Fedora 44, 27 oct 2026)
+
+En un intento previo el cliente mostró *"Conexión reinicializada por la máquina
+remota (os error 104)"*. El log del servidor mostró que la conexión **sí había
+entrado** y la captura DRM funcionaba; el corte venía de un bucle de servicios:
+
+```
+ERROR [src/server/service.rs:308] Error of audio service: No such file or directory (os error 2)
+ERROR [src/server/service.rs:308] Error of clipboard service: arboard: X11 server connection timed out because it was unreachable
+WARN  [libs/scrap/src/wayland/display.rs:228] no usable wayland socket in /run/user/1000 (none present)
+```
+
+**Causa:** `arboard` (portapapeles) insiste en conectar a X11 y expira; el
+audio busca un socket de PipeWire inexistente. Con el server corriendo en un
+contexto sin sesión gráfica completa, ambos reintentan sin parar.
+
+**Mitigación desde el operador:** desactivar **audio** y **portapapeles** en la
+GUI de RustDesk antes de conectar (`disable_audio` / `disable_clipboard` son
+opciones del cliente, no del servidor).
+
+**Nota:** un intento fallido anterior coincidió además con un error transitorio
+`Failed to load config ... RustDesk2.toml: Bad TOML data` al reescribirse la
+config. Conviene validar el TOML tras editarlo a mano:
+
+```fish
+python3 -c "import tomllib; tomllib.load(open('/root/.config/rustdesk/RustDesk2.toml','rb'))"
+```
 
 ---
 

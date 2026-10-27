@@ -746,6 +746,67 @@ después del login si la inyección de input no responde.
 
 ---
 
+## H-19 — `os error 104` tras conectar: audio/portapapeles en bucle
+
+**Verificado:** ✅ (Fedora 44 KDE Wayland, 27 oct 2026)
+
+Síntoma en el cliente: *"Conexión reinicializada por la máquina remota
+(os error 104)"*.
+
+El log del servidor demuestra que **la conexión sí entró** y la captura DRM
+funcionaba:
+
+```
+INFO  Connection opened from 192.168.1.12:38837
+INFO  libdrmtap loaded: /usr/lib/rustdesk/libdrmtap.so.0 (v0.5.8)
+INFO  drm: cursor calibration for display 0 (Virtual-1): Ok(...)
+INFO  new encoder: VPX(width: 1280, height: 800, codec: VP8)
+```
+
+El corte venía de servicios que reintentan sin contexto gráfico:
+
+```
+ERROR audio service: No such file or directory (os error 2)
+ERROR clipboard service: arboard: X11 server connection timed out because it was unreachable
+WARN  no usable wayland socket in /run/user/1000 (none present)
+```
+
+**Causa:** `arboard` (portapapeles) insiste en X11 y expira; el audio busca un
+socket PipeWire inexistente. En un contexto sin sesión gráfica completa, ambos
+reintentan en bucle y terminan cortando la sesión.
+
+**Mitigación (desde el operador):** desactivar **audio** y **portapapeles** en la
+GUI antes de conectar. `disable_audio` / `disable_clipboard` son opciones del
+**cliente**:
+
+```rust
+// src/client.rs
+option.disable_audio = ...;
+option.disable_clipboard = ...;
+```
+
+**No hay** una opción equivalente del lado del servidor para desactivarlos por
+configuración.
+
+### Trampa asociada: TOML inválido al editar a mano
+
+Un intento previo falló además con:
+
+```
+ERROR [libs/hbb_common/src/config.rs:566] Failed to load config
+      '/home/jp/.config/rustdesk/RustDesk2.toml': Bad TOML data
+```
+
+RustDesk reescribe `RustDesk2.toml` al arrancar (por eso `enable-drm-display-wake`
+añadido a mano puede desaparecer: su valor por defecto ya es ON). Tras editar a
+mano, validar:
+
+```fish
+python3 -c "import tomllib; tomllib.load(open('/root/.config/rustdesk/RustDesk2.toml','rb'))"
+```
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -770,6 +831,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-16 log de captura bajo el greeter | `tests.sh`: el kit documenta las tres rutas de log |
 | H-17 sin CLI de conexión | `tests.sh`: no hay llamadas a `rustdesk --connect` en los scripts |
 | H-18 server anclado a seat0/greeter | `tests.sh <host>`: detecta el usuario de la sesión gráfica |
+| H-19 `os error 104` por audio/clipboard | `tests.sh`: existe la sección H-19 en este documento |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)
