@@ -274,9 +274,15 @@ sect "Hallazgos H-07/H-08 (regresiones conocidas)"
 # H-07: hostname -I no existe en CachyOS → el kit debe usar 'ip route get'
 t "inventory.sh usa ip route (no hostname -I)" \
   bash -c '! grep -q "hostname -I" inventory.sh && grep -q "ip -4 route get" inventory.sh'
-# Solo cuentan USOS reales, no menciones en comentarios
-t "setup usa ip route (no hostname -I)" \
-  bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -q "hostname -I"'
+# setup usa `ip route` como metodo principal; `hostname -I` solo como RESPALDO
+# cuando no hay ruta por defecto (contenedor, equipo recien instalado).
+# Antes un fallo de `ip` mataba el script con exit 127 (bug detectado en CI).
+t "setup usa ip route como metodo principal" \
+  bash -c 'grep -q "ip -4 route get" setup-remote-target.sh'
+t "setup local_ip no muere sin red (respaldo + return 0)" \
+  bash -c 'sed -n "/^local_ip()/,/^}/p" setup-remote-target.sh | grep -q "return 0"'
+t "setup local_ip devuelve 'sin-red' si no hay IP" \
+  bash -c 'grep -q "sin-red" setup-remote-target.sh'
 # H-08: strings|grep -q con pipefail → verify-docs debe capturar a variable
 t "verify-docs evita strings|grep -q" \
   bash -c '! grep -qE "strings -a .*\| *grep -q" verify-docs.sh'
@@ -408,8 +414,11 @@ t "exige --authkey" \
   bash -c './instalar-todo.sh --rdpass UnaClave123 2>&1 | grep -q "falta --authkey"'
 t "valida el prefijo tskey-" \
   bash -c './instalar-todo.sh --authkey malaclave --rdpass UnaClave123 2>&1 | grep -q "debe empezar con"'
-t "exige root solo al aplicar (no en --dry-run)" \
-  bash -c './instalar-todo.sh --authkey tskey-auth-X --rdpass UnaClave123 2>&1 | grep -q "ejecutá con sudo"'
+# Sin root y sin --sudopass: debe AVISAR (mensaje de sudo) o CANCELAR por
+# falta de TTY, pero NUNCA llegar a aplicar cambios. Depende del entorno
+# (en CI 'ubuntu' tiene sudo sin contraseña), asi que aceptamos ambos.
+t "sin root no aplica cambios (avisa o cancela)" \
+  bash -c './instalar-todo.sh --authkey tskey-auth-X --rdpass UnaClave123 >/dev/null 2>&1; test $? -ne 0'
 t "--dry-run corre sin root" \
   bash -c './instalar-todo.sh --authkey tskey-auth-X --rdpass UnaClave123 --dry-run --yes >/dev/null 2>&1'
 t "toma la clave de operador.pub si existe" \

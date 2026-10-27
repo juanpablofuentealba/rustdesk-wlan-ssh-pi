@@ -312,7 +312,8 @@ install_rustdesk_unattended_deb_arch() {
     command -v "$c" >/dev/null 2>&1 || { warn "falta '$c' para la vía .deb"; return 1; }
   done
 
-  if ! curl -fsS --max-time 10 https://github.com >/dev/null 2>&1; then
+  # En simulacro no se comprueba la red (no se va a descargar nada).
+  if [[ $DRY_RUN -eq 0 ]] && ! curl -fsS --max-time 10 https://github.com >/dev/null 2>&1; then
     warn "sin conexión a github.com: no puedo bajar el .deb oficial"
     warn "  conectá internet y reintentá"
     return 1
@@ -385,7 +386,8 @@ ensure_aur() {
   fi
 
   # Comprobar red ANTES: sin internet no hay AUR ni paquetes.
-  if ! curl -fsS --max-time 8 https://aur.archlinux.org >/dev/null 2>&1; then
+  # (en simulacro no, porque no se va a descargar nada)
+  if [[ $DRY_RUN -eq 0 ]] && ! curl -fsS --max-time 8 https://aur.archlinux.org >/dev/null 2>&1; then
     warn "SIN CONEXIÓN a aur.archlinux.org"
     warn "  · ¿conectaste el WiFi/hotspot? Comprobá:  curl -sI https://aur.archlinux.org | head -1"
     warn "  · Si no hay red, el AUR no se puede usar. Conectate y reintentá."
@@ -489,8 +491,19 @@ as_user() {
 }
 
 # IP local primaria: ip route es portable; hostname -I no existe en algunos hostname
+# IP local primaria. NO debe fallar ni matar el script cuando no hay red
+# configurada (contenedor sin ruta por defecto, equipo recién instalado sin
+# conectar): antes eso hacía salir el script con 127 en el paso final.
 local_ip() {
-  ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}'
+  local out=""
+  if command -v ip >/dev/null 2>&1; then
+    out="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')" || true
+  fi
+  if [[ -z "$out" ]] && command -v hostname >/dev/null 2>&1; then
+    out="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+  fi
+  printf '%s' "${out:-sin-red}"
+  return 0
 }
 
 # Nombre del host portable: el binario 'hostname' NO existe en imágenes base
@@ -1035,15 +1048,27 @@ setup_tailscale() {
   if command -v tailscale >/dev/null 2>&1; then
     ok "tailscale ya instalado ($(tailscale version 2>/dev/null | head -1))"
   else
-    # Sin red no se puede instalar nada: comprobarlo primero da un error útil
-    if ! curl -fsS --max-time 8 https://pkgs.tailscale.com >/dev/null 2>&1 \
-       && ! curl -fsS --max-time 8 https://archlinux.org >/dev/null 2>&1; then
-      err "SIN CONEXIÓN a internet: no puedo instalar Tailscale"
-      err "  Comprobá:  curl -sI https://archlinux.org | head -1"
-      err "  Conectá el WiFi/hotspot y reintentá."
-      return 1
+    # En SIMULACRO no se comprueba la red: solo se muestra qué haría. Antes el
+    # dry-run fallaba en equipos sin internet (contenedor, equipo recién
+    # instalado sin conectar) aunque no fuera a instalar nada.
+    if [[ $DRY_RUN -eq 1 ]]; then
+      info "(dry-run) instalaría Tailscale con el gestor de paquetes"
+      info "(dry-run) habilitaría y arrancaría tailscaled"
+    else
+      # Sin red no se puede instalar nada: comprobarlo primero da un error útil
+      if ! curl -fsS --max-time 8 https://pkgs.tailscale.com >/dev/null 2>&1 \
+         && ! curl -fsS --max-time 8 https://archlinux.org >/dev/null 2>&1; then
+        err "SIN CONEXIÓN a internet: no puedo instalar Tailscale"
+        err "  Comprobá:  curl -sI https://archlinux.org | head -1"
+        err "  Conectá el WiFi/hotspot y reintentá."
+        return 1
+      fi
     fi
     info "Instalando Tailscale..."
+    if [[ $DRY_RUN -eq 1 ]]; then
+      ok "(dry-run) tailscale se instalaría"
+      return 0
+    fi
     case "$DISTRO_FAMILY" in
       arch|debian|fedora) pkg_install tailscale ;;
       *)                  pkg_install tailscale || true ;;

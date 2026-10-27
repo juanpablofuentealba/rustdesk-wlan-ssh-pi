@@ -11,7 +11,7 @@ jobs:
     name: shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Instalar shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -32,7 +32,7 @@ jobs:
     name: tests.sh (local)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Dependencias
         run: |
@@ -49,7 +49,7 @@ jobs:
     name: bash -n
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Sintaxis de todos los scripts
         run: |
           for f in *.sh .rd-setpass-root.sh; do
@@ -60,7 +60,7 @@ jobs:
     name: sin secretos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Buscar claves privadas y tokens
         run: |
           # Una clave privada o un token de Tailscale NUNCA deben entrar al repo.
