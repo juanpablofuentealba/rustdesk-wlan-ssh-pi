@@ -663,7 +663,12 @@ if [[ -n "$HOST" ]]; then
   t "SSH alcanza el host"        rsh 'hostname'
   t "inventory remoto"           ./inventory.sh "$HOST"
   t "inventory remoto JSON"      bash -c "./inventory.sh --json '$HOST' | jq empty"
-  t "make check"                 make HOST="$HOST" check
+  # 'make check' solo existe en el repo (el kit no copia el Makefile).
+  if [[ $IN_REPO -eq 1 ]]; then
+    t "make check"                 make HOST="$HOST" check
+  else
+    sk "make check (requiere el repo)"
+  fi
 
   sect "Hallazgos en el host remoto"
   # Todos los comandos van por rsh(), que envía el comando por stdin a
