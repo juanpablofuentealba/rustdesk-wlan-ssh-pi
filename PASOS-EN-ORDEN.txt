@@ -1,0 +1,201 @@
+========================================================================
+   PASOS EN ORDEN — Instalar PC de cliente desde cero
+   (RustDesk unattended + SSH + Tailscale)
+
+   Seguí los pasos EN ESTE ORDEN. No te saltees ninguno.
+   El detalle de cada uno está en kit-rustdesk/INSTALAR.md
+========================================================================
+
+------------------------------------------------------------------------
+  ANTES DE EMPEZAR — ten esto a mano
+------------------------------------------------------------------------
+
+  [ ] Auth key de Tailscale (del cliente, o tuya si es prueba)
+      https://console.tailscale.com/admin/settings/keys
+      -> "Generate auth key"
+         Reusable:  SI   (vas a instalar varias veces)
+         Ephemeral: NO
+         Expiry:    1 dia
+      Empieza con: tskey-auth-...
+
+  [ ] Contraseña permanente de RustDesk que le vas a poner
+      (anotala, la vas a usar cada vez que te conectes)
+
+  [ ] La contraseña de sudo que vas a elegir al instalar CachyOS
+
+  [ ] Tu clave publica SSH: ya viene en  kit-rustdesk/operador.pub
+
+------------------------------------------------------------------------
+  PASO 1 — INSTALAR EL SISTEMA OPERATIVO
+------------------------------------------------------------------------
+
+  1.1  Enchufá el pendrive al PC objetivo.
+  1.2  Encendé y entrá al menú de arranque:
+         F12 / F9 / ESC / F2  (según la marca del equipo)
+  1.3  Elegí:  cachyos-desktop-linux-260809.iso
+  1.4  En el instalador de CachyOS:
+         - CONECTÁ EL WiFi (arriba a la derecha). Sin red no baja paquetes.
+         - Usuario: el que va a usar el cliente
+         - ANOTÁ la contraseña de sudo
+  1.5  Al terminar: REINICIAR y SACAR EL PENDRIVE.
+
+------------------------------------------------------------------------
+  PASO 2 — CAMBIAR AL HOTSPOT 4G
+------------------------------------------------------------------------
+
+  2.1  En el teléfono: activar "compartir datos / hotspot WiFi".
+  2.2  En el PC recién instalado: conectarse a ESE hotspot.
+  2.3  Comprobar que hay internet:
+
+         curl -s https://api.ipify.org; echo
+
+       Debe devolver una IP pública (del operador móvil).
+
+  Por qué: así el equipo queda detrás de CGNAT, igual que un cliente real.
+           Si funciona acá, funciona en cualquier casa.
+
+------------------------------------------------------------------------
+  PASO 3 — COPIAR EL KIT DEL PENDRIVE AL PC
+------------------------------------------------------------------------
+
+  3.1  Enchufá el pendrive y encontrá su partición:
+
+         lsblk -o NAME,SIZE,LABEL,MOUNTPOINT | grep -i ventoy
+
+  3.2  Montarlo (si no se montó solo):
+
+         udisksctl mount -b /dev/sdX1        # reemplazá sdX1
+
+  3.3  Copiar el kit y entrar:
+
+         cp -r /run/media/$USER/Ventoy/kit-rustdesk ~/kit
+         cd ~/kit
+
+  3.4  (Opcional) Verificar que no está corrupto:
+
+         sha256sum -c MANIFEST.sha256
+
+------------------------------------------------------------------------
+  PASO 4 — DIAGNÓSTICO (no cambia nada)
+------------------------------------------------------------------------
+
+         ./setup-remote-target.sh --check
+
+  Anotá lo que dice: familia de distro, firewall, si ya hay RustDesk y el
+  tipo de sesión (Wayland/X11).
+
+------------------------------------------------------------------------
+  PASO 5 — APLICAR TODO EL KIT (un solo comando)
+------------------------------------------------------------------------
+
+         sudo ./setup-remote-target.sh --all \
+           --key "$(cat operador.pub)" \
+           --authkey 'tskey-auth-XXXX'
+
+  Reemplazá tskey-auth-XXXX por TU auth key.
+
+  Esto deja el PC:
+     - con RustDesk en modo DESATENDIDO (captura DRM en Wayland)
+     - con sshd activo y el firewall abierto SOLO para SSH
+     - con TU clave pública autorizada
+     - unido a Tailscale (acceso desde cualquier red, sin abrir puertos)
+
+  En CachyOS: si no hay paru/yay, el kit instala paru-bin solo.
+
+------------------------------------------------------------------------
+  PASO 6 — CONTRASEÑA DE RUSTDESK  (¡no te lo saltees!)
+------------------------------------------------------------------------
+
+  Sin esto RustDesk pide aceptación manual en CADA conexión.
+
+         SUDO_PASS='<tu-clave-sudo>' ./rustdesk-password.sh install \
+           "$USER@localhost" '<password-elegida>'
+
+  Si tu sudo NO pide contraseña, dejalo vacío:  SUDO_PASS=
+
+------------------------------------------------------------------------
+  PASO 7 — VERIFICAR
+------------------------------------------------------------------------
+
+  7.1  Suite de pruebas:
+
+         ./tests.sh "$USER@localhost"
+
+  7.2  Que la captura DRM haya arrancado:
+
+         tail -20 ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log | grep -i drm
+
+       Debe aparecer:
+         drm: consumer cache warmed (N displays) at startup
+
+  7.3  Ficha del cliente (guardala FUERA del repo público):
+
+         mkdir -p fichas
+         ./inventory.sh | tee "fichas/$(hostname)-$(date +%F).txt"
+
+------------------------------------------------------------------------
+  PASO 8 — PROBAR DESDE TU EQUIPO OPERADOR
+------------------------------------------------------------------------
+
+  8.1  ¿Aparece en la tailnet?
+
+         tailscale status | grep <hostname>
+
+  8.2  ¿La ruta es directa o por relay?
+
+         tailscale ping <hostname>
+
+  8.3  ¿Entra por SSH?
+
+         ssh -o BatchMode=yes USUARIO@<hostname> 'hostname'
+
+  8.4  Verificación completa (acceso fuera de la LAN):
+
+         ./verify-offlan.sh <hostname>
+
+  8.5  Y por RustDesk: conectate al ID del equipo con la contraseña
+       permanente del PASO 6.
+
+------------------------------------------------------------------------
+  PASO 9 — ENTREGAR AL CLIENTE
+------------------------------------------------------------------------
+
+  [ ] Mostrarle que su PC aparece en SU panel de Tailscale:
+        https://login.tailscale.com/admin/machines
+
+  [ ] Explicarle que puede REVOCARTE el acceso cuando quiera:
+        Machines -> su equipo -> Disable
+
+  [ ] Dejarle la contraseña de RustDesk por escrito (es suya)
+
+  [ ] Reiniciar el equipo y comprobar que vuelve online SOLO
+      (sin intervención de nadie)
+
+========================================================================
+  SI ALGO FALLA
+========================================================================
+
+  "Wayland portal handshake failed"
+    -> falta el capturador DRM
+       Arch/CachyOS: paru -S rustdesk-unattended-wayland
+       Fedora:       sudo ./install-rustdesk-unattended-fedora.sh
+
+  "Pide aceptación en cada conexión"
+    -> falta la contraseña permanente -> volvé al PASO 6
+
+  "Conexión reinicializada (os error 104)"
+    -> audio/portapapeles en bucle
+       Desactivá audio y portapapeles en la GUI de RustDesk antes de conectar
+
+  "SSH no entra"
+    -> sudo ./setup-remote-target.sh --ssh --key "$(cat operador.pub)"
+
+  "Tailscale no une"
+    -> auth key vencida o mal copiada (debe empezar con tskey-)
+
+  "tailscale ping va por la LAN"
+    -> esperado si estás en la misma red. Para el caso real, usá otra red.
+
+  Explicación completa de cada fallo: kit-rustdesk/INSTALAR.md
+  y https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+========================================================================

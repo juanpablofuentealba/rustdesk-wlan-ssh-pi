@@ -378,6 +378,29 @@ t "H-15 rechaza password vacía" \
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
 
+sect "PASOS-EN-ORDEN.txt (checklist del pendrive)"
+t "existe PASOS-EN-ORDEN.txt" test -f PASOS-EN-ORDEN.txt
+t "tiene los 9 pasos numerados" \
+  bash -c 'for n in 1 2 3 4 5 6 7 8 9; do grep -q "PASO $n " PASOS-EN-ORDEN.txt || exit 1; done'
+t "paso 1 = instalar el SO" \
+  bash -c 'grep -q "PASO 1 — INSTALAR EL SISTEMA OPERATIVO" PASOS-EN-ORDEN.txt'
+t "paso 2 = cambiar a hotspot" \
+  bash -c 'grep -q "PASO 2 — CAMBIAR AL HOTSPOT" PASOS-EN-ORDEN.txt'
+t "paso 5 = comando --all con authkey" \
+  bash -c 'grep -q "setup-remote-target.sh --all" PASOS-EN-ORDEN.txt && grep -q "authkey" PASOS-EN-ORDEN.txt'
+t "paso 6 avisa que la contraseña es obligatoria" \
+  bash -c 'grep -q "rustdesk-password.sh install" PASOS-EN-ORDEN.txt'
+t "paso 7 verifica la captura DRM" \
+  bash -c 'grep -q "consumer cache warmed" PASOS-EN-ORDEN.txt'
+t "paso 9 explica la revocación al cliente" \
+  bash -c 'grep -q "Disable" PASOS-EN-ORDEN.txt'
+t "incluye la tabla de fallos comunes" \
+  bash -c 'grep -q "portal handshake failed" PASOS-EN-ORDEN.txt && grep -q "os error 104" PASOS-EN-ORDEN.txt'
+t "recuerda la auth key antes de salir" \
+  bash -c 'grep -q "tskey-auth" PASOS-EN-ORDEN.txt'
+t "make-kit copia PASOS-EN-ORDEN.txt" \
+  bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
+
 sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
 t "existe ensure_aur (instala paru si falta)" \
   bash -c 'grep -q "^ensure_aur()" setup-remote-target.sh'

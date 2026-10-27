@@ -67,14 +67,16 @@ for f in "${FILES[@]}"; do
 done
 chmod +x "$DEST"/*.sh
 
-# --- runbook INSTALAR.md ---
-# Fuente única de verdad: INSTALAR.md del repo. Si no existe, se avisa.
-if [[ -f "$SCRIPT_DIR/INSTALAR.md" ]]; then
-  cp -a "$SCRIPT_DIR/INSTALAR.md" "$DEST/INSTALAR.md"
-else
-  echo "error: falta INSTALAR.md en el repo (es el runbook del kit)" >&2
-  exit 1
-fi
+# --- runbook: INSTALAR.md (detalle) + PASOS-EN-ORDEN.txt (checklist) ---
+# Fuente única de verdad: los del repo. Si no existen, se avisa.
+for doc in INSTALAR.md PASOS-EN-ORDEN.txt; do
+  if [[ -f "$SCRIPT_DIR/$doc" ]]; then
+    cp -a "$SCRIPT_DIR/$doc" "$DEST/$doc"
+  else
+    echo "error: falta $doc en el repo (es documentación del kit)" >&2
+    exit 1
+  fi
+done
 
 
 # --- clave pública del operador (opcional) ---
