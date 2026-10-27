@@ -437,6 +437,34 @@ t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
 sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
+t "existe la vía .deb sin AUR" \
+  bash -c 'grep -q "^install_rustdesk_unattended_deb_arch()" setup-remote-target.sh'
+t "la vía .deb verifica el sha256" \
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "sha256"'
+t "la vía .deb comprueba la red antes" \
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "github.com"'
+t "la vía .deb instala libdrmtap" \
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb_arch()/,/^}/p" setup-remote-target.sh | grep -q "libdrmtap"'
+t "arch prueba 3 vías en cascada" \
+  bash -c 'grep -q "^install_rustdesk_arch_unattended()" setup-remote-target.sh'
+t "la cascada usa el .deb si el AUR falla" \
+  bash -c 'sed -n "/^install_rustdesk_arch_unattended()/,/^}/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb_arch"'
+t "avisa si falta red antes de instalar RustDesk" \
+  bash -c 'grep -q "SIN CONEXIÓN a aur.archlinux.org" setup-remote-target.sh'
+t "tailscale avisa si falta red" \
+  bash -c 'grep -q "SIN CONEXIÓN a internet: no puedo instalar Tailscale" setup-remote-target.sh'
+t "tailscale espera a que tailscaled arranque" \
+  bash -c 'grep -q "tailscaled NO arrancó" setup-remote-target.sh'
+t "tailscale up muestra su error real" \
+  bash -c 'grep -q "tailscale up FALLÓ" setup-remote-target.sh'
+t "tailscale espera la IP (hasta 15s)" \
+  bash -c 'grep -q "for i in \$(seq 1 15)" setup-remote-target.sh'
+t "--check diagnostica dependencias faltantes" \
+  bash -c 'grep -q "Dependencias que suelen faltar" setup-remote-target.sh'
+t "--check informa si hay AUR helper" \
+  bash -c 'grep -q "ayudante de AUR:" setup-remote-target.sh'
+t "--check comprueba internet" \
+  bash -c 'grep -q "internet: github.com alcanzable" setup-remote-target.sh'
 t "existe ensure_aur (instala paru si falta)" \
   bash -c 'grep -q "^ensure_aur()" setup-remote-target.sh'
 t "ensure_aur usa paru-bin (precompilado, sin build largo)" \

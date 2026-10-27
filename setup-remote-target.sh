@@ -247,6 +247,124 @@ detect_aur() {
 # base-devel ni compilar nada) en un Arch/CachyOS recién instalado.
 # Necesario porque un sistema virgen puede no traer paru ni yay, y sin ellos
 # no se puede instalar rustdesk-unattended-wayland.
+# Instala RustDesk con capturador DRM en Arch/CachyOS SIN depender de paru.
+#
+# Tres vías, de la más simple a la más compleja. Se prueba en orden:
+#   1. AUR helper (paru/yay) si ya está -> lo más limpio
+#   2. El .deb OFICIAL "unattended-wayland" extraído a mano (como en Fedora)
+#      -> NO necesita compilar, NO necesita AUR, NO necesita paru
+#   3. Instalar paru y usarlo (último recurso)
+#
+# Motivo: paru encadena dependencias (git + base-devel + red + compilar) y si
+# falla cualquier eslabón no hay RustDesk. El .deb oficial trae exactamente el
+# mismo binario (verificado por sha256 contra el PKGBUILD del AUR) y ya incluye
+# libdrmtap.so, que es lo que habilita la captura DRM en Wayland.
+install_rustdesk_arch_unattended() {
+  # --- vía 1: ayudante de AUR si ya está ---
+  local aur; aur="$(detect_aur)"
+  if [[ -n "$aur" ]]; then
+    info "Instalando rustdesk-unattended-wayland con $aur..."
+    if [[ $DRY_RUN -eq 1 ]]; then
+      info "(dry-run) $aur -S --needed rustdesk-unattended-wayland"
+      return 0
+    fi
+    if sudo -u "$TARGET_USER" -H "$aur" -S --needed --noconfirm rustdesk-unattended-wayland; then
+      ok "Instalado con $aur"
+      return 0
+    fi
+    warn "$aur falló; probando la vía del .deb oficial (sin AUR)..."
+  fi
+
+  # --- vía 2: el .deb oficial, extraído a mano ---
+  if install_rustdesk_unattended_deb_arch; then return 0; fi
+
+  # --- vía 3: instalar paru y reintentar ---
+  warn "El .deb oficial tampoco funcionó; probando instalar paru..."
+  aur="$(ensure_aur)"
+  [[ -z "$aur" ]] && return 1
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) $aur -S --needed rustdesk-unattended-wayland"
+    return 0
+  fi
+  sudo -u "$TARGET_USER" -H "$aur" -S --needed --noconfirm rustdesk-unattended-wayland \
+    && { ok "Instalado con $aur"; return 0; }
+  return 1
+}
+
+# Instala el .deb oficial "rustdesk-unattended-wayland" en Arch sin dpkg.
+# Mismo enfoque que install-rustdesk-unattended-fedora.sh, pero integrado.
+install_rustdesk_unattended_deb_arch() {
+  local ver="${RD_VERSION:-1.5.0}"
+  local url="https://github.com/rustdesk/rustdesk/releases/download/${ver}/rustdesk-unattended-wayland-${ver}-x86_64.deb"
+  local sha_ok="9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09"
+
+  # requisitos: curl, ar y tar (los dos últimos vienen en binutils/tar)
+  for c in curl ar tar; do
+    command -v "$c" >/dev/null 2>&1 || { warn "falta '$c' para la vía .deb"; return 1; }
+  done
+
+  if ! curl -fsS --max-time 10 https://github.com >/dev/null 2>&1; then
+    warn "sin conexión a github.com: no puedo bajar el .deb oficial"
+    warn "  conectá internet y reintentá"
+    return 1
+  fi
+
+  info "Descargando el .deb oficial unattended-wayland ${ver}..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) curl -o <tmp>/rd.deb $url"
+    info "(dry-run) verificaría sha256 $sha_ok"
+    info "(dry-run) extraería e instalaría en /usr/share/rustdesk + /usr/lib/rustdesk"
+    return 0
+  fi
+
+  local tmp; tmp="$(mktemp -d)"
+  if ! curl -fsSL --max-time 300 -o "$tmp/rd.deb" "$url"; then
+    warn "no pude descargar el .deb"; rm -rf "$tmp"; return 1
+  fi
+
+  local actual; actual="$(sha256sum "$tmp/rd.deb" | awk '{print $1}')"
+  if [[ "$actual" != "$sha_ok" ]]; then
+    warn "sha256 no coincide (esperado $sha_ok, obtenido $actual)"
+    warn "  puede haber salido una versión nueva; si es así, actualizá RD_VERSION"
+    rm -rf "$tmp"; return 1
+  fi
+  ok "sha256 verificado"
+
+  info "Extrayendo el .deb..."
+  ( cd "$tmp" && ar x rd.deb && mkdir -p root && tar -xf data.tar.* -C root ) || {
+    warn "no pude extraer el .deb"; rm -rf "$tmp"; return 1
+  }
+
+  info "Instalando (con backup de la config si existía)..."
+  local ts; ts="$(date +%s)"
+  [[ -d /usr/share/rustdesk ]] && cp -a /usr/share/rustdesk "/root/rustdesk-backup-$ts" 2>/dev/null || true
+
+  rm -rf /usr/share/rustdesk
+  cp -a "$tmp/root/usr/share/rustdesk" /usr/share/rustdesk
+  mkdir -p /usr/lib/rustdesk
+  cp -a "$tmp"/root/usr/lib/rustdesk/libdrmtap.so* /usr/lib/rustdesk/ 2>/dev/null || true
+  ln -sf /usr/share/rustdesk/rustdesk /usr/bin/rustdesk
+
+  # el .deb trae su propio unit; respetamos uno existente para no romper config
+  if [[ ! -f /etc/systemd/system/rustdesk.service && -f "$tmp/root/usr/share/rustdesk/files/systemd/rustdesk.service" ]]; then
+    cp -a "$tmp/root/usr/share/rustdesk/files/systemd/rustdesk.service" /etc/systemd/system/rustdesk.service
+    sed -i 's|ExecStop=pkill|ExecStop=/usr/bin/pkill|' /etc/systemd/system/rustdesk.service 2>/dev/null || true
+  fi
+
+  # dueño correcto (venimos de /tmp)
+  chown -R root:root /usr/share/rustdesk /usr/lib/rustdesk 2>/dev/null || true
+
+  rm -rf "$tmp"
+
+  if [[ -f /usr/lib/rustdesk/libdrmtap.so.0 ]]; then
+    ok "Instalado con capturador DRM (libdrmtap) — vía .deb oficial, sin AUR"
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    return 0
+  fi
+  warn "instalé el paquete pero no encuentro libdrmtap.so.0"
+  return 1
+}
+
 ensure_aur() {
   local aur; aur="$(detect_aur)"
   if [[ -n "$aur" ]]; then printf '%s' "$aur"; return 0; fi
@@ -257,18 +375,47 @@ ensure_aur() {
     printf '%s' "paru"; return 0
   fi
 
-  # paru-bin SÍ necesita git para clonarse; base-devel solo si se compila.
-  run pacman -S --needed --noconfirm git base-devel >/dev/null 2>&1 || true
+  # Comprobar red ANTES: sin internet no hay AUR ni paquetes.
+  if ! curl -fsS --max-time 8 https://aur.archlinux.org >/dev/null 2>&1; then
+    warn "SIN CONEXIÓN a aur.archlinux.org"
+    warn "  · ¿conectaste el WiFi/hotspot? Comprobá:  curl -sI https://aur.archlinux.org | head -1"
+    warn "  · Si no hay red, el AUR no se puede usar. Conectate y reintentá."
+    printf ''; return 0
+  fi
 
-  local tmp; tmp="$(mktemp -d)"
-  if git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$tmp/paru-bin" >/dev/null 2>&1 \
-     && sudo -u "$TARGET_USER" -H bash -c "cd '$tmp/paru-bin' && makepkg -si --noconfirm" >/dev/null 2>&1 \
+  # paru-bin SÍ necesita git para clonarse; base-devel solo si se compila.
+  info "Instalando git + base-devel..."
+  if ! pacman -S --needed --noconfirm git base-devel >/dev/null 2>&1; then
+    warn "no pude instalar git/base-devel"
+    warn "  Probá a mano:  sudo pacman -S --needed git base-devel"
+  fi
+
+  # OJO: el directorio de compilación debe pertenecer al USUARIO, no a root.
+  # `mktemp -d` crea en /tmp con dueño root y modo 700: makepkg (que corre
+  # como usuario) no podría escribir ahí. Por eso usamos el HOME del usuario
+  # objetivo.
+  local ubuild="$TARGET_HOME/.cache/paru-build"
+  mkdir -p "$ubuild"
+  chown "$TARGET_USER" "$ubuild" 2>/dev/null || true
+  rm -rf "$ubuild/paru-bin"
+
+  info "Clonando paru-bin desde AUR..."
+  if ! sudo -u "$TARGET_USER" -H git clone --depth 1 \
+         https://aur.archlinux.org/paru-bin.git "$ubuild/paru-bin" >/dev/null 2>&1; then
+    warn "no pude clonar paru-bin (¿sin red o sin git?)"
+    printf ''; return 0
+  fi
+
+  info "Compilando e instalando paru-bin (puede tardar un poco)..."
+  # --noconfirm evita preguntas; makepkg usa sudo internamente para instalar.
+  if sudo -u "$TARGET_USER" -H bash -c \
+       "cd '$ubuild/paru-bin' && makepkg -si --noconfirm" >/dev/null 2>&1 \
      && command -v paru >/dev/null 2>&1; then
-    rm -rf "$tmp"
+    rm -rf "$ubuild"
     ok "paru instalado"
     printf '%s' "paru"; return 0
   fi
-  rm -rf "$tmp"
+
   warn "No pude instalar paru automáticamente"
   printf ''
 }
@@ -500,6 +647,21 @@ run_check() {
   ip -br addr show 2>/dev/null | grep -vE '^lo' | sed 's/^/    /'
   info "IP local: $(local_ip)"
 
+  hdr "Dependencias que suelen faltar"
+  if command -v curl >/dev/null 2>&1; then ok "curl presente"
+  else warn "FALTA curl (necesario para descargar el .deb oficial de RustDesk)"; fi
+  if command -v git >/dev/null 2>&1; then ok "git presente"
+  else warn "FALTA git (necesario solo para la vía AUR)"; fi
+  if command -v makepkg >/dev/null 2>&1; then ok "makepkg presente"
+  else info "makepkg ausente (normal en Debian/Fedora)"; fi
+  if command -v ar >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then ok "ar + tar presentes (vía .deb)"
+  else warn "FALTAN ar/tar (necesarios para la vía .deb)"; fi
+  local aur_d; aur_d="$(detect_aur)"
+  if [[ -n "$aur_d" ]]; then ok "ayudante de AUR: $aur_d"
+  else info "sin paru/yay (el kit usará el .deb oficial, no hace falta)"; fi
+  if curl -fsS --max-time 6 https://github.com >/dev/null 2>&1; then ok "internet: github.com alcanzable"
+  else warn "SIN internet (los paquetes no se podrán instalar)"; fi
+
   hdr "Tailscale (acceso fuera de la LAN)"
   if command -v tailscale >/dev/null 2>&1; then
     local tsip; tsip="$(tailscale ip -4 2>/dev/null | head -1 || true)"
@@ -613,28 +775,13 @@ setup_rustdesk() {
     arch)
       if pkg_installed rustdesk-unattended-wayland; then
         ok "rustdesk-unattended-wayland ya instalado"
+      elif install_rustdesk_arch_unattended; then
+        : # ya avisó por dentro
       else
-        local aur; aur="$(ensure_aur)"
-        if [[ -n "$aur" ]]; then
-          info "Instalando rustdesk-unattended-wayland con $aur..."
-          if [[ $DRY_RUN -eq 1 ]]; then
-            printf '%s[aur]%s sudo -u %s %s -S --needed --noconfirm rustdesk-unattended-wayland\n' "$B" "$N" "$TARGET_USER" "$aur"
-            ok "(dry-run) se instalaría rustdesk-unattended-wayland"
-          elif sudo -u "$TARGET_USER" -H "$aur" -S --needed --noconfirm rustdesk-unattended-wayland; then
-            ok "Instalado"
-          else
-            err "Falló la instalación con $aur"
-            err "  Probá a mano: $aur -S rustdesk-unattended-wayland"
-            return 1
-          fi
-        else
-          err "No hay paru/yay y no pude instalar paru automáticamente."
-          err "Instalalo a mano y reintentá:"
-          err "  sudo pacman -S --needed git base-devel"
-          err "  git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si"
-          err "  paru -S rustdesk-unattended-wayland"
-          return 1
-        fi
+        err "No pude instalar RustDesk con capturador DRM."
+        err "  El acceso desatendido en Wayland NO funcionará sin él."
+        err "  Probá a mano:  paru -S rustdesk-unattended-wayland"
+        return 1
       fi
       ;;
     debian)
@@ -880,23 +1027,51 @@ setup_tailscale() {
   if command -v tailscale >/dev/null 2>&1; then
     ok "tailscale ya instalado ($(tailscale version 2>/dev/null | head -1))"
   else
+    # Sin red no se puede instalar nada: comprobarlo primero da un error útil
+    if ! curl -fsS --max-time 8 https://pkgs.tailscale.com >/dev/null 2>&1 \
+       && ! curl -fsS --max-time 8 https://archlinux.org >/dev/null 2>&1; then
+      err "SIN CONEXIÓN a internet: no puedo instalar Tailscale"
+      err "  Comprobá:  curl -sI https://archlinux.org | head -1"
+      err "  Conectá el WiFi/hotspot y reintentá."
+      return 1
+    fi
     info "Instalando Tailscale..."
     case "$DISTRO_FAMILY" in
-      arch)   pkg_install tailscale ;;
-      debian) pkg_install tailscale ;;
-      fedora) pkg_install tailscale ;;
-      *)      pkg_install tailscale || return 1 ;;
+      arch|debian|fedora) pkg_install tailscale ;;
+      *)                  pkg_install tailscale || true ;;
     esac
-    command -v tailscale >/dev/null 2>&1 && ok "Instalado" || { err "No se pudo instalar"; return 1; }
+    if command -v tailscale >/dev/null 2>&1; then
+      ok "Tailscale instalado ($(tailscale version 2>/dev/null | head -1))"
+    else
+      err "No pude instalar Tailscale con el gestor de paquetes."
+      case "$DISTRO_FAMILY" in
+        arch)   err "  Probá a mano:  sudo pacman -S tailscale" ;;
+        debian) err "  Probá a mano:  sudo apt-get install -y tailscale" ;;
+        fedora) err "  Probá a mano:  sudo dnf install -y tailscale" ;;
+      esac
+      err "  (la red debe funcionar; el paquete está en los repos oficiales)"
+      return 1
+    fi
   fi
 
-  run systemctl enable --now tailscaled >/dev/null 2>&1 || true
   if [[ $DRY_RUN -eq 1 ]]; then
-    info "(dry-run) habilitaría tailscaled"
-  elif systemctl is-active --quiet tailscaled 2>/dev/null; then
-    ok "tailscaled activo"
+    info "(dry-run) habilitaría y arrancaría tailscaled"
   else
-    warn "tailscaled no reporta activo; revisa: systemctl status tailscaled"
+    systemctl enable --now tailscaled >/dev/null 2>&1 || true
+    # esperar a que el daemon quede activo (hasta 10 s)
+    local i
+    for i in $(seq 1 10); do
+      systemctl is-active --quiet tailscaled 2>/dev/null && break
+      sleep 1
+    done
+    if systemctl is-active --quiet tailscaled 2>/dev/null; then
+      ok "tailscaled activo"
+    else
+      err "tailscaled NO arrancó. Detalle:"
+      systemctl status tailscaled --no-pager 2>/dev/null | tail -6 | sed 's/^/    /' || true
+      err "  Si es un contenedor/entorno sin systemd, Tailscale no funcionará aquí."
+      return 1
+    fi
   fi
 
   # ¿Ya está unido?
@@ -929,19 +1104,38 @@ setup_tailscale() {
   fi
 
   info "Uniendo el equipo a la tailnet..."
-  if tailscale up --auth-key="$TS_AUTHKEY" --hostname="$(hostname 2>/dev/null || echo cliente)" --accept-dns=false >/dev/null 2>&1; then
+  local up_log="$(mktemp)"
+  if tailscale up --auth-key="$TS_AUTHKEY" \
+       --hostname="$(hostname 2>/dev/null || echo cliente)" \
+       --accept-dns=false >"$up_log" 2>&1; then
     ok "Equipo unido"
   else
-    warn "tailscale up no confirmó éxito (puede requerir autorización en el panel)"
+    err "tailscale up FALLÓ. Salida:"
+    sed 's/^/    /' "$up_log" | head -10
+    err "  Causas típicas:"
+    err "   · auth key vencida o ya usada (generá otra)"
+    err "   · auth key no 'reusable' y este equipo ya estaba en la tailnet"
+    err "   · sin internet en este momento"
+    rm -f "$up_log"
+    return 1
   fi
+  rm -f "$up_log"
 
-  sleep 2
-  ip4="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+  # Esperar la IP (el daemon tarda unos segundos en publicarla)
+  local i
+  for i in $(seq 1 15); do
+    ip4="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+    [[ -n "$ip4" ]] && break
+    sleep 1
+  done
   if [[ -n "$ip4" ]]; then
     ok "IP Tailscale: $ip4"
     info "Prueba desde el operador: ssh ${TARGET_USER}@${ip4}"
   else
-    warn "Aún sin IP Tailscale. Revisa: sudo tailscale status"
+    err "Unido pero sin IP Tailscale tras 15 s."
+    err "  Revisá:  sudo tailscale status"
+    err "  Si dice 'logged out', la auth key no se aceptó."
+    return 1
   fi
 }
 
