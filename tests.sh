@@ -212,8 +212,10 @@ t "detecta la ruta LAN (no da falso positivo)" \
   bash -c 'grep -q "ON_LAN=1" verify-offlan.sh'
 t "distingue DERP de ruta directa" \
   bash -c 'grep -q "via DERP" verify-offlan.sh'
-t "reconoce rangos privados (10/172.16-31/192.168)" \
-  bash -c 'grep -qE "172\\\\.\\(1\[6-9\]" verify-offlan.sh'
+t "detecta ruta LAN con ip route get (mirando solo la 1a linea)" \
+  bash -c 'grep -q "ip route get" verify-offlan.sh && grep -q "head -1" verify-offlan.sh'
+t "no da falso positivo por la linea 'cache'" \
+  bash -c 'grep -q "first_hop" verify-offlan.sh'
 t "usa BatchMode en el SSH de comprobación" \
   bash -c 'grep -q "BatchMode=yes" verify-offlan.sh'
 t "verifica SSH y RustDesk por Tailscale" \

@@ -38,12 +38,27 @@ if [[ -z "$PUB" ]]; then
 fi
 
 # ¿Sigue habiendo ruta a la red LAN del objetivo? Si sí, la prueba no sirve.
-if ip route 2>/dev/null | grep -qE '192\.168\.122\.|192\.168\.1\.'; then
+# Comprobar si el OBJETIVO es alcanzable por una IP privada directa (eso sí
+# invalidaría la prueba). Mirar las rutas locales del operador NO sirve: sus
+# propias redes 192.168.x son normales y no dicen nada del objetivo.
+PEER_LOCAL_IPS="$( (tailscale status --json 2>/dev/null | \
+  jq -r --arg ip "$PEER" '.Peer[] | select(.TailscaleIPs[0]==$ip or .HostName==$ip) | .TailscaleIPs[]' 2>/dev/null) )"
+PRIV_DEST=0
+for pip in $PEER_LOCAL_IPS; do
+  [[ -z "$pip" ]] && continue
+  # ¿hay ruta directa a alguna IP del peer sin pasar por tailscale0?
+  # OJO: `ip route get` imprime 2 líneas (ruta + cache); hay que mirar SOLO
+  # la primera, o el 'cache' de la segunda da falso positivo.
+  first_hop="$(ip route get "$pip" 2>/dev/null | head -1)"
+  if [[ -n "$first_hop" ]] && ! grep -q 'tailscale0' <<<"$first_hop"; then
+    PRIV_DEST=1
+  fi
+done
+if [[ $PRIV_DEST -eq 1 ]]; then
   ON_LAN=1
-  warn "hay rutas a 192.168.x → puede que sigas en la LAN del objetivo"
-  warn "  el resultado NO probaría el acceso fuera de la LAN"
+  warn "el objetivo es alcanzable sin pasar por tailscale0 → posible ruta LAN"
 else
-  ok "sin rutas evidentes a la LAN del objetivo"
+  ok "el objetivo se alcanza por tailscale0 (no por ruta local)"
 fi
 
 hdr "2. Tailscale"
@@ -81,7 +96,11 @@ PING_OUT="$(timeout 20 tailscale ping -c 3 "$PEER_IP" 2>&1 || true)"
 echo "$PING_OUT" | sed 's/^/    /'
 if echo "$PING_OUT" | grep -qi "pong"; then
   ok "responde (tailscale ping)"
-  if echo "$PING_OUT" | grep -qiE "via 192\.168\.|via 10\.|via 172\.(1[6-9]|2[0-9]|3[01])\."; then
+  # Ruta LAN = la IP de destino del pong pertenece a MI red local.
+  # Ojo: 'via 10.x' puede ser legítimo (CGNAT del operador móvil del peer).
+  VIA_IP="$(echo "$PING_OUT" | sed -n 's/.*via \([0-9.]*\):.*/\1/p' | head -1)"
+  if [[ -n "$VIA_IP" ]] && ip -4 route get "$VIA_IP" 2>/dev/null | grep -qv 'tailscale0' \
+     && ip -4 addr 2>/dev/null | grep -q "$VIA_IP/" 2>/dev/null; then
     ON_LAN=1
     warn "la ruta es LOCAL/privada → NO es una prueba fuera de la LAN"
     warn "  revisá que el WiFi del portátil esté apagado"

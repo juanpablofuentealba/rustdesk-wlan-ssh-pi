@@ -105,8 +105,13 @@ EOF
 # --- instalación remota ----------------------------------------------------
 install_remote() {
   local target="$1" password="$2" dry="${3:-}"
-  if [[ -z "${SUDO_PASS:-}" && "$dry" != "--dry-run" ]]; then
-    echo "error: definí SUDO_PASS (contraseña de sudo del objetivo) o usá --dry-run" >&2
+  # SUDO_PASS vacío pero DECLARADO (SUDO_PASS=) significa "sudo sin contraseña"
+  # (NOPASSWD). Solo es error si la variable no está declarada en absoluto.
+  if [[ -z "${SUDO_PASS+x}" && "$dry" != "--dry-run" ]]; then
+    echo "error: definí SUDO_PASS." >&2
+    echo "  · con contraseña:  SUDO_PASS='clave' $0 install ..." >&2
+    echo "  · sin contraseña:  SUDO_PASS= $0 install ...   (NOPASSWD)" >&2
+    echo "  · solo simular:    $0 install ... --dry-run" >&2
     return 1
   fi
   echo "→ Leyendo machine-id de $target ..."
@@ -138,19 +143,36 @@ install_remote() {
 
   # Copiamos el helper al objetivo y lo ejecutamos con sudo. NO usamos
   # `bash -s < archivo`: sudo -S lee la contraseña de stdin y compiten.
+  # Con SUDO_PASS vacío (NOPASSWD) omitimos -S y no mandamos stdin.
   scp -q -o BatchMode=yes "$helper" "$target:/tmp/rd-setpass-root.sh"
-  printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-    "sudo -S -p '' bash /tmp/rd-setpass-root.sh '$salt' '$storage'"
+  if [[ -n "$sudo_pass" ]]; then
+    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
+      "sudo -S -p '' bash /tmp/rd-setpass-root.sh '$salt' '$storage'"
+  else
+    ssh -o BatchMode=yes "$target" \
+      "sudo -n bash /tmp/rd-setpass-root.sh '$salt' '$storage'"
+  fi
   ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' || true
 
   echo "→ Reiniciando rustdesk.service ..."
-  printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-    "sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
+  if [[ -n "$sudo_pass" ]]; then
+    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
+      "sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
+  else
+    ssh -o BatchMode=yes "$target" \
+      "sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
+  fi
 
   echo "→ Verificación (config root debe tener password = '01...'):"
-  printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-    "sudo -S -p '' grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml" \
-    | sed 's/^/  líneas password=01 en config root: /'
+  if [[ -n "$sudo_pass" ]]; then
+    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
+      "sudo -S -p '' grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml" \
+      | sed 's/^/  líneas password=01 en config root: /'
+  else
+    ssh -o BatchMode=yes "$target" \
+      "sudo -n grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml" \
+      | sed 's/^/  líneas password=01 en config root: /'
+  fi
   echo "✔ Listo. Probá conectar por RustDesk a la ID del equipo."
 }
 
