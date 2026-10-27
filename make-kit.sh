@@ -141,5 +141,5 @@ fi
 echo
 ok "Kit listo en: $DEST"
 info "Contenido:"
-ls -1 "$DEST" | sed 's/^/    /'
+find "$DEST" -maxdepth 1 -mindepth 1 -printf '%f\n' 2>/dev/null | sort | sed 's/^/    /'
 info "Copialo a un pendrive:  cp -r '$DEST' /run/media/\$USER/PENDRIVE/"

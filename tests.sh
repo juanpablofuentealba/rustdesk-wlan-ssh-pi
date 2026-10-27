@@ -536,6 +536,18 @@ t "el helper remoto se limpia con trap" \
 t "README ya no presenta paru como ruta primaria en Arch" \
   bash -c 'grep -q "Ruta recomendada" README.md'
 
+sect "Calidad de código (shellcheck sin notas accionables)"
+t "setup usa find (no ls) para el log más reciente" \
+  bash -c 'grep -q "find \"\$logdir\" -maxdepth 1 -name" setup-remote-target.sh'
+t "verify-offlan no usa sed para indentar" \
+  bash -c '! grep -qE "echo .PING_OUT. \| sed" verify-offlan.sh'
+t "setup documenta las notas intencionales de shellcheck" \
+  bash -c 'grep -q "Notas de shellcheck que son INTENCIONALES" setup-remote-target.sh'
+t "--help NO muestra el bloque de notas de shellcheck" \
+  bash -c '! ./setup-remote-target.sh --help 2>&1 | grep -q "SC1091"'
+t "make-kit usa find para listar el contenido" \
+  bash -c 'grep -q "find \"\$DEST\" -maxdepth 1" make-kit.sh'
+
 sect "H-25 paru en el repo (no compilar desde AUR)"
 t "ensure_aur intenta el repo binario PRIMERO" \
   bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "pacman -S --needed --noconfirm paru"'

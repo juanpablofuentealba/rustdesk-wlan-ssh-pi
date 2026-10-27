@@ -115,7 +115,7 @@ fi
 
 hdr "3. Ruta real hacia el objetivo (lo que importa)"
 PING_OUT="$(timeout 20 tailscale ping -c 3 "$PEER_IP" 2>&1 || true)"
-echo "$PING_OUT" | sed 's/^/    /'
+printf '    %s\n' "${PING_OUT//$'\n'/$'\n    '}"
 if echo "$PING_OUT" | grep -qi "pong"; then
   ok "responde (tailscale ping)"
   # Ruta LAN = la IP de destino del pong pertenece a MI red local.

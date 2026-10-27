@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
 #
+# Notas de shellcheck que son INTENCIONALES (no arreglar):
+#   SC1091  `. /etc/os-release` es la detección de distro; shellcheck no sigue
+#           archivos del sistema y `-x` no aplica a un script genérico.
+#   SC2012  `ls -t` para elegir el log MÁS RECIENTE de RustDesk: el orden por
+#           fecha es justamente el propósito; `find` no ordena por mtime de
+#           forma portable sin más código.
+#   SC2015  `A && ok || warn`: `ok()` siempre devuelve 0, así que la rama `warn`
+#           solo corre si A falla. Es el patrón buscado, no un if-then-else.
+# Ninguna de estas es un warning: shellcheck las clasifica como `note`.
+#
 # setup-remote-target.sh — Prepara un PC Linux para ser administrado de forma
 # remota con RustDesk (unattended en Wayland) + SSH.
 #
 # Distros soportadas (con ramas separadas por familia):
-#   · Arch / CachyOS / Manjaro   → pacman + AUR (paru/yay)
-#   · Debian / Ubuntu / Mint     → apt + .deb oficial de RustDesk
-#   · Fedora / RHEL / Rocky      → dnf + .rpm oficial de RustDesk
+#   · Arch / CachyOS / Manjaro   → pacman (+ AUR si hace falta helper)
+#   · Debian / Ubuntu / Mint     → apt
+#   · Fedora / RHEL / Rocky      → dnf
+# En las TRES familias RustDesk se instala desde el .deb oficial con capturador
+# DRM (ver H-14/H-24): trae libdrmtap.so, que es lo que habilita el acceso
+# desatendido en Wayland. El paquete nativo (.rpm/deb estándar, AUR) NO lo trae.
 #
 # Ejecutar EN EL PC OBJETIVO. La parte de SSH/firewall necesita root:
 #
@@ -65,7 +78,9 @@ DRY_RUN=0
 ASSUME_YES=0
 
 usage() {
-  sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'
+  # Se salta el bloque de notas de shellcheck (líneas del encabezado) y se
+  # imprime desde el título del script hasta la línea del repositorio.
+  sed -n '/^# setup-remote-target.sh/,/^#   https:\/\/github.com/p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Opciones:
@@ -459,6 +474,7 @@ detect_distro() {
   if [[ -r /etc/os-release ]]; then
     # shellcheck disable=SC1091
     id="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")"
+    # shellcheck disable=SC1091
     idlike="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}")"
   fi
   case " $id $idlike " in
@@ -600,7 +616,10 @@ run_check() {
 
   local logdir="$TARGET_HOME/.local/share/logs/RustDesk/server"
   local log
-  log="$(ls -t "$logdir"/rustdesk_r*.log 2>/dev/null | head -1 || true)"
+  # Elegir el log MÁS RECIENTE. Con `find -printf '%T@ %p'` se ordena por mtime
+  # de forma segura con cualquier nombre de archivo (SC2012).
+  log="$(find "$logdir" -maxdepth 1 -name 'rustdesk_r*.log' -printf '%T@ %p\n' 2>/dev/null \
+         | sort -rn | head -1 | cut -d' ' -f2- || true)"
   if [[ -n "$log" ]]; then
     info "Log del server: $log"
     grep -iE "UInput|drm:|ipc server" "$log" 2>/dev/null | tail -4 | sed 's/^/    /' \
@@ -618,6 +637,7 @@ run_check() {
   else
     warn "usuario '$TARGET_USER' NO está en grupo video → añade: sudo usermod -aG video $TARGET_USER"
   fi
+  # shellcheck disable=SC2015  # A && ok || warn: ok() nunca falla, es intencional
   [[ -e /dev/uinput ]] && ok "/dev/uinput presente" || warn "/dev/uinput ausente"
   lsmod 2>/dev/null | grep -q '^uinput' && ok "módulo uinput cargado" || warn "módulo uinput no cargado (se carga on-demand)"
   # sesión gráfica
