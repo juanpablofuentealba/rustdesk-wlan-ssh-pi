@@ -502,6 +502,27 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "Servidor RustDesk verificado (DRM + contraseña)"
+t "estado-sesion registra el servidor listo para unattended" \
+  bash -c 'grep -q "listo para conexión desatendida" docs/estado-sesion.md'
+t "estado-sesion confirma captura DRM activa" \
+  bash -c 'grep -q "drm_capturer.rs" docs/estado-sesion.md'
+t "estado-sesion confirma contrasena permanente presente" \
+  bash -c 'grep -q "Contraseña permanente\*\* | \*\*PRESENTE" docs/estado-sesion.md'
+t "estado-sesion advierte H-19 (audio/clipboard)" \
+  bash -c 'grep -q "reset by the peer" docs/estado-sesion.md'
+
+sect "H-28 local-ip-addr obsoleto al cambiar de red"
+t "H-28 documentado" bash -c 'grep -q "H-28" docs/hallazgos.md'
+t "H-28 explica que el ID/Tailscale no se afectan" \
+  bash -c 'grep -q "LAN discovery" docs/hallazgos.md'
+t "H-28 advierte que el proceso no relee el TOML" \
+  bash -c 'grep -qi "no relee el TOML\|lee la config al arrancar" docs/hallazgos.md'
+t "H-28 valida el TOML antes de aplicar" \
+  bash -c 'grep -q "tomllib" docs/hallazgos.md'
+t "H-28 propone sudoer acotado para el restart" \
+  bash -c 'grep -q "NOPASSWD: /usr/bin/systemctl restart rustdesk" docs/hallazgos.md'
+
 sect "H-27 herramienta reboot-remoto.sh"
 t "existe reboot-remoto.sh" bash -c 'test -f reboot-remoto.sh'
 t "es ejecutable" bash -c 'test -x reboot-remoto.sh'

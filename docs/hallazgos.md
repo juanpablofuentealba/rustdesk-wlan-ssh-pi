@@ -1211,6 +1211,82 @@ distinto + servicios `active` sin intervención (ver
 
 ---
 
+## H-28 — `local-ip-addr` queda obsoleto al cambiar de red
+
+**Verificado:** ✅ (27 oct 2026)
+
+Síntoma: un equipo que se instaló/movió entre redes conserva en su config la
+**IP de LAN vieja**, que ya no existe:
+
+```toml
+[options]
+local-ip-addr = '10.71.93.77'    # red del hotspot 4G (ya no está)
+```
+
+IP real en ese momento: `192.168.1.16`. La declarada no coincidía con ninguna
+interfaz.
+
+**Qué afecta (y qué no):**
+
+| Función | ¿Afectada? |
+|---|---|
+| Conexión por **ID** (rendezvous) | No |
+| Conexión por **IP Tailscale** (`100.x`) | No |
+| **LAN discovery** (verse en la misma red por IP local) | **Sí** |
+
+No rompe el acceso remoto, pero degrada el descubrimiento local y confunde al
+diagnosticar. Es exactamente el caso de un equipo que pasa de la red de
+instalación a la red del cliente.
+
+### Detección
+
+```fish
+# Comparar la IP declarada con la real
+ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+'
+grep local-ip-addr ~/.config/rustdesk/RustDesk2.toml
+```
+
+Si no coinciden, está obsoleta.
+
+### Corrección
+
+Editar y **validar el TOML** (un TOML inválido impide arrancar RustDesk — ver
+H-19):
+
+```fish
+F=~/.config/rustdesk/RustDesk2.toml
+NEW="$(ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+')"
+cp -a "$F" "$F.bak-$(date +%s)"
+sed -i "s|^local-ip-addr = .*|local-ip-addr = '$NEW'|" "$F"
+python3 -c "import tomllib; tomllib.load(open('$F','rb')); print('TOML OK')"
+```
+
+### Trampa: el proceso no relee el TOML solo
+
+El **proceso servidor lee la config al arrancar**. Editar el archivo con el
+servicio corriendo **no aplica el cambio** hasta reiniciarlo:
+
+```
+proceso server arrancó: 15:32
+mtime del TOML:         15:48   -> cambio NO aplicado aún
+```
+
+Reiniciar requiere `systemctl restart rustdesk`, que también pasa por polkit
+(pide auth interactiva, igual que H-27). Opciones:
+
+1. **Sudoer acotado** (recomendado, mismo patrón que H-27):
+   ```
+   jp ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rustdesk
+   ```
+2. Reiniciar el equipo (recoge el valor al arrancar; ver la prueba de reinicio).
+3. Reinicio presencial del servicio.
+
+**Lección:** cualquier valor derivado de la red (`local-ip-addr`) es efímero. Al
+entregar un equipo, o tras mudarlo de red, **verificar que coincida** con la
+interfaz real antes de darlo por listo.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1243,6 +1319,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-24 Fedora con DRM (no `.rpm` estándar) | `tests.sh <host>`: la rama fedora intenta primero el `.deb` con `libdrmtap` |
 | H-26 ubicación de la auth key en el panel | `tests.sh`: existe la sección H-26; `verify-docs.sh` comprueba la URL |
 | H-27 reinicio remoto (sudo/polkit) | `tests.sh`: existe la sección H-27; documenta NOPASSWD acotado y rollback |
+| H-28 `local-ip-addr` obsoleto tras cambiar de red | `tests.sh`: existe la sección H-28; documenta detección, corrección y el restart |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

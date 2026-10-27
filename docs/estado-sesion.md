@@ -135,6 +135,29 @@ Arranque registrado a las `14:31:42`; el reboot se disparó a las `14:31:23`.
 RustDesk levantó con **PID nuevo** (`--service`, `--server`). Tailscale recuperó
 la IP `100.x.y.z` y el ping respondió por ruta directa tras el arranque.
 
+#### Servidor RustDesk: listo para conexión desatendida
+
+Revisión del log y la config del servidor en el objetivo:
+
+| Check | Resultado |
+|---|---|
+| Servicio `rustdesk` | `active` + `enabled` |
+| Proceso servidor tras el reboot | PID nuevo (`--server`) |
+| **Captura DRM** | Activa: el log muestra `drm_capturer.rs` trabajando (`drm: cursor hotspot…`) |
+| **Contraseña permanente** | **PRESENTE** (hash en `RustDesk.toml`) → sin aceptación manual |
+| Sesión gráfica | Wayland (`smithay-client-toolkit`, `wl_output`) |
+
+Con captura DRM activa **y** contraseña permanente, el acceso desatendido está
+completo (ver H-14/H-15).
+
+Aviso asociado: en el log aparece `Error of audio service: reset by the peer`.
+Es el audio/portapapeles en bucle de H-19; no impide la conexión. Se evita
+desactivando audio/portapapeles en la GUI antes de conectar.
+
+**Pendiente detectado:** `local-ip-addr` estaba obsoleto (`10.71.93.77`, red del
+hotspot de instalación) frente a la IP real (`192.168.1.16`). No afecta al
+acceso por ID ni por Tailscale, solo al LAN discovery. Ver **H-28**.
+
 #### Cómo se disparó el reinicio (el punto que costó)
 
 En el objetivo, **`sudo` pide contraseña** y `systemctl reboot`/`logind` por
