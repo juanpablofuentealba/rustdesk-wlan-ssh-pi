@@ -4,6 +4,10 @@
 
    Seguí los pasos EN ESTE ORDEN. No te saltees ninguno.
    El detalle de cada uno está en kit-rustdesk/INSTALAR.md
+
+   AUTH KEY DE TAILSCALE (se genera en la WEB, no en el equipo):
+      https://login.tailscale.com/admin/settings/keys
+      -> admin -> Settings -> pestana "Keys" -> "Generate auth key..."
 ========================================================================
 
 ------------------------------------------------------------------------

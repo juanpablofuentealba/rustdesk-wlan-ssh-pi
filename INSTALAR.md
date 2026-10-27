@@ -38,9 +38,14 @@ PENDRIVE (Ventoy)
 - [ ] **Pendrive listo**: Ventoy + ISO de CachyOS + la carpeta `kit-rustdesk/`
 - [ ] **Tu clave pública** incluida en el kit (`operador.pub`)
 - [ ] **Auth key de Tailscale** del cliente (modelo B):
-      `https://console.tailscale.com/admin/settings/keys`
+      **https://login.tailscale.com/admin/settings/keys**
+      (admin → Settings → pestaña **Keys** → *Generate auth key*)
+      La key **no se genera en el equipo**: se crea en esa página web, con tu
+      cuenta, desde cualquier navegador (el celular sirve), y se copia.
       → Reusable: **NO** · Ephemeral: **NO** · Expiry: **1 día**
       (si es para pruebas tuyas, Reusable: SÍ)
+      Si todavía no la tenés: usá `--tailscale-luego` y uní después con
+      `./unir-tailscale.sh` (no bloquea la instalación)
 - [ ] **Contraseña permanente de RustDesk** que le vas a poner a ese equipo
 - [ ] **Contraseña de sudo** del usuario del cliente (la que elijas al instalar)
 

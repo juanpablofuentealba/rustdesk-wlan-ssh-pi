@@ -23,6 +23,19 @@ Tailscale) en un equipo objetivo. El repositorio es:
 
     https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
 
+--- AUTH KEY DE TAILSCALE: URL EXACTA ---
+
+La auth key NO se genera en el equipo. Se crea en la WEB, con tu cuenta,
+desde cualquier navegador (el celular sirve). Pagina exacta:
+
+    https://login.tailscale.com/admin/settings/keys
+
+Camino manual: login.tailscale.com/admin -> Settings -> pestana "Keys"
+               -> "Generate auth key..."  (se muestra UNA SOLA VEZ)
+
+Si el operador todavia no la tiene, NO bloquees la instalacion: usá
+--tailscale-luego (instala TS sin unir) y despues ./unir-tailscale.sh.
+
 --- PASO 0: LEER ANTES DE ACTUAR (obligatorio) ---
 
 Antes de ejecutar CUALQUIER comando, leé COMPLETO:

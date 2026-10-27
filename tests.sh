@@ -522,6 +522,29 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "URL de auth keys visible en los puntos de entrada"
+KEYS_URL="login.tailscale.com/admin/settings/keys"
+t "README tiene la URL de auth keys" \
+  bash -c "grep -q '$KEYS_URL' README.md"
+t "README la destaca con encabezado propio" \
+  bash -c 'grep -q "Auth key de Tailscale: DÓNDE SE OBTIENE" README.md'
+t "README dice que NO se genera en el equipo" \
+  bash -c 'grep -q "NO SE GENERA EN EL EQUIPO" README.md'
+t "REPO.txt (raiz pendrive) tiene la URL destacada" \
+  bash -c "grep -q 'AUTH KEY DE TAILSCALE: ACA SE GENERA' REPO.txt && grep -q '$KEYS_URL' REPO.txt"
+t "LEEME-PRIMERO tiene la URL destacada" \
+  bash -c "grep -q 'AUTH KEY DE TAILSCALE: ACA SE GENERA' LEEME-PRIMERO.txt && grep -q '$KEYS_URL' LEEME-PRIMERO.txt"
+t "PASOS-EN-ORDEN tiene la URL en el encabezado" \
+  bash -c 'sed -n "1,12p" PASOS-EN-ORDEN.txt | grep -q "settings/keys"'
+t "PROMPT-AGENTE tiene bloque URL EXACTA" \
+  bash -c "grep -q 'AUTH KEY DE TAILSCALE: URL EXACTA' PROMPT-AGENTE.txt"
+t "INSTALAR.md tiene la URL" bash -c "grep -q '$KEYS_URL' INSTALAR.md"
+t "docs/tailscale.md tiene la URL" bash -c "grep -q '$KEYS_URL' docs/tailscale.md"
+t "setup-remote-target la muestra al faltar la key" \
+  bash -c "grep -q '$KEYS_URL' setup-remote-target.sh"
+t "unir-tailscale la muestra" \
+  bash -c "grep -q '$KEYS_URL' unir-tailscale.sh"
+
 sect "H-30 la auth key se genera en la web (no en el equipo)"
 t "H-30 documentado" bash -c 'grep -q "H-30" docs/hallazgos.md'
 t "H-30 dice que se crea en la WEB" \

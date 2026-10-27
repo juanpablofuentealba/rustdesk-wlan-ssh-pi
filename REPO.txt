@@ -9,6 +9,31 @@
   El pendrive es el RESPALDO; el repo es la fuente de verdad.
 
 
+  ======================================================================
+   ***  AUTH KEY DE TAILSCALE: ACA SE GENERA  ***
+  ======================================================================
+
+     https://login.tailscale.com/admin/settings/keys
+
+     (alias: https://console.tailscale.com/admin/settings/keys)
+
+  La key NO sale del equipo ni de Tailscale instalado. Se crea en esta
+  PAGINA WEB, logueado con tu cuenta, desde cualquier navegador (el celular
+  sirve). Despues se copia y se pega en el equipo del cliente.
+
+     Camino manual:  login.tailscale.com/admin
+                     -> Settings -> pestana "Keys"
+                     -> "Generate auth key..."
+
+     Reusable: SI (varios) / NO (un equipo)   Ephemeral: NO
+     Expiry: 1 dia (o 90)                     Se muestra UNA SOLA VEZ.
+
+  No la tenes a mano? No te bloquees:
+     sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
+     ./unir-tailscale.sh --hostname <equipo>     # pide la key y une
+
+  Detalle: README.md (seccion "Auth key de Tailscale") y docs/tailscale.md
+
   ----------------------------------------------------------------------
   USO RAPIDO (si tenes internet en el equipo del cliente)
   ----------------------------------------------------------------------

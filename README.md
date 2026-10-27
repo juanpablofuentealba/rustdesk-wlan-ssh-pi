@@ -23,6 +23,56 @@ Probado de punta a punta sobre **WLAN** entre dos equipos CachyOS, sin cable de 
 El script detecta la familia vía `/etc/os-release` y usa el camino correcto.
 Se puede forzar con `DISTRO_FAMILY_OVERRIDE=debian` para pruebas.
 
+---
+
+## 🔑 Auth key de Tailscale: DÓNDE SE OBTIENE
+
+> **LA AUTH KEY NO SE GENERA EN EL EQUIPO.** Se crea en la **página web de
+> Tailscale**, logueado con tu cuenta, desde **cualquier navegador** (el celular
+> sirve). No hace falta tener Tailscale instalado donde la generás: es un
+> **string de texto** que copiás de la web y pegás en el equipo del cliente.
+
+### 👉 Página para generar la auth key:
+
+# https://login.tailscale.com/admin/settings/keys
+
+También sirve el alias: https://console.tailscale.com/admin/settings/keys
+
+**Camino manual** (si el link no te lleva directo):
+
+```
+1. https://login.tailscale.com/admin
+2. Menú izquierdo, abajo  ->  Settings
+3. Pestañas de arriba      ->  Keys        <- AQUÍ está
+4. Botón                   ->  "Generate auth key..."
+```
+
+**En el formulario:**
+
+| Campo | Para un equipo | Para varios |
+|---|---|---|
+| Description | `laptop-cliente` | `kit-instalaciones` |
+| Reusable | ❌ NO | ✅ SÍ |
+| Ephemeral | ❌ NO | ❌ NO |
+| Pre-approved | ✅ SÍ | ✅ SÍ |
+| Expiry | 1 día | 90 días |
+
+Copiá el string `tskey-auth-...` → **se muestra UNA SOLA VEZ**.
+
+**Dónde NO está** (para no buscarla más): no está en *Machines*, ni en *DNS*,
+ni en la app de escritorio/móvil. Solo en **Settings → Keys**.
+
+```fish
+# NO tenés la key todavía?  No te bloquees: instalá y uní después
+sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
+./unir-tailscale.sh --hostname laptop-cliente   # pide/pega la key y une
+```
+
+Detalle completo: [`docs/tailscale.md`](docs/tailscale.md#generar-la-auth-key-paso-a-paso-en-la-web)
+y [H-26](docs/hallazgos.md) / [H-30](docs/hallazgos.md).
+
+---
+
 ## Contenido
 
 | Archivo | Qué es |

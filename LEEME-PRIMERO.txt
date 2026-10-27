@@ -6,6 +6,21 @@
   >>> LEE ESTE ARCHIVO, Y DESPUES "PASOS-EN-ORDEN.txt" <<<
 
 ------------------------------------------------------------------------
+  AUTH KEY DE TAILSCALE: ACA SE GENERA  (leer esto)
+------------------------------------------------------------------------
+
+     https://login.tailscale.com/admin/settings/keys
+
+  La key NO se genera en el equipo: se crea en esta PAGINA WEB (con tu
+  cuenta, desde cualquier navegador; el celular sirve) y se copia aca.
+  Camino manual: admin -> Settings -> pestana "Keys" -> Generate auth key.
+  Se muestra UNA SOLA VEZ.
+
+  Si todavia no la tenes, NO te bloquees:
+     sudo ./instalar-todo.sh --tailscale-luego --rdpass 'MiClave2026'
+     ./unir-tailscale.sh --hostname <equipo>    # pide la key y une
+
+------------------------------------------------------------------------
   EL REPOSITORIO (esto es lo que tenes que ubicar primero)
 ------------------------------------------------------------------------
 
