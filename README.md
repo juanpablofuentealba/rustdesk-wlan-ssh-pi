@@ -567,7 +567,13 @@ $ ./setup-remote-target.sh --check
 |---|---|---|---|
 | `arch` | ID/ID_LIKE contiene `arch` (o existe `pacman`) | `pacman` | `rustdesk-unattended-wayland` vía AUR (`paru`/`yay`) |
 | `debian` | `debian`/`ubuntu`/`linuxmint` (o existe `apt-get`) | `apt-get` | `.deb` oficial (resuelto en la API de GitHub) |
-| `fedora` | `fedora`/`rhel` (o existe `dnf`) | `dnf` | `.rpm` oficial (resuelto en la API de GitHub) |
+| `fedora` | `fedora`/`rhel` (o existe `dnf`) | `dnf`¹ | `.rpm` oficial (resuelto en la API de GitHub) |
+
+¹ **Fedora 41+** usa **dnf5**, y `/usr/bin/dnf` es un **symlink a `dnf5`**: los
+comandos `dnf install -y ...` funcionan igual, así que el kit no necesita
+cambiar nada. El diagnóstico sí informa la versión real (`Gestor: dnf5 5.4.x`),
+que se obtiene con `LC_ALL=C` para que no salga traducida. Verificado en
+Fedora 41 y Fedora 44 (KDE) reales.
 
 ### Qué cambia por familia
 

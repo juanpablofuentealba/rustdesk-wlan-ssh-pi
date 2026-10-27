@@ -65,6 +65,16 @@ t "script define pkg_installed"   bash -c 'grep -q "^pkg_installed()" setup-remo
 t "rama debian usa apt-get"       bash -c 'grep -q "apt-get install" setup-remote-target.sh'
 t "rama fedora usa dnf"           bash -c 'grep -q "dnf install" setup-remote-target.sh'
 t "rama arch usa pacman"          bash -c 'grep -q "pacman -S" setup-remote-target.sh'
+# Fedora 41+: 'dnf' es symlink a dnf5 y `dnf --version` responde "dnf5 ...".
+# NO hace falta cambiar los comandos (install -y sigue funcionando igual).
+t "diagnostico informa version del gestor" \
+  bash -c 'grep -q "^pkg_manager_version()" setup-remote-target.sh'
+t "pkg_manager_version cubre las 3 familias" \
+  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" setup-remote-target.sh | grep -qE "(arch|debian|fedora)\\)"'
+t "pkg_manager_version fuerza LC_ALL=C (salida no traducida)" \
+  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" setup-remote-target.sh | grep -q "LC_ALL=C dnf"'
+t "diagnostico imprime la linea Gestor" \
+  bash -c 'grep -q "info \"Gestor: \$(pkg_manager_version)\"" setup-remote-target.sh'
 t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" setup-remote-target.sh && grep -q "releases/latest" setup-remote-target.sh'
 t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" setup-remote-target.sh'
 t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" setup-remote-target.sh'

@@ -316,11 +316,28 @@ graphical_session_type() {
   printf ''
 }
 
+# Versión del gestor de paquetes de la familia detectada (informativo).
+# En Fedora 41+ 'dnf' es un symlink a dnf5, y `dnf --version` responde
+# "dnf5 ...". Se fuerza LC_ALL=C para que la salida no salga traducida.
+pkg_manager_version() {
+  case "$DISTRO_FAMILY" in
+    # pacman imprime primero una línea en blanco (banner ASCII): filtramos
+    arch)   LC_ALL=C pacman --version 2>/dev/null | grep -m1 -o 'Pacman v[0-9.]*' ;;
+    debian) LC_ALL=C apt-get --version 2>/dev/null | head -1 ;; # "apt 2.x"
+    fedora)
+      # dnf5 imprime "dnf5 version X" (C) o "dnf5 versión X" (es); normalizamos
+      LC_ALL=C dnf --version 2>/dev/null | head -1 | sed 's/^dnf5 version /dnf5 /'
+      ;;
+    *) printf '' ;;
+  esac
+}
+
 # ---------- 1. diagnóstico ----------
 run_check() {
   hdr "Diagnóstico del sistema"
   info "OS: $(grep -s PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
   info "Familia: $DISTRO_FAMILY"
+  info "Gestor: $(pkg_manager_version)"
   info "Kernel: $(uname -r)"
   info "Hostname: $(local_hostname)"
   info "Usuario objetivo: $TARGET_USER  (HOME: $TARGET_HOME)"
