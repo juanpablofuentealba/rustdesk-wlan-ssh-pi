@@ -133,8 +133,11 @@ Qué hace `--all`:
 | `--ssh` | Instala y habilita `sshd` + abre el firewall solo |
 | `--tailscale` | Instala Tailscale y une el equipo con la auth key |
 
-En Arch/CachyOS el paquete de RustDesk se instala con `paru`/`yay` (AUR). Si el
-script avisa que falta, instalalo antes:
+> **CachyOS recién instalado:** puede que no tenga `paru` ni `yay`. El kit lo
+detecta e **instala `paru-bin` solo** (precompilado, no hace falta compilar).
+> Si tampoco pudiera, te dice exactamente qué hacer a mano.
+
+Si preferís instalarlo antes:
 
 ```bash
 paru -S --needed rustdesk-unattended-wayland

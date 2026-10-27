@@ -13,15 +13,24 @@
 #   # 0) Diagnóstico (no cambia nada, NO necesita root)
 #   ./setup-remote-target.sh --check
 #
-#   # 1) RustDesk unattended
+#   # 1) TODO de una vez: RustDesk unattended + SSH + firewall + clave + Tailscale
+#   sudo ./setup-remote-target.sh --all \
+#     --key "$(cat operador.pub)" \
+#     --authkey 'tskey-auth-XXXX'
+#
+#   # 2) O por partes:
 #   sudo ./setup-remote-target.sh --rustdesk
-#
-#   # 2) SSH + firewall + clave pública del operador
 #   sudo ./setup-remote-target.sh --ssh --key "ssh-ed25519 AAAA... operador@mipc"
+#   sudo ./setup-remote-target.sh --tailscale --authkey 'tskey-auth-XXXX'
 #
-#   # 3) Todo (simulacro primero, luego aplicar)
+#   # 3) Simulacro (no aplica cambios)
 #   sudo ./setup-remote-target.sh --all --dry-run
-#   sudo ./setup-remote-target.sh --all --key "ssh-ed25519 AAAA... operador@mipc"
+#
+# RECORDÁ: aparte hay que fijar la contraseña permanente de RustDesk, sin la
+# cual NO hay acceso desatendido:
+#   SUDO_PASS='<clave-sudo>' ./rustdesk-password.sh install "$USER@localhost" 'tu-password'
+#
+# Runbook completo (desde el PC sin sistema operativo): INSTALAR.md
 #
 # Importante: al usar sudo, el script detecta el usuario real vía SUDO_USER y
 # opera sobre SU $HOME (authorized_keys, logs de RustDesk), no sobre /root.
@@ -53,7 +62,7 @@ DRY_RUN=0
 ASSUME_YES=0
 
 usage() {
-  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Opciones:
@@ -231,6 +240,36 @@ detect_aur() {
   for a in paru yay; do
     if command -v "$a" >/dev/null 2>&1; then printf '%s' "$a"; return; fi
   done
+  printf ''
+}
+
+# Instala un ayudante de AUR (paru-bin, que viene compilado y no necesita
+# base-devel ni compilar nada) en un Arch/CachyOS recién instalado.
+# Necesario porque un sistema virgen puede no traer paru ni yay, y sin ellos
+# no se puede instalar rustdesk-unattended-wayland.
+ensure_aur() {
+  local aur; aur="$(detect_aur)"
+  if [[ -n "$aur" ]]; then printf '%s' "$aur"; return 0; fi
+
+  info "No hay ayudante de AUR (paru/yay). Instalando paru-bin..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) instalaría base-devel + paru-bin desde AUR"
+    printf '%s' "paru"; return 0
+  fi
+
+  # paru-bin SÍ necesita git para clonarse; base-devel solo si se compila.
+  run pacman -S --needed --noconfirm git base-devel >/dev/null 2>&1 || true
+
+  local tmp; tmp="$(mktemp -d)"
+  if git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$tmp/paru-bin" >/dev/null 2>&1 \
+     && sudo -u "$TARGET_USER" -H bash -c "cd '$tmp/paru-bin' && makepkg -si --noconfirm" >/dev/null 2>&1 \
+     && command -v paru >/dev/null 2>&1; then
+    rm -rf "$tmp"
+    ok "paru instalado"
+    printf '%s' "paru"; return 0
+  fi
+  rm -rf "$tmp"
+  warn "No pude instalar paru automáticamente"
   printf ''
 }
 
@@ -575,7 +614,7 @@ setup_rustdesk() {
       if pkg_installed rustdesk-unattended-wayland; then
         ok "rustdesk-unattended-wayland ya instalado"
       else
-        local aur; aur="$(detect_aur)"
+        local aur; aur="$(ensure_aur)"
         if [[ -n "$aur" ]]; then
           info "Instalando rustdesk-unattended-wayland con $aur..."
           if [[ $DRY_RUN -eq 1 ]]; then
@@ -585,10 +624,14 @@ setup_rustdesk() {
             ok "Instalado"
           else
             err "Falló la instalación con $aur"
+            err "  Probá a mano: $aur -S rustdesk-unattended-wayland"
             return 1
           fi
         else
-          err "No hay paru/yay disponibles. Instala el paquete desde AUR manualmente:"
+          err "No hay paru/yay y no pude instalar paru automáticamente."
+          err "Instalalo a mano y reintentá:"
+          err "  sudo pacman -S --needed git base-devel"
+          err "  git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si"
           err "  paru -S rustdesk-unattended-wayland"
           return 1
         fi

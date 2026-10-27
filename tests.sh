@@ -378,6 +378,26 @@ t "H-15 rechaza password vacía" \
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
 
+sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
+t "existe ensure_aur (instala paru si falta)" \
+  bash -c 'grep -q "^ensure_aur()" setup-remote-target.sh'
+t "ensure_aur usa paru-bin (precompilado, sin build largo)" \
+  bash -c 'grep -q "paru-bin" setup-remote-target.sh'
+t "ensure_aur instala git+base-devel" \
+  bash -c 'grep -q "git base-devel" setup-remote-target.sh'
+t "ensure_aur respeta --dry-run" \
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "DRY_RUN"'
+t "setup_rustdesk usa ensure_aur, no detect_aur" \
+  bash -c 'grep -q "aur=\"\$(ensure_aur)\"" setup-remote-target.sh'
+t "el error final da los pasos manuales completos" \
+  bash -c 'grep -q "makepkg -si" setup-remote-target.sh'
+t "--help documenta el flujo --all con authkey" \
+  bash -c './setup-remote-target.sh --help 2>&1 | grep -q "authkey"'
+t "--help menciona la contraseña permanente" \
+  bash -c './setup-remote-target.sh --help 2>&1 | grep -q "rustdesk-password.sh"'
+t "--help enlaza INSTALAR.md" \
+  bash -c './setup-remote-target.sh --help 2>&1 | grep -q "INSTALAR.md"'
+
 sect "Tailscale integrado en setup-remote-target.sh"
 t "setup acepta --tailscale" \
   bash -c './setup-remote-target.sh --tailscale --dry-run --yes 2>&1 | grep -q "Tailscale"'
