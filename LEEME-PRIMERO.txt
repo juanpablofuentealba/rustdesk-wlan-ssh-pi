@@ -12,6 +12,10 @@
   1) PASOS-EN-ORDEN.txt      <- EMPIEZA ACA. Los pasos, en orden.
   2) kit-rustdesk/           <- El kit (scripts + runbook detallado)
   3) ISOs arrancables        <- Para instalar el sistema operativo
+  4) REPO.txt                <- Ruta del repositorio (documentacion y versiones)
+
+  REPOSITORIO:  https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+  (todo lo de este pendrive sale de ahi; ver REPO.txt para como usarlo)
 
   Las ISOs NO se copian: se ARRANCAN desde el pendrive.
   La carpeta kit-rustdesk/ NO se arranca: se COPIA al PC ya instalado.

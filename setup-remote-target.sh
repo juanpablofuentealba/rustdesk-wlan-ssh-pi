@@ -32,6 +32,9 @@
 #
 # Runbook completo (desde el PC sin sistema operativo): INSTALAR.md
 #
+# Repositorio (hallazgos, versiones nuevas, documentación):
+#   https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+#
 # Importante: al usar sudo, el script detecta el usuario real vía SUDO_USER y
 # opera sobre SU $HOME (authorized_keys, logs de RustDesk), no sobre /root.
 #
@@ -62,7 +65,7 @@ DRY_RUN=0
 ASSUME_YES=0
 
 usage() {
-  sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Opciones:

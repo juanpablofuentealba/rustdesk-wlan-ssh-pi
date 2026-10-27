@@ -409,6 +409,24 @@ t "resume con el ID de RustDesk y la IP Tailscale" \
 t "make-kit incluye instalar-todo.sh" \
   bash -c 'grep -q "instalar-todo.sh" make-kit.sh'
 
+sect "Ruta del repositorio (visible en todo el material)"
+REPO_URL="github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi"
+t "existe REPO.txt"                 test -f REPO.txt
+t "REPO.txt tiene la URL"           bash -c "grep -q '$REPO_URL' REPO.txt"
+t "REPO.txt explica para qué sirve" bash -c 'grep -qi "clonar\|git clone" REPO.txt'
+t "REPO.txt dice cómo regenerar el kit" bash -c 'grep -q "make-kit.sh" REPO.txt'
+t "REPO.txt lista el contenido del repo" bash -c 'grep -q "docs/hallazgos.md" REPO.txt'
+t "LEEME-PRIMERO.txt tiene la URL"   bash -c "grep -q '$REPO_URL' LEEME-PRIMERO.txt"
+t "PASOS-EN-ORDEN.txt tiene la URL"  bash -c "grep -q '$REPO_URL' PASOS-EN-ORDEN.txt"
+t "INSTALAR.md tiene la URL"         bash -c "grep -q '$REPO_URL' INSTALAR.md"
+t "--help de instalar-todo muestra el repo" \
+  bash -c "./instalar-todo.sh --help 2>&1 | grep -q '$REPO_URL'"
+t "--help de setup-remote-target muestra el repo" \
+  bash -c "./setup-remote-target.sh --help 2>&1 | grep -q '$REPO_URL'"
+t "make-kit copia REPO.txt al kit"    bash -c 'grep -q "REPO.txt" make-kit.sh'
+t "make-kit copia REPO.txt a la raíz del pendrive" \
+  bash -c 'grep -q "KIT_PARENT/REPO.txt" make-kit.sh'
+
 sect "PASOS-EN-ORDEN.txt (checklist del pendrive)"
 t "existe PASOS-EN-ORDEN.txt" test -f PASOS-EN-ORDEN.txt
 t "tiene los pasos numerados (1-9 + variantes b)" \
@@ -609,40 +627,59 @@ t "estado-sesion: pi solo en el operador" \
   bash -c 'grep -q "SOLO en el PC del operador" docs/estado-sesion.md'
 
 if [[ -n "$HOST" ]]; then
-  RH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST"
+  # OJO 1: el shell del objetivo puede ser fish (CachyOS lo usa por defecto).
+  # Todos los comandos remotos se envuelven para que la sintaxis
+  # ($(...), >/dev/null 2>&1, awk "{print $1}") funcione siempre.
+  #
+  # OJO 2: NO usar `ssh host bash -lc 'cmd'` con $RH. Al expandir $RH, ssh
+  # recibe los argumentos por separado y bash se come los flags del comando
+  # (p.ej. `tailscale ip -4` -> bash interpreta -4 y muestra la AYUDA).
+  # Solución: enviar el comando por STDIN a `bash -s`, que no reinterpreta
+  # argumentos.
+  RH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST bash -s"
+  # rsh: ejecuta un comando en el objetivo, compatible con fish y bash local.
+  # Evita el 'expansion splitting' usando un heredoc por stdin.
+  rsh() { printf '%s\n' "$*" | ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" bash -s; }
   sect "Remoto: $HOST"
-  t "SSH alcanza el host"        bash -c "$RH hostname"
+  t "SSH alcanza el host"        rsh 'hostname'
   t "inventory remoto"           ./inventory.sh "$HOST"
   t "inventory remoto JSON"      bash -c "./inventory.sh --json '$HOST' | jq empty"
   t "make check"                 make HOST="$HOST" check
 
   sect "Hallazgos en el host remoto"
-  # H-01/H-06: servicios enabled (sobreviven reboot)
-  t "H-06 sshd enabled"          bash -c "$RH 'systemctl is-enabled sshd' >/dev/null 2>&1"
-  t "RustDesk enabled"           bash -c "$RH 'systemctl is-enabled rustdesk' >/dev/null 2>&1"
-  t "RustDesk activo ahora"      bash -c "$RH 'systemctl is-active rustdesk' | grep -q '^active'"
-  # Tailscale puede NO estar instalado en el objetivo (p. ej. solo SSH por LAN).
-  # En ese caso se OMITE (no es un fallo del kit ni del host).
-  if $RH 'command -v tailscale >/dev/null 2>&1' 2>/dev/null; then
-    t "H-01 tailscaled enabled"    bash -c "$RH 'systemctl is-enabled tailscaled' >/dev/null 2>&1"
-    t "H-01 Tailscale activo"      bash -c "$RH 'systemctl is-active tailscaled' | grep -q '^active'"
-    t "H-01 tiene IP Tailscale"    bash -c "$RH 'tailscale ip -4' | grep -qE '^100\.'"
+  # Todos los comandos van por rsh(), que envía el comando por stdin a
+  # `bash -s` en el objetivo: funciona aunque el shell remoto sea fish y sin
+  # el problema de argumentos separados.
+
+  # H-06/H-01: servicios enabled (sobreviven reboot)
+  t "H-06 sshd enabled"          rsh 'systemctl is-enabled sshd 2>/dev/null || systemctl is-enabled ssh 2>/dev/null'
+  t "RustDesk enabled"           rsh 'systemctl is-enabled rustdesk 2>/dev/null'
+  t "RustDesk activo ahora"      rsh 'systemctl is-active rustdesk 2>/dev/null | grep -q active'
+
+  # ¿Tiene Tailscale el objetivo? (si no: se omite, puede ser acceso solo por LAN)
+  if rsh 'command -v tailscale >/dev/null 2>&1'; then
+    t "H-01 tailscaled enabled"    rsh 'systemctl is-enabled tailscaled 2>/dev/null'
+    t "H-01 Tailscale activo"      rsh 'systemctl is-active tailscaled 2>/dev/null | grep -q active'
+    t "H-01 tiene IP Tailscale"    rsh 'tailscale ip -4 2>/dev/null | grep -qE "^100\."'
   else
     sk "H-01 Tailscale no instalado en el objetivo (acceso por LAN)"
   fi
+
   # H-02/H-04: la captura DRM solo aplica en Wayland. En X11 no aplica.
-  remote_sess="$($RH 'loginctl show-session "$(loginctl list-sessions --no-legend 2>/dev/null | awk "{print \$1}" | tail -1)" -p Type --value 2>/dev/null' 2>/dev/null || true)"
+  # Detección de la sesión GRAFICA: la de seat0, no la última de loginctl (H-11).
+  remote_sess="$(rsh 'for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk "{print \$1}"); do t=$(loginctl show-session "$s" -p Type --value 2>/dev/null); case "$t" in wayland|x11) echo "$t"; break;; esac; done' 2>/dev/null | head -1)"
   if [[ "$remote_sess" == "wayland" ]]; then
     t "H-04 captura DRM con sesión Wayland" \
-      bash -c "$RH 'grep -q \"drm: consumer cache\" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log'"
+      rsh 'grep -q "drm: consumer cache" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log 2>/dev/null'
   elif [[ -n "$remote_sess" ]]; then
     sk "H-04 sesión $remote_sess en el objetivo: captura DRM no aplica"
   else
     sk "H-04 no se pudo determinar el tipo de sesión del objetivo"
   fi
+
   # H-03: tipo de login screen del host remoto
-  if $RH 'pgrep -f plasmalogin >/dev/null || pgrep -f "sddm|gdm|lightdm" >/dev/null' 2>/dev/null; then
-    if $RH 'pgrep -f startplasma-wayland >/dev/null' 2>/dev/null; then
+  if rsh 'pgrep -f plasmalogin >/dev/null 2>&1 || pgrep -f "sddm|gdm|lightdm" >/dev/null 2>&1'; then
+    if rsh 'pgrep -f startplasma-wayland >/dev/null 2>&1'; then
       t "H-03 login screen Wayland (allow-logon-screen-password no aplica)" true
     else
       t "H-03 login screen presente (revisar tipo)" true
@@ -650,13 +687,11 @@ if [[ -n "$HOST" ]]; then
   else
     sk "H-03 sin greeter visible en el host remoto"
   fi
-  # H-05: conexión Tailscale directa. SOLO tiene sentido si el HOST objetivo
-  # está en la tailnet. Si el objetivo no tiene Tailscale (p. ej. VM por LAN),
-  # se OMITE: no es un fallo.
+
+  # H-05: conexión Tailscale. Solo si AMBOS lados tienen Tailscale.
   if command -v tailscale >/dev/null 2>&1 \
-     && $RH 'command -v tailscale >/dev/null 2>&1' 2>/dev/null; then
-    # IP Tailscale del host objetivo (tal como la ve el operador)
-    peer="$($RH 'tailscale ip -4' 2>/dev/null | head -1)"
+     && rsh 'command -v tailscale >/dev/null 2>&1'; then
+    peer="$(rsh 'tailscale ip -4 2>/dev/null' | head -1)"
     if [[ "$peer" =~ ^100\. ]]; then
       # OJO: 'tailscale ping' NO acepta -c; sin flag hace intentos y sale solo
       t "H-05 tailscale ping responde ($peer)" bash -c "tailscale ping '$peer' 2>&1 | grep -q pong"

@@ -26,6 +26,12 @@
 #   --dry-run                   Muestra qué haría, sin aplicar nada
 #   --yes, -y                   No preguntar (modo desatendido)
 #   -h, --help                  Esta ayuda
+#
+# Repositorio (documentación completa, hallazgos y versiones nuevas):
+#   https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+#
+# Si algo falla, actualizá el kit desde el repo en vez de parchear a mano:
+#   git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
 # ---------------------------------------------------------------------------
 set -uo pipefail
 
@@ -46,7 +52,7 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
 hdr()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
-usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

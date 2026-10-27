@@ -1,0 +1,68 @@
+========================================================================
+  REPOSITORIO DEL PROYECTO
+========================================================================
+
+  https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+
+
+  ----------------------------------------------------------------------
+  PARA QUE SIRVE
+  ----------------------------------------------------------------------
+
+  Todo lo de este pendrive sale de ahi: los scripts, el runbook, y la
+  explicacion tecnica de cada decision (los "hallazgos verificados").
+
+
+  ----------------------------------------------------------------------
+  CUANDO USARLO
+  ----------------------------------------------------------------------
+
+  1. Si algo falla en el PC del cliente
+     -> el repo tiene la lista de problemas conocidos y como resolverlos
+        docs/hallazgos.md
+
+  2. Si queres la version mas nueva del kit
+     -> clonar y regenerar el kit:
+
+        git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+        cd rustdesk-wlan-ssh-pi
+        ./make-kit.sh --dest /run/media/$USER/PENDRIVE/kit-rustdesk --with-key
+
+  3. Si no tenes el pendrive a mano
+     -> desde el propio PC del cliente (necesita internet):
+
+        git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
+        cd ~/kit
+        sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
+
+  4. Solo bajar un script actualizado sin clonar todo:
+
+        curl -fsSL -o setup-remote-target.sh \
+          https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/setup-remote-target.sh
+
+
+  ----------------------------------------------------------------------
+  QUE HAY EN EL REPO
+  ----------------------------------------------------------------------
+
+  README.md                guia general
+  INSTALAR.md              runbook detallado (el del pendrive)
+  PASOS-EN-ORDEN.txt       checklist de pasos, en orden
+  instalar-todo.sh         un comando hace todo en el cliente
+  setup-remote-target.sh   RustDesk + SSH + firewall + Tailscale
+  rustdesk-password.sh     contrasena permanente de RustDesk
+  verify-offlan.sh         probar el acceso desde fuera de la LAN
+  inventory.sh             ficha de specs del equipo
+  make-kit.sh              empaquetar el kit para un pendrive
+  tests.sh                 pruebas (mas de 270)
+  docs/hallazgos.md        H-01..H-22: problemas y soluciones verificadas
+  docs/estado-sesion.md    estado del trabajo, para retomar
+  docs/onboarding-cliente.md  como dar de alta un cliente (modelo B)
+
+
+  ----------------------------------------------------------------------
+  VERIFICAR QUE ESTE KIT NO ESTA CORRUPTO
+  ----------------------------------------------------------------------
+
+     cd kit-rustdesk && sha256sum -c MANIFEST.sha256
+========================================================================
