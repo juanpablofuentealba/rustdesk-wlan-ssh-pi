@@ -9,3 +9,10 @@ id_*
 
 # Config local
 ssh_config.local
+
+# Artefactos del kit de instalación (se generan con make-kit.sh)
+kit-rustdesk/
+kit-rustdesk.tar.gz
+
+# Fichas de clientes (datos reales, no van al repo público)
+fichas/

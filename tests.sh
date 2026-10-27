@@ -155,6 +155,40 @@ t "--check sale 0"             ./setup-remote-target.sh --check
 t "--check detecta usuario"    bash -c './setup-remote-target.sh --check | grep -q "Usuario objetivo"'
 t "--check no modifica nada"   bash -c './setup-remote-target.sh --check | grep -q "Diagnóstico completo"'
 
+sect "Kit de instalación (make-kit.sh / punto 3)"
+t "bash -n make-kit.sh"        bash -n make-kit.sh
+t "make-kit.sh es ejecutable"  test -x make-kit.sh
+t "make-kit --help sale 0"     ./make-kit.sh --help
+t "Makefile tiene target kit"  bash -c 'make -n kit >/dev/null 2>&1'
+t "Makefile tiene target kit-usb" bash -c 'grep -q "^kit-usb:" Makefile'
+t "make-kit genera el runbook INSTALAR.md" \
+  bash -c 'grep -q "INSTALAR.md" make-kit.sh'
+t "make-kit incluye el generador de contraseña" \
+  bash -c 'grep -q "rustdesk-password.sh" make-kit.sh'
+t "make-kit incluye el instalador de Fedora" \
+  bash -c 'grep -q "install-rustdesk-unattended-fedora.sh" make-kit.sh'
+t "make-kit calcula el manifiesto sha256" \
+  bash -c 'grep -q "MANIFEST.sha256" make-kit.sh'
+t "make-kit soporta --dest (pendrive)" \
+  bash -c 'grep -q "\-\-dest" make-kit.sh'
+t "make-kit soporta --with-key" \
+  bash -c 'grep -q "\-\-with-key" make-kit.sh'
+t "make-kit soporta --tarball" \
+  bash -c 'grep -q "\-\-tarball" make-kit.sh'
+# End-to-end: empaquetar, verificar integridad y que el kit extraído sirva.
+_kitdir="$(mktemp -d)"
+t "make-kit se ejecuta sin error" \
+  bash -c "./make-kit.sh --dest '$_kitdir/kit' >/dev/null 2>&1"
+t "el kit tiene el runbook" \
+  test -f "$_kitdir/kit/INSTALAR.md"
+t "el kit tiene setup-remote-target.sh" \
+  test -x "$_kitdir/kit/setup-remote-target.sh"
+t "el manifiesto valida (sha256sum -c)" \
+  bash -c "cd '$_kitdir/kit' && sha256sum -c MANIFEST.sha256 >/dev/null 2>&1"
+t "el kit extraído pasa su propio --check" \
+  bash -c "'$_kitdir/kit/setup-remote-target.sh' --check 2>&1 | grep -q 'Diagnóstico completo'"
+rm -rf "$_kitdir"
+
 sect "No fuga de secretos al repo"
 t ".gitignore ignora claves"   bash -c 'grep -q "id_" .gitignore'
 t "no hay claves en el árbol"  bash -c '! find . -name "id_*" -not -path "./.git/*" | grep -q .'

@@ -10,7 +10,7 @@ SSH       ?= ssh -o BatchMode=yes -o ConnectTimeout=10
 .DEFAULT_GOAL := help
 
 .PHONY: help test verify-docs key push-key check target-setup dry-run inventory inventory-md inventory-json \
-        ssh ping rustdesk-log rustdesk-id reboot-services ports update
+        ssh ping rustdesk-log rustdesk-id reboot-services ports update kit
 
 help: ## Muestra esta ayuda
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -58,6 +58,13 @@ test: ## Ejecuta las pruebas de humo (local; añade HOST=... para remoto)
 
 verify-docs: ## Valida comandos de Tailscale y URLs de la documentación
 	@./verify-docs.sh
+
+kit: ## Empaqueta el kit para llevarlo a un cliente (KIT_DEST=/run/media/... para pendrive)
+	@./make-kit.sh $(if $(KIT_DEST),--dest $(KIT_DEST),) $(if $(TARBALL),--tarball,)
+
+kit-usb: ## Empaqueta el kit en un pendrive (USB=/run/media/usuario/PENDRIVE)
+	@test -n "$(USB)" || { echo "uso: make kit-usb USB=/run/media/usuario/PENDRIVE"; exit 1; }
+	@./make-kit.sh --dest "$(USB)/kit-rustdesk" --with-key
 
 target-setup: ## Copia setup-remote-target.sh al host y muestra cómo ejecutarlo
 	@echo "→ copiando setup a $(HOST)"

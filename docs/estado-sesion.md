@@ -280,7 +280,8 @@ Orden sensato:
 1. Probar el kit de punta a punta **como si la VM fuera el PC de un cliente**.
 2. Resolver el **acceso fuera de la LAN** (Tailscale) — es lo que permite dar
    mantención después sin volver al domicilio.
-3. Preparar un **kit de instalación** (pendrive con el script + instrucciones).
+3. ~~Preparar un **kit de instalación**~~ — **RESUELTO** (`make-kit.sh` +
+   `INSTALAR.md`, con manifiesto de integridad).
 4. **El primer cliente real** — ahí se ve qué falta de verdad.
 
 El paquete y la GUI tienen sentido **después** del primer cliente, cuando se sepa
