@@ -1,8 +1,45 @@
 #!/usr/bin/env bash
-# Script interno (root): escribe password+salt en las configs de RustDesk.
-# Uso: bash rd-setpass-root.sh <salt> <storage>
+# ---------------------------------------------------------------------------
+# .rd-setpass-root.sh — escribe password+salt en las configs de RustDesk.
+# Auxiliar de rustdesk-password.sh. Corre como root.
+#
+# Uso:
+#   bash .rd-setpass-root.sh --stdin              # salt y storage por stdin
+#   bash .rd-setpass-root.sh --stdin-with-pass    # sudo_pass, salt, storage
+#   bash .rd-setpass-root.sh <salt> <storage>     # compatibilidad (args)
+#
+# Por qué stdin: los argumentos de línea de comandos son visibles en `ps`
+# mientras el proceso corre. Por stdin (fd) no quedan expuestos.
+#
+# Alcance: por defecto escribe solo en /root y en el HOME del usuario que
+# invocó (SUDO_USER). Para todos los usuarios de /home/*  -> --all-users.
+#
+# PRUEBAS SIN RIESGO (evita sobrescribir la config real):
+#   RDP_CONFIG_ROOT=/tmp/prueba RDP_HOME_BASE=/tmp/prueba/home \
+#     bash .rd-setpass-root.sh --stdin
+# ---------------------------------------------------------------------------
 set -euo pipefail
-salt="$1"; storage="$2"
+
+ALL_USERS=0
+SALT=""
+STORAGE=""
+
+case "${1:-}" in
+  --stdin)
+    IFS= read -r SALT
+    IFS= read -r STORAGE
+    ;;
+  --stdin-with-pass)
+    IFS= read -r _SUDO_PASS   # ya lo consumió sudo; se lee para no desalinear
+    IFS= read -r SALT
+    IFS= read -r STORAGE
+    ;;
+  --all-users) ALL_USERS=1 ;;
+  "") echo "error: falta salt/storage (usá --stdin)" >&2; exit 2 ;;
+  *) SALT="$1"; STORAGE="${2:-}" ;;
+esac
+
+[[ -n "$SALT" && -n "$STORAGE" ]] || { echo "error: salt o storage vacío" >&2; exit 2; }
 
 apply() {
   local dir="$1"
@@ -12,9 +49,14 @@ apply() {
     return 0
   fi
   cp -a "$f" "$f.bak-$(date +%s)"
-  python3 - "$f" "$salt" "$storage" <<'PYEOF'
-import re, sys
-path, salt, storage = sys.argv[1], sys.argv[2], sys.argv[3]
+
+  # salt/storage por variables de entorno, no como argv de python (no aparecen
+  # en /proc/<pid>/cmdline).
+  RDP_SALT="$SALT" RDP_STORAGE="$STORAGE" "$PY" - "$f" <<'PYEOF'
+import os, re, sys
+path = sys.argv[1]
+salt = os.environ["RDP_SALT"]
+storage = os.environ["RDP_STORAGE"]
 text = open(path).read()
 def setkey(text, key, value):
     pat = re.compile(rf"^{key}\s*=.*$", re.M)
@@ -27,10 +69,36 @@ PYEOF
   echo "  ✔ actualizado $f (backup .bak-*)"
 }
 
-apply /root/.config/rustdesk
-# El usuario objetivo (si existe su config)
-for h in /home/*; do
-  [ -f "$h/.config/rustdesk/RustDesk.toml" ] || continue
-  apply "$h/.config/rustdesk"
-  chown "$(stat -c %U:%G "$h")" "$h/.config/rustdesk/RustDesk.toml"
-done
+PY="${PY_BIN:-python3}"
+command -v "$PY" >/dev/null 2>&1 || PY=python3
+
+# RDP_CONFIG_ROOT permite redirigir las rutas para PRUEBAS sin tocar el sistema
+# real (p.ej. RDP_CONFIG_ROOT=/tmp/prueba). Sin esta variable, una prueba
+# descuidada sobrescribe la config real del operador.
+ROOT_CFG="${RDP_CONFIG_ROOT:-/root}/.config/rustdesk"
+USER_HOME_BASE="${RDP_HOME_BASE:-/home}"
+
+# 1. siempre la config de root (es la que usa rustdesk.service)
+apply "$ROOT_CFG"
+
+# 2. el usuario objetivo
+if [[ $ALL_USERS -eq 1 ]]; then
+  for h in "$USER_HOME_BASE"/*; do
+    [[ -d "$h/.config/rustdesk" ]] || continue
+    apply "$h/.config/rustdesk"
+    chown "$(stat -c %U:%G "$h")" "$h/.config/rustdesk/RustDesk.toml" 2>/dev/null || true
+  done
+else
+  # solo el usuario que invocó sudo (el resto no debería tocarse)
+  TU="${SUDO_USER:-}"
+  if [[ -z "$TU" || "$TU" == "root" ]]; then
+    TU="$(logname 2>/dev/null || true)"
+  fi
+  if [[ -n "$TU" && -d "$USER_HOME_BASE/$TU/.config/rustdesk" ]]; then
+    apply "$USER_HOME_BASE/$TU/.config/rustdesk"
+    chown "$TU:$(id -gn "$TU" 2>/dev/null || echo "$TU")" \
+      "$USER_HOME_BASE/$TU/.config/rustdesk/RustDesk.toml" 2>/dev/null || true
+  else
+    echo "  (sin HOME de usuario objetivo; usá --all-users para incluir todos)"
+  fi
+fi

@@ -363,7 +363,27 @@ t "H-15 usa prefijo de version 01" \
 t "H-15 escribe password y salt en RustDesk.toml" \
   bash -c 'grep -q "setkey(text, .password." .rd-setpass-root.sh && grep -q "setkey(text, .salt." .rd-setpass-root.sh'
 t "H-15 aplica a root y al usuario" \
-  bash -c 'grep -q "apply /root/.config/rustdesk" .rd-setpass-root.sh'
+  bash -c 'grep -q "apply" .rd-setpass-root.sh && grep -q "ROOT_CFG" .rd-setpass-root.sh && grep -q "SUDO_USER" .rd-setpass-root.sh'
+t "H-15 el helper lee por stdin (no argv visible en ps)" \
+  bash -c 'grep -q "\-\-stdin" .rd-setpass-root.sh'
+t "H-15 el helper permite pruebas aisladas" \
+  bash -c 'grep -q "RDP_CONFIG_ROOT" .rd-setpass-root.sh'
+t "H-15 puede limitarse al usuario objetivo" \
+  bash -c 'grep -q "RDP_HOME_BASE" .rd-setpass-root.sh'
+t "H-15 rustdesk-password tiene modo LOCAL (sin SSH)" \
+  bash -c 'grep -q "modo LOCAL" rustdesk-password.sh'
+t "H-15 comprueba PyNaCl antes de usarlo" \
+  bash -c 'grep -q "^ensure_pynacl()" rustdesk-password.sh'
+t "H-15 instala PyNaCl segun el gestor de paquetes" \
+  bash -c 'grep -q "python-pynacl" rustdesk-password.sh && grep -q "python3-nacl" rustdesk-password.sh'
+t "H-15 no usa la funcion 'info' (colisiona con info(1))" \
+  bash -c '! grep -qE "^\s*info \"" rustdesk-password.sh'
+t "instalar-todo: --sudopass eleva el sudo inicial" \
+  bash -c 'grep -q "exec sudo -E bash" instalar-todo.sh'
+t "instalar-todo: avisa de contraseñas debiles" \
+  bash -c 'grep -q "patrón predecible" instalar-todo.sh'
+t "instalar-todo: avisa si la clave contiene el usuario" \
+  bash -c 'grep -q "contiene el nombre de usuario" instalar-todo.sh'
 t "H-15 exige SUDO_PASS (no hardcodea secretos)" \
   bash -c '! grep -qE "SUDO_PASS:-[a-z]" rustdesk-password.sh && grep -q "definí SUDO_PASS" rustdesk-password.sh'
 t "H-15 comando salt genera 32 chars" \
@@ -495,7 +515,7 @@ t "tailscale espera a que tailscaled arranque" \
 t "tailscale up muestra su error real" \
   bash -c 'grep -q "tailscale up FALLÓ" setup-remote-target.sh'
 t "tailscale espera la IP (hasta 15s)" \
-  bash -c 'grep -q "for i in \$(seq 1 15)" setup-remote-target.sh'
+  bash -c 'grep -q "seq 1 15" setup-remote-target.sh'
 t "--check diagnostica dependencias faltantes" \
   bash -c 'grep -q "Dependencias que suelen faltar" setup-remote-target.sh'
 t "--check informa si hay AUR helper" \
@@ -655,7 +675,7 @@ if [[ -n "$HOST" ]]; then
   # (p.ej. `tailscale ip -4` -> bash interpreta -4 y muestra la AYUDA).
   # Solución: enviar el comando por STDIN a `bash -s`, que no reinterpreta
   # argumentos.
-  RH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST bash -s"
+  #
   # rsh: ejecuta un comando en el objetivo, compatible con fish y bash local.
   # Evita el 'expansion splitting' usando un heredoc por stdin.
   rsh() { printf '%s\n' "$*" | ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" bash -s; }

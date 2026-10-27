@@ -92,6 +92,10 @@ Ejemplos:
 EOF
 }
 
+# Guardamos los flags originales: los usa need_root() para dar un mensaje
+# útil ("sudo $0 --all --key ...") aunque no reciba argumentos.
+ORIG_ARGS="$*"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --rustdesk)  DO_RUSTDESK=1; shift ;;
@@ -160,7 +164,9 @@ confirm() {
 
 need_root() {
   if [[ $EUID -ne 0 ]]; then
-    err "Este paso requiere root. Ejecuta con: sudo $0 $*"
+    # Muestra los flags reales con los que se invocó (no "$*": aquí no llegan
+    # argumentos, y shellcheck lo señalaba como SC2120).
+    err "Este paso requiere root. Ejecuta con: sudo $0 ${ORIG_ARGS:-<flags>}"
     exit 1
   fi
 }
@@ -222,8 +228,8 @@ detect_firewall() {
 
 # Verifica ufw con reintentos: recién activado, ufw tarda un instante en reportar.
 ufw_verify() {
-  local msg="$1" i active=0 rule=0
-  for i in 1 2 3; do
+  local msg="$1" active=0 rule=0
+  for _ in 1 2 3; do
     if ufw status 2>/dev/null | grep -qE "Status: active"; then
       active=1
       if ufw status 2>/dev/null | grep -qE "${SSH_PORT}(/tcp)?[[:space:]]+ALLOW"; then
@@ -901,8 +907,7 @@ setup_ssh() {
   ok "sshd habilitado y arrancado"
 
   # sshd a veces tarda en bindear; esperamos y comprobamos
-  local i
-  for i in 1 2 3 4 5; do
+  for _ in 1 2 3 4 5; do
     ss -tln 2>/dev/null | grep -q ":${SSH_PORT}\b" && break
     sleep 1
   done
@@ -1062,8 +1067,7 @@ setup_tailscale() {
   else
     systemctl enable --now tailscaled >/dev/null 2>&1 || true
     # esperar a que el daemon quede activo (hasta 10 s)
-    local i
-    for i in $(seq 1 10); do
+    for _ in $(seq 1 10); do
       systemctl is-active --quiet tailscaled 2>/dev/null && break
       sleep 1
     done
@@ -1107,7 +1111,8 @@ setup_tailscale() {
   fi
 
   info "Uniendo el equipo a la tailnet..."
-  local up_log="$(mktemp)"
+  local up_log
+  up_log="$(mktemp)"
   if tailscale up --auth-key="$TS_AUTHKEY" \
        --hostname="$(hostname 2>/dev/null || echo cliente)" \
        --accept-dns=false >"$up_log" 2>&1; then
@@ -1124,9 +1129,9 @@ setup_tailscale() {
   fi
   rm -f "$up_log"
 
-  # Esperar la IP (el daemon tarda unos segundos en publicarla)
-  local i
-  for i in $(seq 1 15); do
+  # Esperar la IP (el daemon tarda unos segundos en publicarla).
+  # El contador del for no se usa dentro: '_' evita el aviso de shellcheck.
+  for _ in $(seq 1 15); do
     ip4="$(tailscale ip -4 2>/dev/null | head -1 || true)"
     [[ -n "$ip4" ]] && break
     sleep 1

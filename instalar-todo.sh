@@ -81,10 +81,6 @@ if [[ -z "$RDPASS" ]]; then
   err "  Ej:  sudo ./instalar-todo.sh --authkey 'tskey-auth-...' --rdpass 'MiClave2026'"
   exit 1
 fi
-if [[ ${#RDPASS} -lt 8 ]]; then
-  warn "la contraseña tiene menos de 8 caracteres; considerá una más larga"
-fi
-ok "contraseña de RustDesk definida (${#RDPASS} caracteres)"
 
 # auth key de Tailscale
 if [[ $SKIP_TS -eq 0 ]]; then
@@ -104,7 +100,23 @@ fi
 
 # root (el simulacro puede correr sin root)
 if [[ $EUID -ne 0 && $DRY_RUN -eq 0 ]]; then
-  err "ejecutá con sudo:  sudo ./instalar-todo.sh --authkey 'tskey-auth-...' --rdpass '...'"
+  # Si nos dieron --sudopass, ELEVAMOS nosotros en vez de exigir que el usuario
+  # escriba `sudo` delante. Antes --sudopass solo servía por dentro y el script
+  # moría con "a terminal is required to read the password" aunque se hubiera
+  # pasado la contraseña: era un nombre engañoso.
+  if [[ -n "$SUDOPASS" ]]; then
+    info "elevando con la contraseña de --sudopass..."
+    if printf '%s\n' "$SUDOPASS" | sudo -S -v 2>/dev/null; then
+      # -E preserva el entorno; --sudopass se re-pasa para los hijos
+      exec sudo -E bash "$0" "$@"
+    else
+      err "la contraseña de --sudopass no es válida"
+      exit 1
+    fi
+  fi
+  err "ejecutá con sudo, o pasá la contraseña con --sudopass:"
+  err "  sudo ./instalar-todo.sh --authkey 'tskey-auth-...' --rdpass '...'"
+  err "  ./instalar-todo.sh --authkey '...' --rdpass '...' --sudopass 'tu-clave'"
   err "  (para solo simular:  ./instalar-todo.sh ... --dry-run  sin sudo)"
   exit 1
 fi
@@ -112,6 +124,41 @@ fi
 # usuario objetivo (con sudo, el real está en SUDO_USER)
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "$USER")}"
 [[ "$TARGET_USER" == "root" ]] && TARGET_USER="$(awk -F: '$3>=1000 && $3<65534 {print $1; exit}' /etc/passwd)"
+# Calidad de la contraseña: es la llave PERMANENTE de entrada a este equipo,
+# así que avisamos de los casos débiles típicos (sin bloquear, pero claro).
+PW_WEAK=0
+if [[ ${#RDPASS} -lt 8 ]]; then
+  warn "la contraseña tiene menos de 8 caracteres"
+  PW_WEAK=1
+fi
+
+# nombre de usuario (o parte) dentro de la contraseña
+_lc_pw="$(tr '[:upper:]' '[:lower:]' <<<"$RDPASS")"
+_lc_user="$(tr '[:upper:]' '[:lower:]' <<<"$TARGET_USER")"
+if [[ -n "$_lc_user" && ${#_lc_user} -ge 3 && "$_lc_pw" == *"$_lc_user"* ]]; then
+  warn "la contraseña contiene el nombre de usuario ('$TARGET_USER')"
+  PW_WEAK=1
+fi
+
+# patrón Nombre+dd  (p.ej. Juanpablo44): letras seguidas de 1-4 dígitos
+if [[ "$RDPASS" =~ ^[A-Za-z]{4,}[0-9]{1,4}$ ]]; then
+  warn "la contraseña parece 'nombre + números' (patrón predecible)"
+  PW_WEAK=1
+fi
+
+# palabras demasiado comunes
+for _c in password contrasena 123456 admin rustdesk; do
+  if [[ "$_lc_pw" == *"$_c"* ]]; then
+    warn "la contraseña contiene una palabra común ('$_c')"
+    PW_WEAK=1
+  fi
+done
+
+if [[ $PW_WEAK -eq 1 ]]; then
+  warn "recomendado: una contraseña de 16+ caracteres de tu gestor de claves."
+  warn "  Esta clave da acceso permanente a TODOS los equipos de clientes."
+fi
+ok "contraseña de RustDesk definida (${#RDPASS} caracteres)"
 ok "usuario objetivo: $TARGET_USER"
 
 # scripts del kit

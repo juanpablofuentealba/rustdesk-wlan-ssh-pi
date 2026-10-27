@@ -33,6 +33,58 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_BIN="${PY_BIN:-python3}"
 
+# Salida con formato. OJO: no llamar a estas funciones `info`, `test` ni `[`:
+# `info` colisiona con el comando info(1) del sistema y rompe el script con
+# "No menu item ... in node (dir)Top". Usamos `say`.
+say()  { printf '\033[1;34m●\033[0m %s\n' "$*"; }
+ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
+warnf() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
+err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
+DRY_RUN=0
+
+# --- PyNaCl: comprobar e instalar si falta --------------------------------
+# Sin PyNaCl el hash no se puede generar. Antes fallaba tarde y con un
+# ModuleNotFoundError de Python; ahora se comprueba antes y se ofrece instalarlo.
+ensure_pynacl() {
+  "$PY_BIN" -c 'import nacl.secret' 2>/dev/null && return 0
+
+  local manager="" cmd=""
+  if command -v pacman >/dev/null 2>&1; then manager=pacman; cmd="pacman -S --needed --noconfirm python-pynacl"
+  elif command -v apt-get >/dev/null 2>&1; then manager=apt; cmd="apt-get install -y python3-nacl"
+  elif command -v dnf >/dev/null 2>&1; then manager=dnf; cmd="dnf install -y python3-pynacl"
+  fi
+
+  if [[ -z "$manager" ]]; then
+    err "falta PyNaCl y no reconozco el gestor de paquetes."
+    err "  Instalalo a mano (paquete: python-pynacl / python3-nacl) y reintentá."
+    return 1
+  fi
+
+  say "PyNaCl no está instalado; instalando con $manager..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    say "(dry-run) $cmd"
+    return 0
+  fi
+
+  # Necesita root. Con SUDO_PASS declarado lo usamos; si no, sudo directo.
+  if [[ $EUID -eq 0 ]]; then
+    $cmd >/dev/null 2>&1 || { err "falló: $cmd"; return 1; }
+  elif [[ -n "${SUDO_PASS:-}" ]]; then
+    printf '%s\n' "$SUDO_PASS" | sudo -S -p '' bash -c "$cmd" >/dev/null 2>&1 \
+      || { err "falló: $cmd"; return 1; }
+  else
+    sudo bash -c "$cmd" >/dev/null 2>&1 || { err "falló: $cmd (probá con SUDO_PASS)"; return 1; }
+  fi
+
+  if "$PY_BIN" -c 'import nacl.secret' 2>/dev/null; then
+    ok "PyNaCl instalado"
+    return 0
+  fi
+  err "seguimos sin PyNaCl tras instalarlo."
+  err "  Probá a mano:  $cmd"
+  return 1
+}
+
 # --- generación del hash ---------------------------------------------------
 gen_hash() {
   local password="$1" machine_id="$2" salt="${3:-}"
@@ -114,10 +166,26 @@ install_remote() {
     echo "  · solo simular:    $0 install ... --dry-run" >&2
     return 1
   fi
-  echo "→ Leyendo machine-id de $target ..."
+  # ¿El target es ESTE equipo? Entonces no hace falta SSH.
+  # Motivo: al correr con sudo no hay clave SSH para llegar a jp@localhost, así
+  # que fallaba con "Host key verification failed" o "Permission denied".
+  # Además el caso local es el más común (instalación presencial del kit).
+  local is_local=0
+  case "$target" in
+    *localhost*|*127.0.0.1*|*"$(hostname 2>/dev/null)"*) is_local=1 ;;
+  esac
+  [[ "$target" == "$(whoami)@$HOSTNAME" || "$target" == "$(whoami)@localhost" ]] && is_local=1
+
+  echo "→ Leyendo machine-id ..."
   local mid
-  mid="$(ssh -o BatchMode=yes "$target" cat /etc/machine-id)"
-  [[ -n "$mid" ]] || { echo "error: no pude leer el machine-id remoto" >&2; return 1; }
+  if [[ $is_local -eq 1 ]]; then
+    mid="$(cat /etc/machine-id 2>/dev/null)"
+    say "modo LOCAL (sin SSH): aplico en este mismo equipo"
+  else
+    mid="$(ssh -o BatchMode=yes "$target" cat /etc/machine-id 2>/dev/null)"
+  fi
+  [[ -n "$mid" ]] || { echo "error: no pude leer el machine-id" >&2; return 1; }
+  ensure_pynacl || return 1
 
   echo "→ Generando hash ..."
   local out salt storage
@@ -134,28 +202,42 @@ install_remote() {
     return 0
   fi
 
-  echo "→ Aplicando en $target (con backup) ..."
+  echo "→ Aplicando (con backup) ..."
   local sudo_pass="${SUDO_PASS:-}"
-  # El script auxiliar va como archivo (más fiable que un heredoc por stdin,
-  # que sudo -S se come al leer la contraseña).
   local helper="$SCRIPT_DIR/.rd-setpass-root.sh"
   [[ -f "$helper" ]] || { echo "error: falta $helper" >&2; return 1; }
 
-  # Copiamos el helper al objetivo y lo ejecutamos con sudo. NO usamos
-  # `bash -s < archivo`: sudo -S lee la contraseña de stdin y compiten.
-  # Con SUDO_PASS vacío (NOPASSWD) omitimos -S y no mandamos stdin.
-  scp -q -o BatchMode=yes "$helper" "$target:/tmp/rd-setpass-root.sh"
-  if [[ -n "$sudo_pass" ]]; then
-    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-      "sudo -S -p '' bash /tmp/rd-setpass-root.sh '$salt' '$storage'"
+  # El salt/storage van por STDIN, no como argumentos de línea de comandos:
+  # así no aparecen en `ps` mientras corre (P2 del reporte).
+  if [[ $is_local -eq 1 ]]; then
+    # --- LOCAL: sin SSH, sin scp ---
+    if [[ -n "$sudo_pass" ]]; then
+      printf '%s\n%s\n' "$salt" "$storage" | sudo -S -p '' bash "$helper" --stdin
+    else
+      printf '%s\n%s\n' "$salt" "$storage" | sudo -n bash "$helper" --stdin
+    fi || { err "falló la escritura de la config (¿sudo?)"; return 1; }
   else
-    ssh -o BatchMode=yes "$target" \
-      "sudo -n bash /tmp/rd-setpass-root.sh '$salt' '$storage'"
+    # --- REMOTO: helper por scp, args por stdin ---
+    # NO usamos `bash -s < archivo`: sudo -S lee la contraseña de stdin.
+    scp -q -o BatchMode=yes "$helper" "$target:/tmp/rd-setpass-root.sh"
+    if [[ -n "$sudo_pass" ]]; then
+      printf '%s\n%s\n%s\n' "$sudo_pass" "$salt" "$storage" | \
+        ssh -o BatchMode=yes "$target" "sudo -S -p '' bash /tmp/rd-setpass-root.sh --stdin-with-pass"
+    else
+      printf '%s\n%s\n' "$salt" "$storage" | \
+        ssh -o BatchMode=yes "$target" "sudo -n bash /tmp/rd-setpass-root.sh --stdin"
+    fi
+    ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' || true
   fi
-  ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' || true
 
   echo "→ Reiniciando rustdesk.service ..."
-  if [[ -n "$sudo_pass" ]]; then
+  if [[ $is_local -eq 1 ]]; then
+    if [[ -n "$sudo_pass" ]]; then
+      printf '%s\n' "$sudo_pass" | sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
+    else
+      sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
+    fi
+  elif [[ -n "$sudo_pass" ]]; then
     printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
       "sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
   else
@@ -164,13 +246,18 @@ install_remote() {
   fi
 
   echo "→ Verificación (config root debe tener password = '01...'):"
-  if [[ -n "$sudo_pass" ]]; then
-    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-      "sudo -S -p '' grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml" \
+  local vercmd="grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml"
+  if [[ $is_local -eq 1 ]]; then
+    if [[ -n "$sudo_pass" ]]; then
+      printf '%s\n' "$sudo_pass" | sudo -S -p '' bash -c "$vercmd" | sed 's/^/  líneas password=01 en config root: /'
+    else
+      sudo -n bash -c "$vercmd" | sed 's/^/  líneas password=01 en config root: /'
+    fi
+  elif [[ -n "$sudo_pass" ]]; then
+    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" "sudo -S -p '' bash -c \"$vercmd\"" \
       | sed 's/^/  líneas password=01 en config root: /'
   else
-    ssh -o BatchMode=yes "$target" \
-      "sudo -n grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml" \
+    ssh -o BatchMode=yes "$target" "sudo -n bash -c \"$vercmd\"" \
       | sed 's/^/  líneas password=01 en config root: /'
   fi
   echo "✔ Listo. Probá conectar por RustDesk a la ID del equipo."

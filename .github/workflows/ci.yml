@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: shellcheck de todos los scripts
+        run: |
+          # -S warning: no rompemos por info/estilo, solo por problemas reales.
+          # Los 'source' relativos no se siguen (los scripts son autocontenidos).
+          shellcheck --version
+          fail=0
+          for f in *.sh .rd-setpass-root.sh; do
+            echo "── $f"
+            shellcheck -S warning -e SC1090,SC1091 "$f" || fail=1
+          done
+          exit $fail
+
+  tests:
+    name: tests.sh (local)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl make python3 python3-nacl
+
+      - name: Tests de humo
+        run: ./tests.sh
+
+      - name: verify-docs
+        run: ./verify-docs.sh || true   # requiere red; se informa, no bloquea
+
+  sintaxis:
+    name: bash -n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sintaxis de todos los scripts
+        run: |
+          for f in *.sh .rd-setpass-root.sh; do
+            bash -n "$f" && echo "✔ $f" || exit 1
+          done
+
+  secrets:
+    name: sin secretos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buscar claves privadas y tokens
+        run: |
+          # Una clave privada o un token de Tailscale NUNCA deben entrar al repo.
+          if grep -rIlE 'BEGIN (OPENSSH|RSA|EC) PRIVATE KEY' --exclude-dir=.git . ; then
+            echo "::error::hay una clave privada en el repo"; exit 1
+          fi
+          if grep -rInE 'tskey-auth-[A-Za-z0-9]{10,}' --exclude-dir=.git . ; then
+            echo "::error::hay una auth key de Tailscale en el repo"; exit 1
+          fi
+          echo "✔ sin claves privadas ni auth keys"
