@@ -92,6 +92,16 @@ t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" s
 t "detect_firewall consulta ufw.conf (respaldo)" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
 t "detect_firewall lee ENABLED (no solo systemctl)" bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "ENABLED=yes"'
 t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
+# Imágenes base mínimas (fedora:44) sin systemctl/firewall-cmd/ufw: NO se
+# puede afirmar "sin firewall"; debe decirlo como no verificable.
+t "detect_firewall devuelve sin-herramientas" \
+  bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "printf .sin-herramientas."'
+t "distingue sin-herramientas de none" \
+  bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "pkg_installed firewalld"'
+t "--check maneja sin-herramientas (no afirma seguro)" \
+  bash -c 'grep -q "sin-herramientas)" setup-remote-target.sh'
+t "--check dice no verificable sin loginctl" \
+  bash -c 'grep -q "no verificable (falta loginctl)" setup-remote-target.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
 t "README documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" README.md'
 t "README explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" README.md'

@@ -191,6 +191,14 @@ detect_firewall() {
   for fw in nftables iptables; do
     if systemctl is-active --quiet "$fw" 2>/dev/null; then printf '%s' "$fw"; return; fi
   done
+  # --- no se pudo determinar ---
+  # Sin systemctl/firewall-cmd/ufw (imágenes base mínimas como fedora:44) NO se
+  # puede afirmar "sin firewall": el filtrado puede existir a nivel nftables o
+  # de la plataforma. Distinguir 'none' (verificado) de 'sin-herramientas'.
+  if pkg_installed firewalld 2>/dev/null || pkg_installed ufw 2>/dev/null \
+     || ! command -v systemctl >/dev/null 2>&1; then
+    printf 'sin-herramientas'; return
+  fi
   printf 'none'
 }
 
@@ -381,7 +389,13 @@ run_check() {
   # sesión gráfica
   local sess_type
   sess_type="$(graphical_session_type)"
-  info "Tipo de sesión detectada: ${sess_type:-desconocido}"
+  if ! command -v loginctl >/dev/null 2>&1; then
+    # Imágenes base mínimas (fedora:44) no traen loginctl: no es lo mismo que
+    # "hay sesión pero no sé de qué tipo".
+    info "Tipo de sesión detectada: no verificable (falta loginctl)"
+  else
+    info "Tipo de sesión detectada: ${sess_type:-desconocido}"
+  fi
   [[ "$sess_type" == "wayland" ]] && ok "Wayland detectado (ruta DRM aplica)" || true
 
   hdr "SSH"
@@ -431,6 +445,9 @@ run_check() {
       warn "    --ssh lo activará y abrirá :${SSH_PORT}; si lo activas a mano: sudo ufw allow ${SSH_PORT}/tcp" ;;
     firewalld-inactive)
       warn "    firewalld instalado pero INACTIVO; --ssh lo activará y permitirá ssh" ;;
+    sin-herramientas)
+      warn "    Firewall NO verificable: falta systemctl/firewall-cmd/ufw"
+      warn "    (imagen mínima o contenedor). No se puede afirmar que no haya filtrado." ;;
     none)      ok "Sin firewall activo (accesible en LAN, pero menos seguro)" ;;
   esac
 
@@ -737,6 +754,10 @@ setup_ssh() {
       else
         ok "firewalld activado con servicio ssh permitido"
       fi
+      ;;
+    sin-herramientas)
+      warn "Firewall NO verificable (sin systemctl/firewall-cmd/ufw): no se toca nada"
+      warn "  Si es un escritorio real, revisa a mano el filtrado antes de exponer ssh"
       ;;
     none)
       ok "Sin firewall: no hace falta abrir nada"

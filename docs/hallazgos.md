@@ -419,6 +419,71 @@ portal. Un `unspecified` silenciaba ese aviso justo en el caso de riesgo.
 
 ---
 
+## H-12 — Imágenes base mínimas sin `systemctl`/`firewall-cmd`: "sin firewall" era falso
+
+**Verificado:** ✅ (en `docker.io/library/fedora:44` y `debian:12`)
+
+Las imágenes base mínimas no traen ni `systemctl` ni `firewall-cmd` ni `ufw`:
+
+```
+$ for b in systemctl firewall-cmd ss ip loginctl lsmod hostname; do
+    printf '%-14s %s\n' "$b" "$(command -v $b || echo AUSENTE)"; done
+systemctl      AUSENTE
+firewall-cmd   AUSENTE
+ss             AUSENTE
+ip             AUSENTE
+loginctl       AUSENTE
+lsmod          AUSENTE
+hostname       AUSENTE
+```
+
+`detect_firewall` caía al final de su cascada y devolvía `none`, que el
+diagnóstico traducía como:
+
+```
+● Detectado: none
+✔ Sin firewall activo (accesible en LAN, pero menos seguro)   ← no verificado
+```
+
+Es una **afirmación sin pruebas**: no es que no haya filtrado, es que no se pudo
+consultar. En una imagen mínima o un contenedor puede haber filtrado a nivel de
+nftables o de la plataforma.
+
+**Solución:** nuevo valor `sin-herramientas`, distinto de `none` (que queda para
+el caso realmente verificado):
+
+```bash
+if pkg_installed firewalld 2>/dev/null || pkg_installed ufw 2>/dev/null \
+   || ! command -v systemctl >/dev/null 2>&1; then
+  printf 'sin-herramientas'; return
+fi
+printf 'none'
+```
+
+Y en el diagnóstico:
+
+```
+● Detectado: sin-herramientas
+▲     Firewall NO verificable: falta systemctl/firewall-cmd/ufw
+▲     (imagen mínima o contenedor). No se puede afirmar que no haya filtrado.
+```
+
+También se distingue el tipo de sesión: sin `loginctl` ya no dice
+`desconocido` (que sugiere que hay sesión), sino:
+
+```
+● Tipo de sesión detectada: no verificable (falta loginctl)
+```
+
+**Sin cambios donde sí hay escritorio real:** Arch con `ufw` sigue diciendo
+`ufw`; Fedora 44 KDE real sigue diciendo `firewalld-inactive`.
+
+**Nota:** el script ya degradaba sin romperse en imágenes mínimas (no es un
+crash). El problema era la **honestidad del reporte**: afirmar un estado de
+seguridad que no se pudo comprobar.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -436,9 +501,10 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-09 MagicDNS con aviso resolved-NM | `tests.sh <host>`: MagicDNS resuelve por nombre |
 | H-10 `hostname` ausente (Fedora 44 base) | `tests.sh` (local): `local_hostname` + respaldo `/proc` |
 | H-11 última sesión no es la gráfica (Fedora 44 KDE) | `tests.sh` (local): `graphical_session_type` prefiere seat |
+| H-12 `sin-herramientas` (imagen mínima sin systemctl) | `tests.sh` (local): `detect_firewall` distingue de `none` |
 
 ```fish
-./tests.sh                      # 89 comprobaciones (local)
+./tests.sh                      # 97 comprobaciones (local)
 ./tests.sh USUARIO@IP           # + hallazgos en el host real
 ./verify-docs.sh                # 28 (comandos y URLs vigentes)
 ```

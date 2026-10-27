@@ -350,6 +350,12 @@ Caso real: dos equipos CachyOS en la misma red WiFi de 5 GHz.
 > `Familia: fedora` con **dnf5 5.4.3**. Ojo: esa imagen **no trae el binario
 > `hostname`** — ver [H-10](docs/hallazgos.md). El kit ya usa respaldo
 > (`/proc/sys/kernel/hostname` → `uname -n`).
+>
+> **Imágenes mínimas (sin `systemctl`/`firewall-cmd`/`ufw`):** el diagnóstico no
+> se rompe, pero tampoco puede verificar el firewall. En vez de afirmar "sin
+> firewall" informa `Detectado: sin-herramientas` — ver [H-12](docs/hallazgos.md).
+> Para probar el flujo completo de firewall/sshd hace falta una ISO en VM
+> (probado en Fedora 44 KDE real) o un contenedor con systemd.
 
 ### Equipos (ejemplo real de la prueba)
 
