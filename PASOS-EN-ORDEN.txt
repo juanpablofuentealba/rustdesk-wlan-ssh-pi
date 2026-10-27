@@ -85,28 +85,42 @@
   tipo de sesión (Wayland/X11).
 
 ------------------------------------------------------------------------
-  PASO 5 — APLICAR TODO EL KIT (un solo comando)
+  PASO 5 — INSTALAR TODO (UN SOLO COMANDO)   ⭐ lo recomendado
 ------------------------------------------------------------------------
+
+  Este comando hace los pasos 5, 6 y 7 de una vez:
+     - diagnóstico previo
+     - RustDesk unattended + sshd + firewall + tu clave + Tailscale
+     - contraseña permanente de RustDesk
+     - verificación final
+
+         sudo ./instalar-todo.sh \
+           --authkey 'tskey-auth-XXXX' \
+           --rdpass  'MiClaveRustDesk2026' \
+           --sudopass 'tu-clave-sudo'
+
+  Reemplazá:
+     tskey-auth-XXXX     -> TU auth key de Tailscale
+     MiClaveRustDesk2026 -> la contraseña que le vas a poner a RustDesk
+     tu-clave-sudo       -> la contraseña de sudo de este equipo
+                            (omití --sudopass si sudo no la pide)
+
+  La clave del operador la toma sola de operador.pub (viene en el kit).
+
+  Para simular sin aplicar nada:  agregá  --dry-run
+
+  Seguí al PASO 8 (verificar desde tu equipo).
+
+  ---
+  SI PREFERÍS HACERLO POR PARTES (pasos 5b y 6b)
+
+  PASO 5b — Aplicar el kit:
 
          sudo ./setup-remote-target.sh --all \
            --key "$(cat operador.pub)" \
            --authkey 'tskey-auth-XXXX'
 
-  Reemplazá tskey-auth-XXXX por TU auth key.
-
-  Esto deja el PC:
-     - con RustDesk en modo DESATENDIDO (captura DRM en Wayland)
-     - con sshd activo y el firewall abierto SOLO para SSH
-     - con TU clave pública autorizada
-     - unido a Tailscale (acceso desde cualquier red, sin abrir puertos)
-
-  En CachyOS: si no hay paru/yay, el kit instala paru-bin solo.
-
-------------------------------------------------------------------------
-  PASO 6 — CONTRASEÑA DE RUSTDESK  (¡no te lo saltees!)
-------------------------------------------------------------------------
-
-  Sin esto RustDesk pide aceptación manual en CADA conexión.
+  PASO 6b — Contraseña de RustDesk (sin ella pide aceptación CADA conexión):
 
          SUDO_PASS='<tu-clave-sudo>' ./rustdesk-password.sh install \
            "$USER@localhost" '<password-elegida>'
@@ -114,7 +128,7 @@
   Si tu sudo NO pide contraseña, dejalo vacío:  SUDO_PASS=
 
 ------------------------------------------------------------------------
-  PASO 7 — VERIFICAR
+  PASO 7 — VERIFICAR (ya lo hace instalar-todo.sh)
 ------------------------------------------------------------------------
 
   7.1  Suite de pruebas:

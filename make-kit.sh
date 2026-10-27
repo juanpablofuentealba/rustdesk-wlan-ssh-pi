@@ -7,6 +7,7 @@
 # internet para traer el kit (solo para descargar paquetes del sistema).
 #
 # Contenido del paquete:
+#   instalar-todo.sh       ← UN SOLO COMANDO: hace todo lo de abajo
 #   INSTALAR.md            ← runbook: qué hacer paso a paso, en orden
 #   setup-remote-target.sh ← RustDesk unattended + sshd + firewall + Tailscale
 #   inventory.sh           ← inventario de specs (para la ficha del cliente)
@@ -47,6 +48,7 @@ ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 
 FILES=(
+  instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
   rustdesk-password.sh

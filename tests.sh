@@ -378,17 +378,52 @@ t "H-15 rechaza password vacía" \
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
 
+sect "instalar-todo.sh (un solo comando)"
+t "bash -n instalar-todo.sh"   bash -n instalar-todo.sh
+t "es ejecutable"              test -x instalar-todo.sh
+t "--help sale 0"              ./instalar-todo.sh --help
+t "exige --rdpass (sin sudo da el error correcto)" \
+  bash -c './instalar-todo.sh --authkey tskey-auth-X 2>&1 | grep -q "falta --rdpass"'
+t "exige --authkey" \
+  bash -c './instalar-todo.sh --rdpass UnaClave123 2>&1 | grep -q "falta --authkey"'
+t "valida el prefijo tskey-" \
+  bash -c './instalar-todo.sh --authkey malaclave --rdpass UnaClave123 2>&1 | grep -q "debe empezar con"'
+t "exige root solo al aplicar (no en --dry-run)" \
+  bash -c './instalar-todo.sh --authkey tskey-auth-X --rdpass UnaClave123 2>&1 | grep -q "ejecutá con sudo"'
+t "--dry-run corre sin root" \
+  bash -c './instalar-todo.sh --authkey tskey-auth-X --rdpass UnaClave123 --dry-run --yes >/dev/null 2>&1'
+t "toma la clave de operador.pub si existe" \
+  bash -c 'grep -q "operador.pub" instalar-todo.sh'
+t "soporta --sudopass (sudo con contraseña)" \
+  bash -c 'grep -q "\-\-sudopass" instalar-todo.sh'
+t "soporta --skip-tailscale" \
+  bash -c 'grep -q "\-\-skip-tailscale" instalar-todo.sh'
+t "llama a rustdesk-password.sh (contraseña incluida)" \
+  bash -c 'grep -q "rustdesk-password.sh install" instalar-todo.sh'
+t "verifica la captura DRM en las 4 rutas de log" \
+  bash -c 'grep -q "plasmalogin" instalar-todo.sh && grep -q "DRM_LOG" instalar-todo.sh'
+t "detecta el fallo al portal y da la solución" \
+  bash -c 'grep -q "portal handshake failed" instalar-todo.sh'
+t "resume con el ID de RustDesk y la IP Tailscale" \
+  bash -c 'grep -q "rustdesk --get-id" instalar-todo.sh'
+t "make-kit incluye instalar-todo.sh" \
+  bash -c 'grep -q "instalar-todo.sh" make-kit.sh'
+
 sect "PASOS-EN-ORDEN.txt (checklist del pendrive)"
 t "existe PASOS-EN-ORDEN.txt" test -f PASOS-EN-ORDEN.txt
-t "tiene los 9 pasos numerados" \
-  bash -c 'for n in 1 2 3 4 5 6 7 8 9; do grep -q "PASO $n " PASOS-EN-ORDEN.txt || exit 1; done'
+t "tiene los pasos numerados (1-9 + variantes b)" \
+  bash -c 'for n in 1 2 3 4 5 7 8 9; do grep -q "PASO $n " PASOS-EN-ORDEN.txt || exit 1; done; grep -q "PASO 5b" PASOS-EN-ORDEN.txt && grep -q "PASO 6b" PASOS-EN-ORDEN.txt'
 t "paso 1 = instalar el SO" \
   bash -c 'grep -q "PASO 1 — INSTALAR EL SISTEMA OPERATIVO" PASOS-EN-ORDEN.txt'
 t "paso 2 = cambiar a hotspot" \
   bash -c 'grep -q "PASO 2 — CAMBIAR AL HOTSPOT" PASOS-EN-ORDEN.txt'
-t "paso 5 = comando --all con authkey" \
-  bash -c 'grep -q "setup-remote-target.sh --all" PASOS-EN-ORDEN.txt && grep -q "authkey" PASOS-EN-ORDEN.txt'
-t "paso 6 avisa que la contraseña es obligatoria" \
+t "paso 5 = instalar-todo.sh (un comando)" \
+  bash -c 'grep -q "instalar-todo.sh" PASOS-EN-ORDEN.txt'
+t "paso 5 pasa authkey y rdpass" \
+  bash -c 'grep -q "authkey" PASOS-EN-ORDEN.txt && grep -q "rdpass" PASOS-EN-ORDEN.txt'
+t "documenta la variante por partes (5b/6b)" \
+  bash -c 'grep -q "PASO 5b" PASOS-EN-ORDEN.txt && grep -q "PASO 6b" PASOS-EN-ORDEN.txt'
+t "avisa que la contraseña es obligatoria" \
   bash -c 'grep -q "rustdesk-password.sh install" PASOS-EN-ORDEN.txt'
 t "paso 7 verifica la captura DRM" \
   bash -c 'grep -q "consumer cache warmed" PASOS-EN-ORDEN.txt'
