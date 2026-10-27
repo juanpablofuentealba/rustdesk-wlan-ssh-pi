@@ -87,6 +87,50 @@ Redes distintas confirmadas, conexión **directa** (perforación de NAT) y SSH
 funcionando. El kit completó la instalación de la contraseña de RustDesk en el
 objetivo **a través de Tailscale**.
 
+### Prueba A confirmada en PC real (JP, 27 oct 2026)
+
+Segunda verificación, esta vez sobre un **PC de escritorio real** (no una VM),
+con el kit completo instalado y tras la prueba de reinicio.
+
+| Equipo | Rol | IP pública de salida |
+|---|---|---|
+| **MSI desktop** | operador | `A.A.A.A` |
+| **PC cliente** (`objetivo`) | objetivo | `B.B.B.B` |
+
+IPs públicas **distintas** → redes distintas (no comparten subred). La prueba
+es válida, a diferencia del caso LAN-local (ver abajo).
+
+```
+tailscale status  -> active; direct B.B.B.B:5255
+tailscale ping    -> pong from <objetivo> via B.B.B.B:5255 in 26ms
+ssh <usuario>@100.<ip>  -> <hostname>  ·  uptime OK
+```
+
+Veredicto de `verify-offlan.sh`: **7 OK · 0 fallos — el acceso remoto funciona
+fuera de la LAN** (ruta DIRECTA por perforación de NAT, no DERP).
+
+#### Trampa: la prueba LAN-local que parece fuera de LAN
+
+Primer intento de esta sesión se dio por buena **siendo falsa**: ambos equipos
+estaban en la misma red `192.168.1.0/24` (el operador por Ethernet, el objetivo
+por WiFi del mismo router). Tailscale reportaba `direct` con **6 ms** — se veía
+perfecto, pero era la **ruta LAN**, no internet.
+
+| Señal | LAN-local (inválida) | Fuera de LAN (válida) |
+|---|---|---|
+| Endpoint en `tailscale status` | `192.168.1.2:41641` (privada) | `190.x.y.z:5255` (pública) |
+| Latencia | ~6 ms | ~26-30 ms |
+| IP pública del operador vs objetivo | **la misma** | **distinta** |
+
+**Cómo no equivocarse:** comparar la IP pública de ambos equipos. Si son
+iguales, es la misma salida a internet (misma casa) y la prueba NO vale. El
+script `verify-offlan.sh` lo detecta, pero conviene mirarlo a mano también:
+
+```fish
+curl -s https://api.ipify.org            # en el operador
+tailscale status | grep <objetivo>       # endpoint privado o público?
+```
+
 ### Punto 1 resuelto: unattended en Wayland sobre el greeter
 
 Cierre del pendiente #1 (RustDesk unattended en la VM). Secuencia verificada:
@@ -371,8 +415,9 @@ Ninguna de estas está empezada; son opciones, no deuda técnica:
 2. **`clip-vm.sh` sin gestor de portapapeles** — probar en un guest sin Klipper
    (p. ej. Fedora KDE mínimo) y endurecer el script si se cuelga.
 3. ~~**Tailscale en la VM**~~ — **RESUELTO** (IP `100.x.y.z`). El kit ya
-   trae `--tailscale`/`--authkey` y lo diagnostica en `--check`. Falta probar
-   la ruta **fuera de la LAN** desde otra red.
+   trae `--tailscale`/`--authkey` y lo diagnostica en `--check`. La ruta
+   **fuera de la LAN** quedó verificada en PC real (ver *Prueba A confirmada*,
+   arriba): `7 OK · 0 fallos`.
 4. ~~**`inventory.sh` en QEMU**~~ — **RESUELTO** (H-20). En QEMU el
    `chassis_type` de SMBIOS es `1` ("Other"), así que caía en `desconocido`.
    Ahora `inventory.sh` consulta `systemd-detect-virt` en el objetivo y

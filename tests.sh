@@ -502,6 +502,20 @@ t "recuerda la auth key antes de salir" \
 t "make-kit copia PASOS-EN-ORDEN.txt" \
   bash -c 'grep -q "PASOS-EN-ORDEN.txt" make-kit.sh'
 
+sect "Prueba fuera de LAN: ruta directa vs LAN-local"
+t "verify-offlan.sh distingue ruta directa de DERP" \
+  bash -c 'grep -q "ruta DIRECTA (perforación de NAT)" verify-offlan.sh'
+t "tailscale.md advierte de la trampa LAN-local" \
+  bash -c 'grep -qi "no siempre significa.*fuera de la LAN\|trampa.*LAN-local" docs/tailscale.md'
+t "tailscale.md: mismo IP publica = misma casa (prueba no vale)" \
+  bash -c 'grep -q "la misma.*IP pública" docs/tailscale.md'
+t "estado-sesion registra la confirmacion en PC real" \
+  bash -c 'grep -q "Prueba A confirmada en PC real" docs/estado-sesion.md'
+t "estado-sesion documenta la trampa LAN-local" \
+  bash -c 'grep -q "la prueba LAN-local que parece fuera de LAN" docs/estado-sesion.md'
+t "fuera de LAN verificado con 7 OK (sin datos reales)" \
+  bash -c 'grep -q "7 OK" docs/estado-sesion.md'
+
 sect "H-26 ubicación de la auth key en el panel de Tailscale"
 t "H-26 documentado" bash -c 'grep -q "H-26" docs/hallazgos.md'
 t "H-26 explica la ruta Settings -> Keys" \

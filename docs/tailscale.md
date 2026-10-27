@@ -332,6 +332,36 @@ tailscale ping remoto
 
 Si siempre sale por DERP, revisa el NAT de tu red. No es grave, solo más lento.
 
+### ⚠️ La trampa: "directo" no siempre significa "fuera de la LAN"
+
+`tailscale ping` puede decir **directo** con 3 ms porque los dos equipos están
+en la **misma red local**. Eso no prueba nada del acceso remoto real.
+
+Fijate en el **endpoint** que reporta `tailscale status`:
+
+| Endpoint | Qué significa | ¿Prueba válida de acceso remoto? |
+|---|---|---|
+| `192.168.x.y:41641` (privada) | Ruta **LAN**, misma red | ❌ NO |
+| `190.x.y.z:4941` (pública) | Ruta **internet**, redes distintas | ✅ SÍ |
+| `DERP(...)` | Relay de Tailscale | ✅ SÍ (funciona, más lento) |
+
+**Comprobación rápida** — comparar la IP pública de los dos equipos:
+
+```fish
+curl -s https://api.ipify.org     # IP pública de donde estás
+```
+
+Si el operador y el objetivo tienen **la misma** IP pública, están en la misma
+salida a internet (misma casa): la prueba es LAN-local y **no vale**. Si son
+distintas, es una prueba real. El caso más limpio: el operador en el **hotspot
+4G del teléfono** y el objetivo en la casa.
+
+Para el veredicto automatizado está el script del kit:
+
+```fish
+./verify-offlan.sh <objetivo>     # 7 OK => funciona fuera de la LAN
+```
+
 ---
 
 ## Seguridad
