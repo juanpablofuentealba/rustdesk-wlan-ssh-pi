@@ -485,38 +485,56 @@ seguridad que no se pudo comprobar.
 
 ---
 
-## H-13 — El portapapeles SPICE funciona en una sola dirección en Wayland
+## H-13 — Portapapeles SPICE en Wayland: **depende de la vía**, no de la dirección
 
-**Verificado:** ✅ (VM Fedora 44 KDE, host CachyOS, ambos Wayland)
+**Verificado:** ✅ (VM Fedora 44 KDE Wayland, host CachyOS)
+**Última revisión:** 27 oct 2026 (corrige la conclusión anterior)
 
-Con `spice-vdagent` 0.23.0 corriendo en el guest:
+### Conclusión vigente
 
-| Dirección | Resultado |
-|---|---|
-| host → guest | ✅ funciona |
-| guest → host | ❌ no funciona |
+Con `spice-vdagent 0.23.0` + `spice-vdagentd` activos y sesión **Wayland** en el
+guest, lo que decide si el portapapeles se propaga **no es la dirección**, sino
+**por qué vía se escribe** en el guest:
 
-**Causa:** el `spice-vdagent` de Fedora 44 es una build **solo X11** (enlaza
-contra `libX11.so.6` y su `--help` dice *"Spice session guest agent: X11"*).
-En una sesión Wayland el agente escribe el portapapeles vía X11/Xwayland y el
-compositor (KWin) lo lee — por eso host→guest va. Pero no ve los cambios que
-KWin hace en el portapapeles Wayland, así que guest→host no se propaga.
+| Vía en el guest | host → guest | guest → host |
+|---|---|---|
+| **Wayland nativo** (`wl-copy`) | ✅ | ✅ **funciona** |
+| **X11/Xwayland** (`xclip`) | ✅ | ❌ no propaga |
+
+Medido, con contenido distinguible y verificando el valor recibido:
 
 ```
-$ spice-vdagent --help | head -3
-  spice-vdagent [OPTION…]
-
-        Spice session guest agent: X11
+guest: printf 'WAYLAND-074632' | wl-copy      → host: WAYLAND-074632  ✅
+guest: printf 'XCLIP-VIVO-074656' | xclip …    → host: (sin cambio)   ❌
 ```
 
-No es falta de paquete ni de configuración: es la arquitectura del agente.
-El guest ya tenía `spice-vdagent-0.23.0-2.fc44` instalado y `spice-vdagentd`
-activo. El canal SPICE del host también estaba bien
-(`spicevmc,id=charchannel1,name=vdagent`).
+> **Historial:** la primera medición de H-13 concluyó "guest→host no funciona".
+> Esa medición se hizo escribiendo desde X11/Xwayland y se generalizó de más.
+> Repetida con `wl-copy` (Wayland nativo), **sí funciona en ambas direcciones**.
 
-**Solución adoptada:** puente por SSH con `wl-clipboard` (`clip-vm.sh`), que
-funciona en ambas direcciones. Alternativa: cambiar el guest a sesión **X11**
-en el login de SDDM, con lo que vdagent sí propaga en ambas direcciones.
+### Por qué
+
+`spice-vdagent` de Fedora 44 es una build **solo X11** (enlaza `libX11.so.6`,
+cero libs Wayland). No habla Wayland: lee y escribe la selección X11. El puente
+real lo hace **KWin/Xwayland**, que mantiene sincronizada la selección Wayland
+con Xwayland:
+
+- **host → guest:** el vdagent escribe en X11 → KWin/Xwayland lo publica en
+  Wayland. Funciona siempre.
+- **guest → host:** si el texto se escribió en **Wayland**, Xwayland ya lo tiene
+  → vdagent lo lee → funciona. Pero hay que **sostener la selección**:
+  `xclip` que termina al salir no deja nada que leer.
+
+### Consecuencia práctica (importante)
+
+**El portapapeles SPICE ya funciona en ambas direcciones para una persona
+sentada frente a la VM** (copiar/pegar normal en el escritorio KDE).
+
+Por eso `clip-vm.sh` (puente por SSH) **ya no es necesario para el uso normal**:
+queda como herramienta para **scripting/automatización por SSH**, que es otro
+caso (ahí el portapapeles de la sesión gráfica puede no existir).
+
+### Trampas del puente SSH (siguen válidas para `clip-vm.sh`)
 
 ### Trampas encontradas al implementar el puente
 
@@ -549,6 +567,12 @@ contaminando el resultado (fue exactamente lo que pasó en la primera prueba).
 el portapapeles en el guest, `wl-paste` devuelve el último texto aunque no haya
 proceso vivo. Conviene verificar con `clip-vm.sh show` antes de concluir que
 "no funciona".
+
+**5. Un test negativo puede ser un falso negativo.** La medición original de
+H-13 concluyó "guest→host no funciona" usando `xclip` sin retener la selección.
+Antes de dar por rota una vía, comprobar que **el proceso que publica el
+portapapeles sigue vivo** (`pgrep -af wl-copy`) y repetir por la vía nativa del
+compositor.
 
 ---
 
@@ -861,7 +885,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-10 `hostname` ausente (Fedora 44 base) | `tests.sh` (local): `local_hostname` + respaldo `/proc` |
 | H-11 última sesión no es la gráfica (Fedora 44 KDE) | `tests.sh` (local): `graphical_session_type` prefiere seat |
 | H-12 `sin-herramientas` (imagen mínima sin systemctl) | `tests.sh` (local): `detect_firewall` distingue de `none` |
-| H-13 portapapeles SPICE en una dirección (Wayland) | `tests.sh` (local): `clip-vm.sh` sin `--paste-once`, con `nohup+disown` |
+| H-13 portapapeles SPICE (depende de la vía, no de la dirección) | `tests.sh` (local): `clip-vm.sh` sin `--paste-once`, con `nohup+disown` |
 | H-14 `.rpm` sin `libdrmtap` → falla el portal | `tests.sh`: existe `install-rustdesk-unattended-fedora.sh`; el script verifica sha256 y libdrmtap |
 | H-15 contraseña permanente vacía | `tests.sh`: existe `rustdesk-password.sh`; roundtrip con PyNaCl |
 | H-16 log de captura bajo el greeter | `tests.sh`: el kit documenta las tres rutas de log |

@@ -54,7 +54,7 @@ Volcado completo guardado en el repo:
 | **H-10** | Fedora 44 (imagen base) no trae el binario `hostname` | `fedora:44` |
 | **H-11** | En Fedora 44 KDE la "última sesión" de `loginctl` no es la gráfica | Fedora 44 KDE real |
 | **H-12** | Imágenes mínimas sin `systemctl`: "sin firewall" era falso | `fedora:44`, `debian:12` |
-| **H-13** | El portapapeles SPICE funciona en una sola dirección en Wayland | Fedora 44 KDE + CachyOS |
+| **H-13** | El portapapeles SPICE en Wayland **sí funciona en ambas direcciones** por la vía Wayland nativa (`wl-copy`); por X11 (`xclip`) no propaga | Fedora 44 KDE + CachyOS |
 | **H-14** | El `.rpm`/`.deb` estándar NO trae `libdrmtap`: en Wayland sin usuario falla la captura (portal XDG) | Fedora 44 KDE Wayland |
 | **H-15** | Sin contraseña permanente, unattended es imposible (y el campo `password = ''` engaña) | Fedora 44 |
 | **H-16** | Con solo el greeter, el log de captura NO está donde el kit lo busca | Fedora 44 Wayland |

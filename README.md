@@ -539,9 +539,13 @@ duplicar claves en `authorized_keys`. Pide **confirmación** antes de aplicar
 
 ### `clip-vm.sh` — portapapeles host↔VM por SSH
 
-Si administras una **VM** (o cualquier equipo con sesión Wayland) y el
-portapapeles de SPICE solo funciona en una dirección, este script lo puentea por
-SSH. Ver [H-13](docs/hallazgos.md) para la explicación técnica.
+Puente de portapapeles por **SSH**, para **scripting/automatización** desde el
+operador (donde el portapapeles de la sesión gráfica del objetivo puede no
+existir).
+
+> Para el uso **normal** (una persona frente a la VM) el portapapeles de SPICE
+> **ya funciona en ambas direcciones** por la vía Wayland nativa — ver
+> [H-13](docs/hallazgos.md). `clip-vm.sh` no hace falta para eso.
 
 ```fish
 ./clip-vm.sh get                       # portapapeles de la VM → host

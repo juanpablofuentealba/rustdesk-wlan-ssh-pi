@@ -189,6 +189,22 @@ t "el kit extraído pasa su propio --check" \
   bash -c "'$_kitdir/kit/setup-remote-target.sh' --check 2>&1 | grep -q 'Diagnóstico completo'"
 rm -rf "$_kitdir"
 
+sect "H-13 portapapeles SPICE (conclusión corregida)"
+t "H-13 documenta ambas direcciones" \
+  bash -c 'grep -q "guest → host" docs/hallazgos.md && grep -q "host → guest" docs/hallazgos.md'
+t "H-13 dice que Wayland nativo SÍ propaga" \
+  bash -c 'grep -q "Wayland nativo" docs/hallazgos.md'
+t "H-13 atribuye el fallo a xclip/X11, no a la dirección" \
+  bash -c 'grep -q "por qué vía se escribe" docs/hallazgos.md'
+t "H-13 ya NO titula \"una sola dirección\"" \
+  bash -c '! grep -q "funciona en una sola dirección" docs/hallazgos.md'
+t "H-13 registra el historial de la medición" \
+  bash -c 'grep -q "Historial" docs/hallazgos.md'
+t "README aclara que clip-vm es para scripting" \
+  bash -c 'grep -q "scripting/automatización" README.md'
+t "estado-sesion refleja la conclusión nueva" \
+  bash -c 'grep -q "ambas direcciones" docs/estado-sesion.md'
+
 sect "verify-offlan.sh (prueba fuera de la LAN)"
 t "bash -n verify-offlan.sh"    bash -n verify-offlan.sh
 t "verify-offlan es ejecutable" test -x verify-offlan.sh
