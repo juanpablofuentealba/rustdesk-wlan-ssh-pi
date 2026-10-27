@@ -33,11 +33,24 @@ check: ## Verifica SSH + RustDesk + firewall en el host
 	@echo "→ conectividad SSH a $(HOST)"
 	@$(SSH) $(HOST) 'echo "  ✔ SSH OK: $$(hostname) — $$(uname -r)"' || { echo "  ✘ SSH falló"; exit 1; }
 	@echo "→ sshd"
-	@$(SSH) $(HOST) 'systemctl is-enabled sshd 2>/dev/null | sed "s/^/  enabled: /"; systemctl is-active sshd 2>/dev/null | sed "s/^/  active : /"'
+	@$(SSH) $(HOST) 'u=""; for x in sshd ssh; do systemctl list-unit-files "$$x.service" 2>/dev/null | grep -q "^$$x.service" && { u=$$x; break; }; done; u=$${u:-sshd}; printf "  unidad : %s\n" "$$u"; printf "  enabled: %s\n" "$$(systemctl is-enabled $$u 2>/dev/null || echo desconocido)"; printf "  active : %s\n" "$$(systemctl is-active $$u 2>/dev/null || echo inactivo)"'
 	@echo "→ firewall"
-	@$(SSH) $(HOST) 'command -v ufw >/dev/null && sudo -n ufw status 2>/dev/null | head -6 || echo "  (sin ufw o sin sudo)"'
+	@$(SSH) $(HOST) 'if command -v ufw >/dev/null 2>&1; then \
+	  if sudo -n true 2>/dev/null; then sudo -n ufw status 2>/dev/null | head -6 | sed "s/^/  /"; \
+	  else \
+	    st="$$(grep -is ^ENABLED /etc/ufw/ufw.conf 2>/dev/null || echo ENABLED=desconocido)"; \
+	    printf "  %s (no se puede leer con sudo -n; usa: sudo ufw status)\n" "$$st"; \
+	    printf "  hint: añade --key al setup o revisa el firewall en el host\n"; \
+	  fi; \
+	elif command -v firewall-cmd >/dev/null 2>&1; then \
+	  firewall-cmd --state 2>/dev/null | sed "s/^/  firewalld: /" || echo "  firewalld: no consultable"; \
+	else echo "  (sin ufw ni firewalld)"; fi'
 	@echo "→ RustDesk"
-	@$(SSH) $(HOST) 'pacman -Q rustdesk-unattended-wayland 2>/dev/null | sed "s/^/  pkg: /" || echo "  pkg: no instalado"'
+	@$(SSH) $(HOST) 'if command -v dpkg >/dev/null 2>&1; then dpkg -s rustdesk 2>/dev/null | grep -E "^Version:" | sed "s/^/  pkg: rustdesk /"; \
+	elif command -v rpm >/dev/null 2>&1; then rpm -q rustdesk 2>/dev/null | sed "s/^/  pkg: /"; \
+	elif command -v pacman >/dev/null 2>&1; then pacman -Q rustdesk-unattended-wayland 2>/dev/null | sed "s/^/  pkg: /" || pacman -Q rustdesk 2>/dev/null | sed "s/^/  pkg: /"; fi; \
+	true'
+	@$(SSH) $(HOST) 'systemctl is-active rustdesk 2>/dev/null | sed "s/^/  servicio: /"'
 	@$(SSH) $(HOST) 'grep -hiE "UInput|drm: consumer|ipc server" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log 2>/dev/null | tail -3 | sed "s/^/  /" || echo "  (sin log)"'
 
 test: ## Ejecuta las pruebas de humo (local; añade HOST=... para remoto)
