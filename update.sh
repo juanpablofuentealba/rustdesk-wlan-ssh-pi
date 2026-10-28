@@ -207,6 +207,44 @@ tiene_drm(){
   return 1
 }
 
+# ¿Están satisfechas las dependencias dinámicas de libdrmtap.so?
+#
+# En Arch/Fedora el .deb se inyecta a mano (ar+tar), así que pacman/dnf NO
+# sabe que existe. libdrmtap enlaza contra libdrm.so.2, libEGL/libGLESv2, etc.
+# Si una actualización (Arch es rolling) sube esas libs con ABI incompatible o
+# las quita, el capturador DRM deja de cargar EN SILENCIO y el desatendido en
+# Wayland vuelve al portal. Este chequeo lo hace visible al actualizar.
+# Devuelve 0 si todo resuelve; 1 si falta algo (y avisa).
+check_drmtap_deps(){
+  local f lib=""
+  for f in /usr/lib/rustdesk/libdrmtap.so.*; do
+    [[ -f "$f" ]] && { lib="$f"; break; }
+  done
+  if [[ -z "$lib" ]]; then
+    warn "no encuentro libdrmtap.so.* para comprobar dependencias"
+    return 1
+  fi
+  if ! command -v ldd >/dev/null 2>&1; then
+    info "sin 'ldd': no puedo verificar dependencias de libdrmtap"
+    return 0
+  fi
+  local out missing
+  out="$(ldd "$lib" 2>&1 || true)"
+  missing="$(printf '%s\n' "$out" | grep 'not found' || true)"
+  if [[ -n "$missing" ]]; then
+    warn "libdrmtap tiene dependencias SIN resolver (el DRM podría no cargar):"
+    printf '%s\n' "$missing" | sed 's/^/    /'
+    case "$PM" in
+      pacman) warn "  revisá: pacman -Qo /usr/lib/libdrm.so.2  e instalá lo que falte" ;;
+      dnf)    warn "  revisá: rpm -qf /usr/lib64/libdrm.so.2  e instalá lo que falte" ;;
+      apt)    warn "  revisá: apt-get install -f  y dpkg -S libdrm.so.2" ;;
+    esac
+    return 1
+  fi
+  ok "dependencias de libdrmtap resueltas (ldd)"
+  return 0
+}
+
 update_rustdesk(){
   hdr "RustDesk"
   local v; v="$(version_rustdesk)"
@@ -344,6 +382,9 @@ verificar(){
   done
   local v; v="$(version_rustdesk)"
   [[ -n "$v" ]] && ok "RustDesk $v"
+  # Tras actualizar el sistema, es cuando más probable es que una librería
+  # haya cambiado de ABI y roto libdrmtap sin avisar (sobre todo en Arch).
+  if tiene_drm; then check_drmtap_deps || warn "  el capturador DRM podría fallar"; fi
 }
 
 # ---------------------------------------------------------------------------

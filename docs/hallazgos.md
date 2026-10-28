@@ -1458,6 +1458,40 @@ recomendado cuando se agregan apps de escritorio.
 
 ---
 
+## H-32 — El `.deb` inyectado en Arch/Fedora puede romperse en silencio
+
+**Síntoma:** RustDesk abre y funciona como GUI, pero el acceso **desatendido en
+Wayland** deja de capturar de un día para otro. En el log ya no aparece
+`drm: consumer cache warmed`. No hubo cambio aparente: solo un `pacman -Syu`
+(o `dnf upgrade`) de rutina.
+
+**Causa:** en Arch y Fedora el capturador DRM se instala extrayendo el `.deb`
+oficial con `ar`+`tar` (necesario porque el `.rpm` no trae `libdrmtap`, H-14).
+Ese binario queda **fuera del gestor de paquetes**: `pacman`/`dnf` no saben que
+existe ni lo incluyen en la resolución de dependencias. `libdrmtap.so` enlaza
+contra `libdrm.so.2`, `libEGL.so.1`, `libGLESv2.so.2`, `libm` y `libc`. Si una
+actualización del sistema sube esas librerías con ABI incompatible (Arch es
+rolling) o las quita, el capturador deja de cargar **sin que nada avise**.
+
+**Solución:** tras instalar/actualizar, comprobar las dependencias dinámicas
+de `libdrmtap.so*` con `ldd` y avisar si alguna aparece como `not found`:
+
+```fish
+ldd /usr/lib/rustdesk/libdrmtap.so.* | grep 'not found'
+```
+
+El kit lo hace solo: `check_drmtap_deps()` en `setup-remote-target.sh` (tras
+inyectar el `.deb`) y en `update.sh` (en la verificación final, justo después
+de actualizar el sistema, que es cuando más probable es que una librería haya
+cambiado). Si falta algo, sugiere el comando de diagnóstico según la distro.
+
+**Lección:** cualquier binario inyectado a mano (*fuera* del gestor de
+paquetes) necesita su propia comprobación de dependencias, porque el sistema
+nunca lo va a proteger. Vale para el `.deb` de RustDesk y para cualquier cosa
+que el kit copie directamente a `/usr`.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:
@@ -1493,6 +1527,7 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 | H-28 `local-ip-addr` obsoleto tras cambiar de red | `tests.sh`: existe la sección H-28; documenta detección, corrección y el restart |
 | H-29 portátil que suspende y pierde el acceso | `tests.sh`: existe `laptop-no-suspend.sh`; `setup-remote-target.sh` tiene `--laptop` |
 | H-30 la auth key se genera en la web | `tests.sh`: existe `unir-tailscale.sh`; `instalar-todo.sh` tiene `--tailscale-luego` |
+| H-32 `.deb` inyectado se rompe en silencio | `tests.sh`: `check_drmtap_deps` detecta `not found` (ldd simulado) y pasa si resuelve |
 
 ```fish
 ./tests.sh                      # 119 comprobaciones (local)

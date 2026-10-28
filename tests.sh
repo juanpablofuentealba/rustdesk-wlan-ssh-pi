@@ -1086,7 +1086,29 @@ t "tiene_drm detecta libdrmtap.so.0.5.8 (caso real)" \
 t "tiene_drm NO da falso positivo sin libdrmtap" \
   bash -c 'W=$(mktemp -d); mkdir -p "$W/usr/lib/rustdesk"; awk "/^tiene_drm\\(\\)\\{/,/^\\}/{print}" update.sh | sed "s#/usr/lib/rustdesk#$W/usr/lib/rustdesk#g" > "$W/fn.sh"; printf "%s\n" "source $W/fn.sh" "tiene_drm" > "$W/run.sh"; bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
 t "tiene_drm NO usa '-e glob' roto (SC2144)" \
-  bash -c '! grep -qE "-e .*libdrmtap\.so\.\*" update.sh'
+  bash -c '! grep -qE -- "-e .*libdrmtap\.so\.\*" update.sh'
+
+# check_drmtap_deps(): el .deb inyectado no lo conoce pacman/dnf; si una lib
+# del sistema cambia de ABI, el DRM muere en silencio. Se prueba de verdad con
+# ldd simulado (no resuelto -> rc 1, resuelto -> rc 0).
+t "check_drmtap_deps FALLA si libdrm no resuelve" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/usr/lib/rustdesk"; : > "$W/usr/lib/rustdesk/libdrmtap.so.0.5.8"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "PM=pacman"; awk "/^check_drmtap_deps\\(\\)\\{/,/^\\}/{print}" update.sh | sed "s#/usr/lib/rustdesk#$W/usr/lib/rustdesk#g"; } > "$W/fn.sh"; cat "$W/fn.sh" - > "$W/run.sh" <<EOF
+ldd(){ echo "not found"; }
+check_drmtap_deps
+exit \$?
+EOF
+bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+t "check_drmtap_deps PASA si todo resuelve" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/usr/lib/rustdesk"; : > "$W/usr/lib/rustdesk/libdrmtap.so.0.5.8"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "PM=pacman"; awk "/^check_drmtap_deps\\(\\)\\{/,/^\\}/{print}" update.sh | sed "s#/usr/lib/rustdesk#$W/usr/lib/rustdesk#g"; } > "$W/fn.sh"; cat "$W/fn.sh" - > "$W/run.sh" <<EOF
+ldd(){ echo "libdrm.so.2 => /usr/lib/libdrm.so.2"; }
+check_drmtap_deps
+exit \$?
+EOF
+bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+t "setup-remote-target llama a check_drmtap_deps tras inyectar el .deb" \
+  bash -c 'grep -q "check_drmtap_deps ||" setup-remote-target.sh'
+t "update.sh verifica dependencias en el paso final" \
+  bash -c 'grep -q "check_drmtap_deps" update.sh'
 t "reinicia el servicio rustdesk tras actualizar" \
   bash -c 'grep -q "systemctl restart rustdesk" update.sh'
 

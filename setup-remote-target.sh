@@ -330,6 +330,53 @@ install_rustdesk_arch_unattended() {
 # install_rustdesk_unattended_deb_arch y solo se usaba en la rama arch, así
 # que Fedora instalaba el .rpm SIN capturador DRM y el desatendido cascaba al
 # portal en silencio.
+
+# ¿Están satisfechas las dependencias dinámicas de libdrmtap.so?
+#
+# Por qué importa: en Arch/Fedora el .deb se inyecta a mano (ar+tar), así que
+# el gestor de paquetes NO sabe que existe. libdrmtap.so enlaza contra
+# libdrm.so.2, libEGL/libGLESv2, libm, libc. Si una actualización (Arch es
+# rolling) sube libdrm/libEGL con ABI incompatible o las quita, el capturador
+# DRM deja de cargar EN SILENCIO: RustDesk sigue abriendo pero el desatendido
+# en Wayland vuelve al portal y falla. Este chequeo lo hace visible.
+#
+# Devuelve 0 si todas las dependencias resuelven, 1 si falta alguna (y avisa).
+check_drmtap_deps() {
+  local lib=""
+  # La librería real (el .deb instala .so.0.5.8 + symlink .so.0)
+  for lib in /usr/lib/rustdesk/libdrmtap.so.*; do
+    [[ -f "$lib" ]] && break
+    lib=""
+  done
+  if [[ -z "$lib" ]]; then
+    warn "no encuentro libdrmtap.so.* para comprobar dependencias"
+    return 1
+  fi
+
+  # ldd no está en todas partes; sin él no se puede comprobar (no es un fallo
+  # del kit, solo no se puede verificar).
+  if ! command -v ldd >/dev/null 2>&1; then
+    info "sin 'ldd' en este sistema: no puedo verificar dependencias de libdrmtap"
+    return 0
+  fi
+
+  local out; out="$(ldd "$lib" 2>&1 || true)"
+  local missing; missing="$(printf '%s\n' "$out" | grep 'not found' || true)"
+  if [[ -n "$missing" ]]; then
+    warn "libdrmtap tiene dependencias SIN resolver (el DRM podría no cargar):"
+    printf '%s\n' "$missing" | sed 's/^/    /'
+    if [[ "$DISTRO_FAMILY" == "arch" ]]; then
+      warn "  revisá: pacman -Qo /usr/lib/libdrm.so.2  y reinstalá lo que falte"
+    elif [[ "$DISTRO_FAMILY" == "fedora" ]]; then
+      warn "  revisá: rpm -qf /usr/lib64/libdrm.so.2  y dnf install lo que falte"
+    fi
+    return 1
+  fi
+
+  ok "dependencias de libdrmtap resueltas (ldd)"
+  return 0
+}
+
 install_rustdesk_unattended_deb() {
   local ver="${RD_VERSION:-1.5.0}"
   local url="https://github.com/rustdesk/rustdesk/releases/download/${ver}/rustdesk-unattended-wayland-${ver}-x86_64.deb"
@@ -396,6 +443,9 @@ install_rustdesk_unattended_deb() {
 
   if [[ -f /usr/lib/rustdesk/libdrmtap.so.0 ]]; then
     ok "Instalado con capturador DRM (libdrmtap) — vía .deb oficial, sin AUR"
+    # El .deb inyectado no lo conoce el gestor de paquetes: si una librería
+    # del sistema cambia de ABI, esto lo detecta ahora y no "un día cualquiera".
+    check_drmtap_deps || warn "  el capturador DRM podría fallar tras un update del sistema"
     systemctl daemon-reload >/dev/null 2>&1 || true
     return 0
   fi
