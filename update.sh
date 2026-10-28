@@ -189,13 +189,20 @@ version_rustdesk(){
 }
 
 # ¿El RustDesk instalado es el que trae libdrmtap (captura DRM en Wayland)?
-# En Debian/Ubuntu no hay un nombre de paquete distinto: se comprueba que el
-# binario/instalación incluya libdrmtap.so. Sin eso, el desatendido en Wayland
-# casca al portal XDG (H-14).
+# En Debian/Ubuntu no hay un nombre de paquete distinto: se comprueba que la
+# instalación incluya libdrmtap.so*. Sin eso, el desatendido en Wayland casca
+# al portal XDG (H-14).
+#
+# OJO con las rutas reales: el .deb de unattended-wayland instala
+#   /usr/lib/rustdesk/libdrmtap.so.0.5.8   (archivo)
+#   /usr/lib/rustdesk/libdrmtap.so.0       (symlink)
+# NO existe un 'libdrmtap.so' a secas, así que se busca con glob.
 tiene_drm(){
-  [[ -e /usr/lib/rustdesk/libdrmtap.so ]] && return 0
-  # Rutas alternativas según cómo se extrajo/instaló el .deb
-  [[ -e /usr/lib/rustdesk/libdrmtap.so.* ]] && return 0
+  local f
+  for f in /usr/lib/rustdesk/libdrmtap.so*; do
+    [[ -e "$f" ]] && return 0
+  done
+  # Fallback: dpkg sabe qué instaló el paquete (cubre rutas no estándar).
   dpkg -L rustdesk 2>/dev/null | grep -q 'libdrmtap' && return 0
   return 1
 }

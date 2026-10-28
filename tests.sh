@@ -1077,6 +1077,16 @@ t "se NIEGA a instalar si el sha256 no coincide" \
   bash -c 'grep -q "sha256 NO coincide" update.sh'
 t "comprueba libdrmtap tras instalar (anti-regresión H-14)" \
   bash -c 'grep -q "tiene_drm\|libdrmtap" update.sh'
+# tiene_drm() es crítica (si falla, update.sh rechazaría una instalación buena
+# o aceptaría una sin DRM). Se prueba de verdad con archivos simulados:
+# el .deb real instala libdrmtap.so.0.5.8 + symlink libdrmtap.so.0, NO .so pelado.
+# Se escribe un script auxiliar en un tmp para no pelear con el escaping.
+t "tiene_drm detecta libdrmtap.so.0.5.8 (caso real)" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/usr/lib/rustdesk"; : > "$W/usr/lib/rustdesk/libdrmtap.so.0.5.8"; ln -s libdrmtap.so.0.5.8 "$W/usr/lib/rustdesk/libdrmtap.so.0"; awk "/^tiene_drm\\(\\)\\{/,/^\\}/{print}" update.sh | sed "s#/usr/lib/rustdesk#$W/usr/lib/rustdesk#g" > "$W/fn.sh"; printf "%s\n" "source $W/fn.sh" "tiene_drm" > "$W/run.sh"; bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+t "tiene_drm NO da falso positivo sin libdrmtap" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/usr/lib/rustdesk"; awk "/^tiene_drm\\(\\)\\{/,/^\\}/{print}" update.sh | sed "s#/usr/lib/rustdesk#$W/usr/lib/rustdesk#g" > "$W/fn.sh"; printf "%s\n" "source $W/fn.sh" "tiene_drm" > "$W/run.sh"; bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+t "tiene_drm NO usa '-e glob' roto (SC2144)" \
+  bash -c '! grep -qE "-e .*libdrmtap\.so\.\*" update.sh'
 t "reinicia el servicio rustdesk tras actualizar" \
   bash -c 'grep -q "systemctl restart rustdesk" update.sh'
 
