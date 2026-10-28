@@ -844,6 +844,38 @@ t "setup detecta tailscale ya unido (idempotente)" \
 t "setup usa --accept-dns=false (no romper DNS local)" \
   bash -c 'grep -q "accept-dns=false" setup-remote-target.sh'
 
+sect "Auth key fuera del historial (seguridad)"
+# La key en argv queda en ~/.bash_history y en 'ps'. Los scripts ofrecen
+# leerla por STDIN y no pasarla por argv a los hijos (variable de entorno).
+t "instalar-todo acepta --authkey-stdin" \
+  bash -c 'grep -q -- "--authkey-stdin" instalar-todo.sh'
+t "instalar-todo lee la key con read -s (sin eco)" \
+  bash -c 'grep -q "read -rs" instalar-todo.sh'
+t "instalar-todo NO pasa la key por argv al hijo" \
+  bash -c '! grep -q -- "--authkey \"\$AUTHKEY\"" instalar-todo.sh'
+t "instalar-todo exporta KIT_AUTHKEY (entorno, no argv)" \
+  bash -c 'grep -q "export KIT_AUTHKEY" instalar-todo.sh'
+# No se exige exit 0: el dry-run completo llama a setup-remote-target.sh, que
+# depende de herramientas del host (getent, etc.) que en este entorno CI/Termux
+# pueden faltar. Se verifica que la key por STDIN se LEA y valide (el objetivo
+# de este test), no el éxito del dry-run entero.
+t "instalar-todo --authkey-stdin lee y valida la key" \
+  bash -c 'printf %s tskey-auth-TESTSTDIN | ./instalar-todo.sh --dry-run --authkey-stdin --rdpass ClaveSegura123 2>&1 | grep -q "auth key con formato válido"'
+t "la key por STDIN NO se imprime completa en la salida" \
+  bash -c '! printf %s tskey-auth-SECRETO999XYZ | ./instalar-todo.sh --dry-run --authkey-stdin --rdpass ClaveSegura123 2>&1 | grep -q SECRETO999XYZ'
+t "setup acepta --authkey-env" \
+  bash -c 'grep -q -- "--authkey-env" setup-remote-target.sh'
+t "setup --authkey-env sin KIT_AUTHKEY falla" \
+  bash -c '! env -u KIT_AUTHKEY ./setup-remote-target.sh --authkey-env >/dev/null 2>&1'
+t "setup acepta --authkey-stdin" \
+  bash -c 'grep -q -- "--authkey-stdin" setup-remote-target.sh'
+t "unir-tailscale acepta --key-stdin" \
+  bash -c 'grep -q -- "--key-stdin" unir-tailscale.sh'
+t "unir-tailscale lee la key con read -s" \
+  bash -c 'grep -q "read -rs" unir-tailscale.sh'
+t "unir-tailscale avisa si la key vino por argv" \
+  bash -c 'grep -q "KEY_POR_ARGV" unir-tailscale.sh'
+
 sect "H-19 os error 104 (audio/portapapeles en bucle)"
 tdoc "H-19 documentado" bash -c 'grep -q "H-19" docs/hallazgos.md'
 t "H-19 explica la causa (arboard/X11)" \

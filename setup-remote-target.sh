@@ -122,6 +122,17 @@ while [[ $# -gt 0 ]]; do
     --laptop)    DO_LAPTOP=1; shift ;;
     --install-tailscale) DO_TAILSCALE=1; shift ;;
     --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
+    # --authkey-env: la key viene en la variable de entorno KIT_AUTHKEY (no en
+    # argv). Lo usa instalar-todo.sh para no exponerla en 'ps'.
+    --authkey-env)
+      TS_AUTHKEY="${KIT_AUTHKEY:-}"
+      if [[ -z "$TS_AUTHKEY" ]]; then
+        err "--authkey-env: falta la variable KIT_AUTHKEY en el entorno"
+        exit 1
+      fi
+      shift ;;
+    # --authkey-stdin: leer la key por STDIN (no queda en el historial).
+    --authkey-stdin) IFS= read -rs TS_AUTHKEY || true; shift ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
     --check)     DO_CHECK=1; shift ;;

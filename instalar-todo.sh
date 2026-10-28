@@ -14,11 +14,19 @@
 #     --authkey 'tskey-auth-XXXX' \
 #     --rdpass  'MiClaveRustDesk2026'
 #
+# OJO CON LA AUTH KEY EN EL HISTORIAL: si la pasás en la linea de comandos,
+# queda en ~/.bash_history del equipo y es visible en 'ps'. Mejor por STDIN:
+#
+#   printf %s 'tskey-auth-XXXX' | sudo ./instalar-todo.sh --authkey-stdin \
+#     --rdpass 'MiClaveRustDesk2026'
+#
 # La clave del operador se toma de ./operador.pub (viene en el kit) o de
 # --key. Si no hay ninguna, se avisa (el operador no podría entrar por SSH).
 #
 # Opciones:
 #   --authkey "tskey-auth-..."  Auth key de Tailscale (obligatoria salvo -luego/-skip)
+#   --authkey-stdin             Lee la auth key por STDIN (no queda en el historial)
+#                               Uso: printf %s "tskey-..." | ./instalar-todo.sh --authkey-stdin
 #   --rdpass  "..."             Contraseña permanente de RustDesk (obligatoria)
 #   --key "ssh-ed25519 ..."     Clave pública del operador (o usa operador.pub)
 #   --sudopass "..."            Contraseña de sudo, si sudo la pide
@@ -59,11 +67,16 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
 hdr()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
-usage() { sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,48p' "$0" | sed 's/^# \{0,1\}//'; }
 
+AUTHKEY_POR_ARGV=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --authkey)        AUTHKEY="${2:-}"; shift 2 ;;
+    --authkey)        AUTHKEY="${2:-}"; AUTHKEY_POR_ARGV=1; shift 2 ;;
+    # --authkey-stdin: lee la key por STDIN. NO queda en ~/.bash_history ni en
+    # 'ps' (a diferencia de --authkey 'tskey-...'). Recomendado:
+    #   printf %s "tskey-auth-..." | sudo ./instalar-todo.sh --authkey-stdin ...
+    --authkey-stdin)  IFS= read -rs AUTHKEY || true; shift ;;
     --rdpass)         RDPASS="${2:-}"; shift 2 ;;
     --key)            OPKEY="${2:-}"; shift 2 ;;
     --sudopass)       SUDOPASS="${2:-}"; shift 2 ;;
@@ -240,7 +253,15 @@ fi
 
 ARGS_ALL=(--all --yes)
 [[ -n "$OPKEY" ]] && ARGS_ALL+=(--key "$OPKEY")
-[[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 0 ]] && ARGS_ALL+=(--authkey "$AUTHKEY")
+# La auth key NO va por argv del hijo: se pasa por variable de entorno, así no
+# aparece en 'ps' durante toda la instalación (que es larga). El hijo la lee
+# de KIT_AUTHKEY en vez de --authkey.
+EXPORT_AUTHKEY=0
+if [[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 0 ]]; then
+  KIT_AUTHKEY="$AUTHKEY"; export KIT_AUTHKEY
+  ARGS_ALL+=(--authkey-env)
+  EXPORT_AUTHKEY=1
+fi
 # Con --tailscale-luego NO se une: se instala el daemon y se unira en la etapa 2
 [[ $TS_LUEGO -eq 1 ]] && ARGS_ALL+=(--install-tailscale)
 [[ $DRY_RUN -eq 1 ]] && ARGS_ALL+=(--dry-run)
@@ -259,7 +280,12 @@ hdr "2/5 · RustDesk unattended + SSH + firewall$([[ $SKIP_TS -eq 0 ]] && echo '
 if ! ./setup-remote-target.sh "${ARGS_ALL[@]}"; then
   err "setup-remote-target.sh falló. Revisá la salida de arriba."
   err "  Reintentá solo esa parte para ver el detalle:"
-  err "    sudo ./setup-remote-target.sh ${ARGS_ALL[*]}"
+  # No se imprime la auth key en el comando sugerido (evita re-exponerla).
+  if [[ $EXPORT_AUTHKEY -eq 1 ]]; then
+    err "    sudo KIT_AUTHKEY='...' ./setup-remote-target.sh --all --yes --authkey-env"
+  else
+    err "    sudo ./setup-remote-target.sh ${ARGS_ALL[*]}"
+  fi
   exit 1
 fi
 

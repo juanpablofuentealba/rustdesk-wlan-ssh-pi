@@ -11,7 +11,10 @@
 #   ./unir-tailscale.sh --hostname PC   # nombre del equipo en la tailnet
 #   ./unir-tailscale.sh --check         # explica y verifica, sin unir
 #
-#   --key "tskey-auth-..."   pasar la key directo (sin prompt)
+#   --key "tskey-auth-..."   pasar la key directo (OJO: queda en el historial
+#                            de bash y en 'ps'; mejor --key-stdin)
+#   --key-stdin              leer la key por STDIN, sin dejarla en el historial:
+#                              printf %s "tskey-auth-..." | ./unir-tailscale.sh --key-stdin
 #
 # Requiere: Tailscale instalado (lo hace instalar-todo.sh --tailscale-luego).
 # ---------------------------------------------------------------------------
@@ -29,15 +32,28 @@ hdr()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
 usage(){ sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
 
+KEY_POR_ARGV=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --hostname) HOSTNAME_TS="${2:-}"; shift 2 ;;
-    --key)      AUTHKEY="${2:-}"; shift 2 ;;
+    --key)      AUTHKEY="${2:-}"; KEY_POR_ARGV=1; shift 2 ;;
+    # --key-stdin: la key se lee por STDIN (no queda en el historial de bash).
+    --key-stdin)
+      IFS= read -rs AUTHKEY || true
+      shift ;;
     --check)    CHECK=1; shift ;;
     -h|--help)  usage ;;
     *) echo "opción desconocida: $1" >&2; usage ;;
   esac
 done
+
+# Si la key vino como argumento, queda en ~/.bash_history del equipo y es
+# visible en 'ps' mientras corre. Se avisa una vez (no se aborta: el flag
+# sigue siendo válido para scripts, donde el operador controla el entorno).
+if [[ $KEY_POR_ARGV -eq 1 ]]; then
+  printf '\033[1;33m▲\033[0m --key en la linea de comandos queda en el historial y en '"'"'ps'"'"'.\n' >&2
+  printf '\033[1;33m▲\033[0m   Mejor:  printf %s "$KEY" | ./unir-tailscale.sh --key-stdin\n' >&2
+fi
 
 # ---------- de dónde sale la key (esto es lo que la gente no sabe) ----------
 explicar_key(){
@@ -95,7 +111,10 @@ fi
 # ---------- pedir la key si no vino por argumento ----------
 if [[ -z "$AUTHKEY" ]]; then
   printf '\nPegá la auth key (tskey-auth-...): '
-  read -r AUTHKEY
+  # -s: sin eco (no queda visible en la pantalla compartida/atrás)
+  # -r: sin interpretar \  (las keys no los llevan, pero por higiene)
+  IFS= read -rs AUTHKEY || true
+  printf '\n'
 fi
 
 AUTHKEY="${AUTHKEY// /}"   # sin espacios accidentales
