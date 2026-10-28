@@ -388,6 +388,64 @@ check_drmtap_deps() {
   return 0
 }
 
+# Instala el proveedor del icono de bandeja (libayatana-appindicator) si falta.
+# Sin él, RustDesk funciona igual pero el log escupe:
+#   "Failed to load ayatana-appindicator3 or appindicator3 dynamic library"
+# y no muestra icono en la bandeja. Es OPCIONAL: si no se puede instalar, no
+# se aborta (la captura y el control no dependen de esto).
+maybe_install_appindicator() {
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "(dry-run) instalaría libayatana-appindicator si falta (bandeja)"
+    return 0
+  fi
+  local pkg=""
+  case "$DISTRO_FAMILY" in
+    arch)   pkg="libayatana-appindicator" ;;
+    debian) pkg="libayatana-appindicator3-1" ;;
+    fedora) pkg="libayatana-appindicator-gtk3" ;;
+  esac
+  # ¿ya está resuelta la librería? (evita instalar de más en cada arranque)
+  if ldconfig -p 2>/dev/null | grep -q 'libayatana-appindicator3\.so'; then
+    return 0
+  fi
+  [[ -z "$pkg" ]] && return 0
+  info "instalando $pkg (icono de bandeja de RustDesk)..."
+  case "$DISTRO_FAMILY" in
+    arch)   pacman -S --needed --noconfirm "$pkg" >/dev/null 2>&1 || true ;;
+    debian) DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" >/dev/null 2>&1 || true ;;
+    fedora) dnf install -y "$pkg" >/dev/null 2>&1 || true ;;
+  esac
+  if ldconfig -p 2>/dev/null | grep -q 'libayatana-appindicator3\.so'; then
+    ok "icono de bandeja disponible ($pkg)"
+  else
+    warn "no pude instalar $pkg (opcional: la bandeja no aparecerá, el resto sí funciona)"
+  fi
+  return 0
+}
+
+# Verifica que el BINARIO de RustDesk resuelva sus librerías (gtk3, etc.).
+# check_drmtap_deps solo mira libdrmtap; si falta una lib del binario principal
+# (típico tras un update de sistema en rolling), RustDesk no arranca.
+check_rustdesk_bin_deps() {
+  local bin=""
+  for b in /usr/share/rustdesk/rustdesk /usr/bin/rustdesk; do
+    [[ -e "$b" ]] && { bin="$b"; break; }
+  done
+  [[ -z "$bin" ]] && { warn "no encuentro el binario de RustDesk"; return 1; }
+  command -v ldd >/dev/null 2>&1 || return 0
+  local out; out="$(ldd "$bin" 2>&1 || true)"
+  # libcuda.so.1 y driver de NVIDIA no son obligatorios (los pide el plugin
+  # de codificación por GPU si existe). No los tratamos como error.
+  local missing; missing="$(printf '%s\n' "$out" | grep 'not found' | grep -v 'libcuda\|libnvidia' || true)"
+  if [[ -n "$missing" ]]; then
+    warn "al binario de RustDesk le faltan librerías:"
+    printf '%s\n' "$missing" | sed 's/^/    /'
+    return 1
+  fi
+  ok "dependencias del binario de RustDesk resueltas (ldd)"
+  return 0
+}
+
 install_rustdesk_unattended_deb() {
   local ver="${RD_VERSION:-1.5.0}"
   local url="https://github.com/rustdesk/rustdesk/releases/download/${ver}/rustdesk-unattended-wayland-${ver}-x86_64.deb"
@@ -441,6 +499,18 @@ install_rustdesk_unattended_deb() {
   cp -a "$tmp"/root/usr/lib/rustdesk/libdrmtap.so* /usr/lib/rustdesk/ 2>/dev/null || true
   ln -sf /usr/share/rustdesk/rustdesk /usr/bin/rustdesk
 
+  # El .deb trae .desktop e iconos; sin ellos RustDesk no aparece en el menú
+  # de aplicaciones. En Arch/derivados nada los coloca (no hay dpkg), así que
+  # se copian a mano (visto en pruebas reales: sin esto, solo se abría por CLI).
+  if [[ -d "$tmp/root/usr/share/applications" ]]; then
+    mkdir -p /usr/share/applications
+    cp -a "$tmp/root/usr/share/applications/"*.desktop /usr/share/applications/ 2>/dev/null || true
+  fi
+  if [[ -d "$tmp/root/usr/share/icons" ]]; then
+    mkdir -p /usr/share/icons
+    cp -a "$tmp/root/usr/share/icons/." /usr/share/icons/ 2>/dev/null || true
+  fi
+
   # el .deb trae su propio unit; respetamos uno existente para no romper config
   if [[ ! -f /etc/systemd/system/rustdesk.service && -f "$tmp/root/usr/share/rustdesk/files/systemd/rustdesk.service" ]]; then
     cp -a "$tmp/root/usr/share/rustdesk/files/systemd/rustdesk.service" /etc/systemd/system/rustdesk.service
@@ -454,9 +524,14 @@ install_rustdesk_unattended_deb() {
 
   if [[ -f /usr/lib/rustdesk/libdrmtap.so.0 ]]; then
     ok "Instalado con capturador DRM (libdrmtap) — vía .deb oficial, sin AUR"
+    # El icono de bandeja necesita libayatana-appindicator: sin ella, el log
+    # escupe "Failed to load ayatana-appindicator3" (visto en pruebas). Es
+    # opcional (solo afecta la bandeja), así que se intenta sin abortar.
+    maybe_install_appindicator
     # El .deb inyectado no lo conoce el gestor de paquetes: si una librería
     # del sistema cambia de ABI, esto lo detecta ahora y no "un día cualquiera".
     check_drmtap_deps || warn "  el capturador DRM podría fallar tras un update del sistema"
+    check_rustdesk_bin_deps || warn "  al binario de RustDesk le faltan librerías (revisar arriba)"
     systemctl daemon-reload >/dev/null 2>&1 || true
     return 0
   fi

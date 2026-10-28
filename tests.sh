@@ -1180,6 +1180,29 @@ EOF
 bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "setup-remote-target llama a check_drmtap_deps tras inyectar el .deb" \
   bash -c 'grep -q "check_drmtap_deps ||" setup-remote-target.sh'
+sect "Arch: RustDesk completo (.desktop, iconos, bandeja, deps del binario)"
+t "la vía .deb copia los .desktop (si no, no aparece en el menú)" \
+  bash -c 'grep -q "usr/share/applications" setup-remote-target.sh'
+t "la vía .deb copia los iconos" \
+  bash -c 'grep -q "usr/share/icons" setup-remote-target.sh'
+t "existe maybe_install_appindicator" \
+  bash -c 'grep -q "^maybe_install_appindicator()" setup-remote-target.sh'
+t "cubre las 3 familias para el appindicator" \
+  bash -c 'grep -A4 "case \"\$DISTRO_FAMILY\" in" setup-remote-target.sh | grep -q "libayatana-appindicator3-1" && grep -q "libayatana-appindicator-gtk3" setup-remote-target.sh'
+t "el appindicator es OPCIONAL (no aborta)" \
+  bash -c 'grep -B6 "^maybe_install_appindicator()" setup-remote-target.sh | grep -qi "OPCIONAL"'
+t "existe check_rustdesk_bin_deps" \
+  bash -c 'grep -q "^check_rustdesk_bin_deps()" setup-remote-target.sh'
+t "check_rustdesk_bin_deps ignora libcuda/libnvidia (no son error)" \
+  bash -c 'grep -q "grep -v .libcuda\\|libnvidia" setup-remote-target.sh'
+t "el .deb llama a check_rustdesk_bin_deps" \
+  bash -c 'grep -q "check_rustdesk_bin_deps ||" setup-remote-target.sh'
+t "check_rustdesk_bin_deps PASA con libs resueltas" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => /usr/lib/libgtk-3.so.0\"" "\"libcuda.so.1 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+t "check_rustdesk_bin_deps FALLA si falta una lib real" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+t "H-36 documentado" \
+  bash -c 'grep -q "H-36" docs/hallazgos.md'
 t "update.sh verifica dependencias en el paso final" \
   bash -c 'grep -q "check_drmtap_deps" update.sh'
 t "reinicia el servicio rustdesk tras actualizar" \

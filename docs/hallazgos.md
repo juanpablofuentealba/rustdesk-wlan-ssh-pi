@@ -1673,3 +1673,44 @@ problema exista. Con **shellcheck 0.10.0** el CI falla en ambos.
 
 **Lección:** un linter que sube solo puede quedarse atrás sin que nadie lo note.
 Fijá la versión de las herramientas de CI.
+
+---
+
+## H-36 — En Arch, el .deb inyectado dejaba RustDesk sin menú, sin bandeja y sin aviso de libs
+
+**Verificado:** ✅ (CachyOS, HP 15-db0xxx, 28 oct 2026)
+
+**Síntoma:** tras instalar RustDesk por la vía del `.deb` oficial en Arch
+(la que evita el AUR, ver H-14/H-24), pasaban tres cosas:
+
+1. RustDesk **no aparecía en el menú de aplicaciones**: solo se abría por CLI
+   (`rustdesk`), porque nadie copiaba los `.desktop`.
+2. En el log del servicio:
+   ```
+   Failed to load ayatana-appindicator3 or appindicator3 dynamic library
+   libayatana-appindicator3.so.1: cannot open shared object file
+   ```
+   → sin icono de bandeja.
+3. Si faltaba una librería **del binario principal** (gtk3, etc.), no se avisaba:
+   solo se comprobaba `libdrmtap` con `ldd`.
+
+**Causa:** la extracción a mano del `.deb` copiaba `usr/share/rustdesk` y
+`libdrmtap`, pero **no** `usr/share/applications`, ni `usr/share/icons`, ni
+instalaba el proveedor del appindicator. Y la verificación de dependencias
+cubría solo `libdrmtap`, no el binario.
+
+**Solución (en `install_rustdesk_unattended_deb`):**
+- Copiar `usr/share/applications/*.desktop` y `usr/share/icons/` del `.deb`.
+- `maybe_install_appindicator()`: instalar `libayatana-appindicator` (Arch),
+  `libayatana-appindicator3-1` (Debian) o `libayatana-appindicator-gtk3`
+  (Fedora) si falta la librería. Es **opcional**: si falla, no aborta.
+- `check_rustdesk_bin_deps()`: `ldd` del binario principal, ignorando
+  `libcuda`/`libnvidia` (que no son obligatorios; el plugin de GPU los pide
+  solo si existen).
+
+**Verificación:** `tests.sh` sección **H-36** (11 comprobaciones).
+
+**Lección:** cuando inyectás un paquete a mano (fuera del gestor), no basta con
+"el binario": también hacen falta los `.desktop`, los iconos y las dependencias
+opcionales. Y hay que verificar TODOS los binarios involucrados, no solo la
+librería estrella.
