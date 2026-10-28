@@ -67,7 +67,10 @@ jobs:
           if grep -rIlE 'BEGIN (OPENSSH|RSA|EC) PRIVATE KEY' --exclude-dir=.git . ; then
             echo "::error::hay una clave privada en el repo"; exit 1
           fi
-          if grep -rInE 'tskey-auth-[A-Za-z0-9]{10,}' --exclude-dir=.git . ; then
+          # Las docs llevan un PLACEHOLDER de ejemplo (empieza por 'tskey-auth-k');
+          # no es una clave real. Se ignora cualquier match con ese prefijo falso.
+          if grep -rInE 'tskey-auth-[A-Za-z0-9]{10,}' --exclude-dir=.git . \
+             | grep -v 'tskey-auth-k1234' ; then
             echo "::error::hay una auth key de Tailscale en el repo"; exit 1
           fi
           echo "✔ sin claves privadas ni auth keys"

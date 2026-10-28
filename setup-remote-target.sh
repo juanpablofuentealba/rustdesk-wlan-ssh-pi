@@ -121,7 +121,7 @@ while [[ $# -gt 0 ]]; do
     --ssh)       DO_SSH=1; shift ;;
     --tailscale) DO_TAILSCALE=1; shift ;;
     --laptop)    DO_LAPTOP=1; shift ;;
-    --install-tailscale) DO_TAILSCALE=1; INSTALL_TS=1; shift ;;
+    --install-tailscale) DO_TAILSCALE=1; INSTALL_TS=1; shift ;; # shellcheck disable=SC2034
     --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
@@ -719,7 +719,7 @@ run_check() {
   # En un portátil, cerrar la tapa o dejarlo inactivo suspende el equipo y se
   # pierde el acceso remoto hasta que alguien lo abra.
   local is_lap=0
-  if ls /sys/class/power_supply 2>/dev/null | grep -qiE 'BAT'; then is_lap=1; fi
+  if compgen -G '/sys/class/power_supply/BAT*' >/dev/null; then is_lap=1; fi
   [[ -e /proc/acpi/button/lid ]] && is_lap=1
   if [[ $is_lap -eq 1 ]]; then
     warn "Portátil detectado (batería/tapa): puede suspender y perder el acceso"

@@ -28,6 +28,9 @@
 set -uo pipefail
 
 ACTION=""
+# DRY no se usa como flag propio: --dry-run se mapea a ACTION=--check.
+# (Se dejó a propósito para compatibilidad conceptual; shellcheck SC2034.)
+# shellcheck disable=SC2034
 DRY=0
 
 ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
@@ -53,7 +56,7 @@ LOGIND_FILE="/etc/systemd/logind.conf.d/99-no-suspend-laptop.conf"
 # ¿es portátil? (batería o tapa). En VM no hay batería -> igual se puede forzar.
 is_laptop(){
   [[ -d /sys/class/power_supply ]] && \
-    ls /sys/class/power_supply 2>/dev/null | grep -qiE 'BAT' && return 0
+    compgen -G '/sys/class/power_supply/BAT*' >/dev/null && return 0
   [[ -e /proc/acpi/button/lid ]] && return 0
   # systemd-detect-virt -c devuelve "none" en hardware real; si no es VM, puede ser laptop
   [[ "$(systemd-detect-virt 2>/dev/null || echo none)" == "none" ]] && return 0

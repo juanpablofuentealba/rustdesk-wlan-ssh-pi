@@ -114,6 +114,9 @@ fi
 # ---------- unir ----------
 hdr "Uniendo a la tailnet (hostname: $HOSTNAME_TS)"
 log="$(mktemp)"
+# Nota shellcheck SC2024: el redirect lo hace el shell del usuario sobre un
+# mktemp() propio; sudo NO necesita escribir el archivo. Captura intencional.
+# shellcheck disable=SC2024
 if sudo tailscale up --auth-key="$AUTHKEY" --hostname="$HOSTNAME_TS" --accept-dns=false >"$log" 2>&1; then
   ok "unido"
 else
