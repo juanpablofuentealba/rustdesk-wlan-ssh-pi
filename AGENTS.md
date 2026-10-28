@@ -58,6 +58,14 @@ Heredadas de `PROMPT-AGENTE.txt` + lecciones propias del repo:
 
 ---
 
+## Documentos para agentes
+
+| Doc | Para qué |
+|---|---|
+| [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | **Instalar** el kit en un cliente (pegar como primer mensaje) |
+| [`docs/agente-operador.md`](docs/agente-operador.md) | **Operar** clientes ya instalados: flujos, reglas, seguridad |
+| Este `AGENTS.md` | Cómo **trabajar en el repo** (Pi lo carga automáticamente) |
+
 ## Estructura del repo
 
 | Archivo | Rol |
