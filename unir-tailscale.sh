@@ -52,7 +52,7 @@ done
 # sigue siendo válido para scripts, donde el operador controla el entorno).
 if [[ $KEY_POR_ARGV -eq 1 ]]; then
   printf '\033[1;33m▲\033[0m --key en la linea de comandos queda en el historial y en '"'"'ps'"'"'.\n' >&2
-  printf '\033[1;33m▲\033[0m   Mejor:  printf %s "$KEY" | ./unir-tailscale.sh --key-stdin\n' >&2
+  printf '\033[1;33m▲\033[0m   Mejor:  printf %%s "$KEY" | ./unir-tailscale.sh --key-stdin\n' >&2
 fi
 
 # ---------- de dónde sale la key (esto es lo que la gente no sabe) ----------

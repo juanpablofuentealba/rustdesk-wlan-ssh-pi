@@ -670,6 +670,27 @@ t "make-kit incluye reboot-remoto.sh" \
 t "PASOS menciona la prueba de reinicio" \
   bash -c 'grep -q "reboot-remoto.sh --host" PASOS-EN-ORDEN.txt'
 
+sect "H-33 inyeccion en sudoers via --user (reboot-remoto.sh)"
+# Un --user con comilla simple podia inyectar una regla NOPASSWD: ALL valida
+# por visudo -cf. Debe rechazarse el nombre antes de escribir nada.
+t "rechaza un --user con comilla/inyeccion" \
+  bash -c './reboot-remoto.sh --host "evil@1.2.3.4" --user "evil'"'"' ALL=(ALL) NOPASSWD: ALL #" --enable --dry-run 2>&1 | grep -qi "usuario invalido"'
+t "rechaza usuario con espacios" \
+  bash -c './reboot-remoto.sh --host "a b@1.2.3.4" --enable --dry-run 2>&1 | grep -qi "usuario invalido"'
+t "el usuario llega como argumento al heredoc (no interpolado)" \
+  bash -c 'grep -q "rsh_tty -- \"\$rule\"" reboot-remoto.sh'
+t "valida el nombre de usuario con regex POSIX" \
+  bash -c 'grep -qE "USER_RULE.*=~.*\[a-z_\]" reboot-remoto.sh'
+
+sect "H-34 aviso de auth key por argv (instalar-todo.sh)"
+# --authkey quedaba en el historial/ps sin avisar (AUTHKEY_POR_ARGV muerta).
+t "usa AUTHKEY_POR_ARGV (ya no es variable muerta)" \
+  bash -c 'grep -q "AUTHKEY_POR_ARGV" instalar-todo.sh && [ "$(grep -c AUTHKEY_POR_ARGV instalar-todo.sh)" -ge 2 ]'
+t "avisa que --authkey queda en historial/ps" \
+  bash -c 'grep -q "queda en el historial" instalar-todo.sh'
+t "sugiere --authkey-stdin" \
+  bash -c 'grep -q "authkey-stdin" instalar-todo.sh'
+
 sect "H-27 reinicio remoto (bloqueo sudo/polkit)"
 t "H-27 documentado" bash -c 'grep -q "H-27" docs/hallazgos.md'
 t "H-27 explica el bloqueo de polkit" \

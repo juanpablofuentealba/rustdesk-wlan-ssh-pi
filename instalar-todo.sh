@@ -89,6 +89,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Si la auth key vino por --authkey (argv), queda en ~/.bash_history del equipo
+# y es visible en 'ps' durante toda la instalación. Se avisa (no se aborta:
+# el flag sigue siendo válido para scripts, donde el operador controla el
+# entorno). Preferí --authkey-stdin, que no deja rastro.
+if [[ $AUTHKEY_POR_ARGV -eq 1 ]]; then
+  warn "--authkey en la linea de comandos queda en el historial y en 'ps'."
+  warn "  Mejor:  printf %s \"tskey-...\" | sudo ./instalar-todo.sh --authkey-stdin ..."
+fi
+
 # ---------- validaciones previas ----------
 # Versión del kit, si viene de make-kit.sh (para depurar desde fuera).
 KV=""

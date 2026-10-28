@@ -56,6 +56,15 @@ done
 [[ -n "$ACTION" ]] || { echo "error: falta una acción (--enable/--reboot/--verify/--disable/--all)" >&2; usage; }
 [[ -n "$USER_RULE" ]] || USER_RULE="${HOST%@*}"
 
+# El nombre de usuario se escribe en /etc/sudoers.d: validarlo evita inyectar
+# reglas (p.ej. --user "x' ALL=(ALL) NOPASSWD: ALL #" daria sudo total sin
+# contrasena, y visudo -cf lo aceptaria como sintaxis valida).
+if [[ ! "$USER_RULE" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+  echo "error: usuario invalido: '$USER_RULE'" >&2
+  echo "  se espera un nombre de usuario POSIX (minusculas, digitos, _ y -)" >&2
+  exit 2
+fi
+
 # Envía un script por stdin con bash -s (H-23: nunca bash suelto a un objetivo
 # que puede tener fish). Sin -t: los comandos NO deben pedir interacción aquí.
 rsh(){ ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$HOST" bash -s; }
@@ -68,16 +77,22 @@ do_enable(){
   say "regla : $(printf "$SUDO_RULE_TMPL" "$USER_RULE")"
   say "archivo: $SUDOERS_FILE"
   if [[ $DRY -eq 1 ]]; then warn "(dry-run) no se aplica"; return 0; fi
-  # Se escribe con cat> (sin redirección en la línea de SSH), se fija chmod 440
+  # Se escribe con tee (sin redirección en la línea de SSH), se fija chmod 440
   # y se VALIDA con visudo -cf antes de que sudo la use (un sudoers roto deja el
-  # equipo sin sudo). Todo dentro del heredoc, sin líneas partidas por el shell.
-  rsh_tty <<EOF
+  # equipo sin sudo). El usuario llega como ARGUMENTO al heredoc ("$1"), no
+  # interpolado en el texto: así una comilla no puede romper el quoting ni
+  # inyectar líneas.
+  local rule_maybe rule
+  printf -v rule_maybe "$SUDO_RULE_TMPL" "$USER_RULE"
+  rule="$rule_maybe"
+  rsh_tty -- "$rule" "$SUDOERS_FILE" <<'EOF'
 set -e
-printf '%s\n' '$(printf "$SUDO_RULE_TMPL" "$USER_RULE")' | sudo tee "$SUDOERS_FILE" >/dev/null
-sudo chmod 440 "$SUDOERS_FILE"
-sudo chown root:root "$SUDOERS_FILE"
+rule="$1"; file="$2"
+printf '%s\n' "$rule" | sudo tee "$file" >/dev/null
+sudo chmod 440 "$file"
+sudo chown root:root "$file"
 echo "--- validacion ---"
-sudo visudo -cf "$SUDOERS_FILE"
+sudo visudo -cf "$file"
 echo "--- regla activa ---"
 sudo -n -l 2>/dev/null | grep -i NOPASSWD || true
 EOF
