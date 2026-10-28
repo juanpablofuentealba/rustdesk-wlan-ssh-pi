@@ -10,7 +10,7 @@ SSH       ?= ssh -o BatchMode=yes -o ConnectTimeout=10
 .DEFAULT_GOAL := help
 
 .PHONY: help test verify-docs key push-key check target-setup dry-run inventory inventory-md inventory-json \
-        ssh ping rustdesk-log rustdesk-id reboot-services ports update kit
+        ssh ping rustdesk-log rustdesk-id reboot-services ports update update-now kit
 
 help: ## Muestra esta ayuda
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -131,5 +131,16 @@ reboot-services: ## Reinicia rustdesk y sshd en el host
 	@$(SSH) $(HOST) 'sudo -n systemctl restart rustdesk sshd && echo "  reiniciados"' \
 	  || echo "  ✘ necesita sudo sin contraseña en el host"
 
-update: ## Actualiza el sistema del host (pacman)
-	@$(SSH) $(HOST) 'sudo -n pacman -Syu --noconfirm' || echo "  ✘ necesita sudo en el host"
+update: ## Actualiza el sistema del host y reinstala RustDesk (update.sh)
+	@scp update.sh $(HOST):~/update.sh
+	@$(SSH) $(HOST) 'chmod +x ~/update.sh'
+	@echo "  ✔ copiado a ~/update.sh en $(HOST)"
+	@echo ""
+	@echo "  Ejecuta EN EL HOST (con root):"
+	@echo "    sudo ~/update.sh              # sistema + RustDesk + Tailscale"
+	@echo "    sudo ~/update.sh --check      # solo consultar (sin root)"
+	@echo "    sudo ~/update.sh --dry-run    # simulacro"
+
+update-now: ## Ejecuta update.sh --yes en el host (desatendido, vía sudo -n)
+	@$(SSH) $(HOST) 'sudo -n ~/update.sh --yes' \
+	  || echo "  ✘ necesita ~/update.sh en el host (make update) y sudo sin contraseña"

@@ -75,7 +75,7 @@ HOST="${1:-}"
 sect "Sintaxis (bash -n)"
 for f in setup-remote-target.sh inventory.sh tests.sh clip-vm.sh \
          install-rustdesk-unattended-fedora.sh rustdesk-password.sh \
-         .rd-setpass-root.sh verify-offlan.sh make-kit.sh; do
+         .rd-setpass-root.sh verify-offlan.sh make-kit.sh update.sh; do
   [[ -f "$f" ]] || continue
   t "bash -n $f" bash -n "$f"
 done
@@ -85,7 +85,7 @@ tdoc "Makefile parseable" make -n help
 sect "Permisos de ejecución"
 for f in setup-remote-target.sh inventory.sh tests.sh clip-vm.sh \
          install-rustdesk-unattended-fedora.sh rustdesk-password.sh \
-         verify-offlan.sh make-kit.sh; do
+         verify-offlan.sh make-kit.sh update.sh; do
   [[ -f "$f" ]] || continue
   t "$f es ejecutable" test -x "$f"
 done
@@ -1037,6 +1037,33 @@ else
   printf '%s▲%s Omitido (pasa un host: ./tests.sh USUARIO@192.168.1.20)\n' "$Y" "$N"
   SKIP=$((SKIP+1))
 fi
+
+sect "update.sh (mantenimiento)"
+t "bash -n update.sh"              bash -n update.sh
+t "update.sh es ejecutable"        test -x update.sh
+t "--help sale 0"                  ./update.sh --help
+tj "opción inválida falla"          ./update.sh --nope
+t "--check funciona sin root"       ./update.sh --check
+t "--check no menciona aplicar cambios" \
+  bash -c './update.sh --check 2>&1 | grep -q "MODO CONSULTA"'
+t "detecta el gestor de paquetes"   bash -c 'grep -q "^detect_pm()" update.sh'
+t "soporta pacman (Arch/CachyOS)"   bash -c 'grep -q "PM=\"pacman\"" update.sh'
+t "soporta apt (Debian/Ubuntu)"     bash -c 'grep -q "PM=\"apt\"" update.sh'
+t "soporta dnf (Fedora/RHEL)"       bash -c 'grep -q "PM=\"dnf\"" update.sh'
+t "resuelve la última release de RustDesk por API" \
+  bash -c 'grep -q "repos/rustdesk/rustdesk/releases/latest" update.sh'
+t "no fija una versión de RustDesk (usaría una vieja)" \
+  bash -c '! grep -qE "download/rustdesk-[0-9]" update.sh'
+t "filtrar el .deb por arquitectura" \
+  bash -c 'grep -q "dpkg --print-architecture" update.sh'
+t "reinstala RustDesk sin meter un repo de terceros" \
+  bash -c 'grep -q "apt-get install -y .*rustdesk.deb\|apt-get install -y \"\$tmp/rustdesk.deb\"" update.sh'
+t "tiene modo --dry-run"             bash -c 'grep -q -- "--dry-run" update.sh'
+t "tiene modo --yes (cron)"          bash -c 'grep -q -- "--yes" update.sh'
+t "reinicia el servicio rustdesk tras actualizar" \
+  bash -c 'grep -q "systemctl restart rustdesk" update.sh'
+tdoc "el README documenta update.sh" \
+  bash -c 'grep -q "update.sh" README.md'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \

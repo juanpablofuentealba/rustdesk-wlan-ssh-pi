@@ -304,3 +304,34 @@ Todos los hallazgos con su explicación completa están en `docs/hallazgos.md`.
 ```bash
 sha256sum -c MANIFEST.sha256
 ```
+
+---
+
+## Mantenimiento a largo plazo (`update.sh`)
+
+RustDesk y Tailscale sacan versiones nuevas seguido. Para no tener que volver
+físicamente a la casa del cliente, el kit trae `update.sh`:
+
+```bash
+sudo ./update.sh              # sistema + RustDesk + Tailscale
+./update.sh --check           # solo consultar si hay pendientes (sin root)
+./update.sh --dry-run         # simulacro: muestra qué haría
+./update.sh --yes             # sin confirmaciones (cron)
+```
+
+Funciona en las tres familias (pacman / apt / dnf). En Debian/Ubuntu reinstala
+el **`.deb` oficial** de RustDesk (última release de GitHub, arquitectura
+detectada) y **reinicia el servicio** al terminar.
+
+Desde el PC operador:
+
+```bash
+make HOST=USUARIO@<hostname> update       # copia update.sh al host
+make HOST=USUARIO@<hostname> update-now   # lo ejecuta (--yes, vía sudo -n)
+```
+
+Automatizarlo en el cron de root del objetivo (semanal):
+
+```bash
+0 4 * * 1  /root/kit/update.sh --yes >/var/log/kit-update.log 2>&1
+```

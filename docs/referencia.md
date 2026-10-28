@@ -299,8 +299,8 @@ Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # ~283 comprobaciones locales
-./tests.sh USUARIO@192.168.1.20 # + los hallazgos contra un host real (~297)
+./tests.sh                      # ~448 comprobaciones locales
+./tests.sh USUARIO@192.168.1.20 # + los hallazgos contra un host real (~462)
 ```
 
 Cubre: sintaxis, permisos, modos de salida (texto/JSON/Markdown), validez del
@@ -319,6 +319,42 @@ Comprueba que los **comandos de Tailscale** de la doc siguen existiendo
 (`--auth-key`, `--hostname`, `netcheck`...) y que las **URLs oficiales**
 responden. Córrelo antes de un cliente nuevo o después de actualizar Tailscale:
 si algo cambió, lo detecta antes de que falles en terreno ajeno.
+
+### `update.sh` — mantenimiento a largo plazo
+
+> RustDesk y Tailscale publican versiones nuevas a menudo (varias cierran
+> brechas de seguridad). Dejar el equipo del cliente en una versión vieja hace
+> frágil el soporte remoto. Este script lo mantiene al día **sin volver a la
+> casa del cliente**.
+
+```fish
+sudo ./update.sh                 # sistema + RustDesk + Tailscale
+./update.sh --check              # ¿hay pendientes? (no aplica nada, sin root)
+./update.sh --dry-run            # simulacro: muestra qué haría
+./update.sh --no-sistema         # solo RustDesk (no toca el SO)
+./update.sh --yes                # sin confirmaciones (cron/desatendido)
+```
+
+Cubre las tres familias: **pacman** (`-Syu`), **apt** (`update`+`upgrade`) y
+**dnf** (`upgrade`). En Debian/Ubuntu, además, reinstala el **`.deb` oficial**
+de RustDesk (el de GitHub Releases, no un repo de terceros): consulta la
+**última release por la API de GitHub** y elige el `.deb` de la **arquitectura
+del equipo** (`dpkg --print-architecture`). No fija ninguna versión en el
+script (se quedaría obsoleta). Tras instalar, **reinicia el servicio** y
+verifica que `rustdesk`, `sshd` y `tailscaled` sigan activos.
+
+Desde el operador, con `make`:
+
+```fish
+make HOST=USUARIO@<hostname> update       # copia update.sh al host
+make HOST=USUARIO@<hostname> update-now   # lo ejecuta (--yes, vía sudo -n)
+```
+
+Automatizarlo en el cron de root del objetivo (semanal):
+
+```fish
+0 4 * * 1  /root/kit/update.sh --yes >/var/log/kit-update.log 2>&1
+```
 
 ### `Makefile` — atajos
 

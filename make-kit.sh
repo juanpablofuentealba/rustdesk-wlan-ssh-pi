@@ -17,7 +17,8 @@
 #   verify-offlan.sh       ← prueba el acceso desde fuera de la LAN
 #   reboot-remoto.sh       ← reinicio remoto unattended (NOPASSWD acotado, H-27)
 #   laptop-no-suspend.sh   ← evita que un portátil suspenda y pierda el acceso (H-29)
-#   unir-tailscale.sh      ← unir a la tailnet pidiendo/pegando la auth key
+#   unir-tailscale.sh       ← unir a la tailnet pidiendo/pegando la auth key
+#   update.sh              ← mantiene al día el sistema + RustDesk + Tailscale
 #   make-kit.sh            ← para regenerar el kit desde el propio pendrive
 #   tests.sh               ← verificación
 #   MANIFEST.sha256        ← integridad del paquete
@@ -61,6 +62,7 @@ FILES=(
   reboot-remoto.sh
   laptop-no-suspend.sh
   unir-tailscale.sh
+  update.sh
   make-kit.sh
   tests.sh
 )

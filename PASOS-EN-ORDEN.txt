@@ -226,6 +226,15 @@
   [ ] Reiniciar el equipo y comprobar que vuelve online SOLO
       (sin intervención de nadie)
 
+  [ ] Explicarle el mantenimiento a largo plazo (opcional pero recomendado):
+      el kit trae update.sh para quedar al día sin volver a la casa.
+
+         sudo ~/kit/update.sh             # sistema + RustDesk + Tailscale
+         sudo ~/kit/update.sh --check     # solo consultar (sin root)
+
+      Si querés automatizarlo, dejalo en el cron de root:
+         0 4 * * 1  /root/kit/update.sh --yes >/var/log/kit-update.log 2>&1
+
 ========================================================================
   SI ALGO FALLA
 ========================================================================

@@ -76,6 +76,13 @@ ssh -o BatchMode=yes USUARIO@<hostname> 'hostname'
 ./reboot-remoto.sh --host USUARIO@<hostname> --all   # reinicio unattended
 ```
 
+**Mantenimiento** (en el PC del cliente, con root):
+
+```bash
+sudo ./update.sh             # sistema + RustDesk + Tailscale
+./update.sh --check          # solo consultar si hay pendientes
+```
+
 RustDesk: conectate al ID del equipo con la contraseña permanente.
 
 ---
@@ -105,11 +112,12 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`unir-tailscale.sh`](unir-tailscale.sh) | Unir a la tailnet pidiendo/pegando la auth key · [H-30](docs/hallazgos.md) |
 | [`laptop-no-suspend.sh`](laptop-no-suspend.sh) | **Portátiles**: evita que suspenda y se pierda el acceso · [H-29](docs/hallazgos.md) |
 | [`reboot-remoto.sh`](reboot-remoto.sh) | Reinicio remoto unattended (NOPASSWD acotado) · [H-27](docs/hallazgos.md) |
+| [`update.sh`](update.sh) | **Mantenimiento**: actualiza el sistema + RustDesk + Tailscale (Arch/Debian/Fedora) |
 | [`rustdesk-password.sh`](rustdesk-password.sh) | Fija la contraseña permanente de RustDesk · [H-15](docs/hallazgos.md) |
 | [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | RustDesk con DRM en Fedora/RHEL (desde el `.deb`) · [H-14](docs/hallazgos.md) |
 | [`verify-offlan.sh`](verify-offlan.sh) | Prueba el acceso desde fuera de la LAN |
 | [`inventory.sh`](inventory.sh) | Ficha de specs del equipo (texto/JSON/Markdown) |
-| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**427**) |
+| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**448**) |
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA (OpenCode/Claude/pi) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
