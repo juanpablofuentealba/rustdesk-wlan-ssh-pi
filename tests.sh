@@ -616,6 +616,26 @@ t "LEEME-PRIMERO lista el prompt" \
 t "README enlaza el prompt" \
   bash -c 'grep -q "PROMPT-AGENTE.txt" README.md'
 
+sect "Agente operador (docs/agente-operador.md)"
+t "existe docs/agente-operador.md" \
+  bash -c 'test -f docs/agente-operador.md'
+t "distingue operar de instalar" \
+  bash -c 'grep -qi "operar.*despu\|administrar clientes" docs/agente-operador.md'
+t "el agente NO vive en el cliente" \
+  bash -c 'grep -q "no.*vive en el PC del cliente" docs/agente-operador.md'
+t "usa bash -s (fish)" \
+  bash -c 'grep -q "bash -s" docs/agente-operador.md'
+t "avisa no reiniciar sin permiso" \
+  bash -c 'grep -q "reiniciar\|reiniciés\|reinicies" docs/agente-operador.md'
+t "advierte no pegar tokens en el chat" \
+  bash -c 'grep -qi "tokens en el chat\|No pegues tokens" docs/agente-operador.md'
+t "menciona H-14 y H-32" \
+  bash -c 'grep -q "H-14" docs/agente-operador.md && grep -q "H-32" docs/agente-operador.md'
+t "README enlaza agente-operador" \
+  bash -c 'grep -q "agente-operador.md" README.md'
+t "AGENTS.md enlaza agente-operador" \
+  bash -c 'grep -q "agente-operador.md" AGENTS.md'
+
 sect "Las pruebas nuevas están en TODOS los documentos"
 t "INSTALAR.md documenta la prueba de reinicio" \
   bash -c 'grep -q "reboot-remoto.sh" INSTALAR.md'

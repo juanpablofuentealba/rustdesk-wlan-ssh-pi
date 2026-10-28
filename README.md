@@ -6,7 +6,9 @@ dentro de la máquina. Probado de punta a punta en **Arch, Debian y Fedora**.
 
 > **¿Primera vez?** Leé [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md)
 > (explica sin tecnicismos) y después [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt).
-> Si vas a usar un agente IA, pegale [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt).
+> Si vas a usar un agente IA, pegale [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt)
+> (para instalar) o leé [`docs/agente-operador.md`](docs/agente-operador.md)
+> (para administrar clientes ya instalados).
 
 ---
 
@@ -119,7 +121,8 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`inventory.sh`](inventory.sh) | Ficha de specs del equipo (texto/JSON/Markdown) |
 | [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**448**) |
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
-| [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA (OpenCode/Claude/pi) |
+| [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
+| [`docs/agente-operador.md`](docs/agente-operador.md) | Agente IA como **operador** remoto: flujos y reglas para mantener clientes |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen |
 | [`REPO.txt`](REPO.txt) | Este repositorio: URL, uso rápido, índice |
