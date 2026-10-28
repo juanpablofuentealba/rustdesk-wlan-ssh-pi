@@ -28,10 +28,6 @@
 set -uo pipefail
 
 ACTION=""
-# DRY no se usa como flag propio: --dry-run se mapea a ACTION=--check.
-# (Se dejó a propósito para compatibilidad conceptual; shellcheck SC2034.)
-# shellcheck disable=SC2034
-DRY=0
 
 ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
 bad()  { printf '\033[1;31m✘\033[0m %s\n' "$*"; }

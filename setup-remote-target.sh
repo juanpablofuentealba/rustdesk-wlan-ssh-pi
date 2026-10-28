@@ -71,7 +71,6 @@ DO_RUSTDESK=0
 DO_SSH=0
 DO_TAILSCALE=0
 DO_LAPTOP=0
-INSTALL_TS=0
 DO_CHECK=0
 SSH_PORT=22
 KEY=""
@@ -121,7 +120,7 @@ while [[ $# -gt 0 ]]; do
     --ssh)       DO_SSH=1; shift ;;
     --tailscale) DO_TAILSCALE=1; shift ;;
     --laptop)    DO_LAPTOP=1; shift ;;
-    --install-tailscale) DO_TAILSCALE=1; INSTALL_TS=1; shift ;; # shellcheck disable=SC2034
+    --install-tailscale) DO_TAILSCALE=1; shift ;;
     --authkey)   TS_AUTHKEY="${2:-}"; shift 2 ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
