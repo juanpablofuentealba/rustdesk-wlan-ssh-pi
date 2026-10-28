@@ -21,8 +21,14 @@ PENDRIVE (Ventoy)
         ├── rustdesk-password.sh         ← contraseña permanente de RustDesk
         ├── inventory.sh                 ← ficha de specs del cliente
         ├── tests.sh                     ← verificación
-        └── operador.pub                 ← tu clave pública (ya viene incluida)
+        └── operador.pub                 ← tu clave pública (la pone make-kit.sh --with-key)
 ```
+
+> **OJO con `operador.pub`:** **NO está en el repositorio** (está en
+> `.gitignore`). Solo aparece dentro del kit si lo empaquetás con
+> `./make-kit.sh --with-key` (toma `~/.ssh/id_ed25519.pub`). Si clonás el repo
+> directo (`git clone`), **no vas a encontrarla**: pasá tu clave por parámetro
+> (`--key "$(cat ~/.ssh/id_ed25519.pub)"`) o empaquetá el kit con `--with-key`.
 
 **Flujo:**
 1. Arrancar el pendrive → instalar CachyOS **con WiFi**
@@ -36,7 +42,8 @@ PENDRIVE (Ventoy)
 ## ANTES DE SALIR (en tu equipo operador)
 
 - [ ] **Pendrive listo**: Ventoy + ISO de CachyOS + la carpeta `kit-rustdesk/`
-- [ ] **Tu clave pública** incluida en el kit (`operador.pub`)
+- [ ] **Tu clave pública** incluida en el kit (`operador.pub`) — se agrega con
+      `./make-kit.sh --with-key`; el repo no la trae
 - [ ] **Auth key de Tailscale** del cliente (modelo B):
       **https://login.tailscale.com/admin/settings/keys**
       (admin → Settings → pestaña **Keys** → *Generate auth key*)
@@ -131,6 +138,13 @@ Funciona igual en Arch, Fedora y Debian, y **no necesita AUR ni compilar**.
 sudo ./setup-remote-target.sh --all \
   --key "$(cat operador.pub)" \
   --authkey 'tskey-auth-XXXX'
+```
+
+> Si no tenés `operador.pub` (porque clonaste el repo en vez de empaquetar el
+> kit), usá tu clave directamente:
+> ```bash
+> --key "$(cat ~/.ssh/id_ed25519.pub)"
+> ```
 ```
 
 Qué hace `--all`:
@@ -277,7 +291,7 @@ Si al conectar da `os error 104`, desactivá audio/portapapeles en la GUI
 | `Wayland portal handshake failed` | falta `libdrmtap` (H-14) | Arch: `rustdesk-unattended-wayland` · Fedora: `install-rustdesk-unattended-fedora.sh` |
 | Pide aceptación en cada conexión | sin contraseña permanente (H-15) | `./rustdesk-password.sh install` |
 | `Conexión reinicializada (os error 104)` | audio/portapapeles en bucle (H-19) | desactivá audio y portapapeles en la GUI antes de conectar |
-| SSH no entra | falta tu clave o el firewall | `sudo ./setup-remote-target.sh --ssh --key "$(cat operador.pub)"` |
+| SSH no entra | falta tu clave o el firewall | `sudo ./setup-remote-target.sh --ssh --key "$(cat operador.pub)"` (o `~/.ssh/id_ed25519.pub` si clonaste el repo) |
 | Tailscale no une | auth key vencida o mal copiada | generá otra; debe empezar con `tskey-` |
 | `tailscale ping` va por LAN | seguís en la misma red | es lo esperado en pruebas; para el caso real usá otra red |
 

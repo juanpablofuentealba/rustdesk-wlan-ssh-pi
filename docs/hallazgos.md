@@ -1406,6 +1406,58 @@ key se genera fuera del equipo.
 
 ---
 
+## H-31 — Fedora 44: instalar apps KDE6 choca con `kmime` (transición KDE5→KDE6)
+
+**Verificado:** ✅ (Fedora 44 KDE, 27 oct 2026)
+
+Síntoma real: en un Fedora 44 recién instalado, cualquier `dnf5 install` de una
+app KDE (p. ej. `kate`, que la imagen base no trae) termina en:
+
+```
+Transacción incorrecta: Transacción rpm incorrecta.
+  - el archivo /usr/share/locale/lt/LC_MESSAGES/libkmime6_qt.qm de la instalación
+    de kf6-kmime-6.31.0-1.fc44.x86_64 entra en conflicto con el archivo del
+    paquete kmime-25.12.3-1.fc44.x86_64
+```
+
+**Causa:** Fedora 44 está en plena transición **KDE5 → KDE6**. El paquete viejo
+`kmime` (KDE5-era, versión `25.12.3`) y el nuevo `kf6-kmime` (Framework KDE6,
+versión `6.31.0`) **comparten rutas** (`/usr/share/locale/...`,
+`/usr/share/qlogging-categories6/...`) → rpm los marca incompatibles. No es del
+kit ni del `.deb` de RustDesk: es empaquetado de la distro.
+
+**Por qué aparece al instalar `kate`:** `kate` no necesita `kf6-kmime`
+directamente, pero la transacción arrastra una cadena de KDE PIM
+(`akonadi-*`, `kdepim-*`, `kalarm`, `grantlee-editor`) que sí lo requiere.
+
+**Solución A (recomendada, de raíz):** completar la transición actualizando todo
+el sistema, con el equipo **delante** (puede pedir reinicio o tocar el arranque
+gráfico — no hacerlo por SSH):
+
+```fish
+sudo dnf5 upgrade --refresh
+```
+
+**Solución B (rápida, sin upgrade):** instalar solo la app excluyendo la cadena
+PIM que dispara el conflicto:
+
+```fish
+sudo dnf5 install kate \
+  --exclude='kf6-kmime*' --exclude='kdepim-*' --exclude='akonadi-*' \
+  --exclude='kalarm*' --exclude='grantlee-editor*' \
+  --exclude='calendarsupport*' --exclude='incidenceeditor*'
+```
+
+Verificado que así `kate` queda instalado y `dnf5 check` reporta dependencias
+sanas.
+
+**Lección:** en Fedora el kit no debe asumir que las apps KDE están completas
+(la imagen base no trae `kate`), y un `dnf5 install` de apps KDE en FE44 puede
+fallar por la transición KDE5→KDE6. Documentar la Solución A como paso previo
+recomendado cuando se agregan apps de escritorio.
+
+---
+
 ## Verificación automatizada
 
 Los hallazgos están cubiertos por pruebas ejecutables:

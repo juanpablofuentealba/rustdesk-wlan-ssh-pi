@@ -56,7 +56,8 @@
   [ ] Auth key de Tailscale      (tskey-auth-...)
   [ ] Contrasena permanente de RustDesk que le vas a poner
   [ ] Contrasena de sudo que elegiras al instalar el SO
-  [x] Tu clave publica SSH       (ya viene en kit-rustdesk/operador.pub)
+  [x] Tu clave publica SSH       (la genera make-kit.sh --with-key; el repo
+                                  NO la trae — si clonaste, pasala con --key)
 
   PRUEBAS DESDE TU EQUIPO OPERADOR (despues de instalar):
      ./verify-offlan.sh <hostname>           acceso fuera de la LAN (7 OK)
