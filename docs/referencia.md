@@ -336,12 +336,23 @@ sudo ./update.sh                 # sistema + RustDesk + Tailscale
 ```
 
 Cubre las tres familias: **pacman** (`-Syu`), **apt** (`update`+`upgrade`) y
-**dnf** (`upgrade`). En Debian/Ubuntu, además, reinstala el **`.deb` oficial**
-de RustDesk (el de GitHub Releases, no un repo de terceros): consulta la
-**última release por la API de GitHub** y elige el `.deb` de la **arquitectura
-del equipo** (`dpkg --print-architecture`). No fija ninguna versión en el
-script (se quedaría obsoleta). Tras instalar, **reinicia el servicio** y
-verifica que `rustdesk`, `sshd` y `tailscaled` sigan activos.
+**dnf** (`upgrade`). En Debian/Ubuntu, además, reinstala el **`.deb` oficial
+`unattended-wayland`** de RustDesk (el que trae `libdrmtap.so`, igual que
+`setup-remote-target.sh`; ver H-14/H-24). **No usa el `.deb` estándar**, que
+carece de capturador DRM y rompería el desatendido en Wayland.
+
+Una versión fija (`RD_VERSION`) con su **`sha256` verificado** (`RD_SHA256`)
+hace el resultado reproducible: si el hash no coincide, el script **se niega a
+instalar** y avisa de que probablemente salió una versión nueva. Tras instalar
+**comprueba que `libdrmtap.so` esté presente** (anti-regresión), **reinicia el
+servicio** y verifica que `rustdesk`, `sshd` y `tailscaled` sigan activos.
+
+Detalle de comportamiento:
+- `--check` y `--dry-run` no requieren root y nunca aplican cambios.
+- **Sin TTY y sin `--yes` aborta** (no asume "sí" en silencio): actualizar es
+  una acción destructiva y debe ser explícita.
+- Si un paso falla, el script **termina con error** (no imprime "listo" en
+  verde tras un fallo silencioso; ver H-22).
 
 Desde el operador, con `make`:
 

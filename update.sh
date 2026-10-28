@@ -34,8 +34,13 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
-RUSTDESK_API="https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
 RUSTDESK_PAGE="https://rustdesk.com/download"
+# Versión y sha256 del asset con capturador DRM (libdrmtap). Es el MISMO que
+# usa setup-remote-target.sh (H-14/H-24): el .deb estándar NO trae DRM y
+# rompería el acceso desatendido en Wayland. Si sale una versión nueva,
+# actualizá RD_VERSION y RD_SHA256 aquí y en setup-remote-target.sh.
+RD_VERSION="1.5.0"
+RD_SHA256="9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09"
 
 CHECK_ONLY=0
 DO_SISTEMA=1
@@ -88,7 +93,15 @@ fi
 
 confirmar(){
   [[ $ASSUME_YES -eq 1 ]] && return 0
-  [[ ! -t 0 ]] && return 0   # sin TTY (cron): asumir sí
+  # Sin TTY (cron, make update-now, redirección a log) NO se puede preguntar.
+  # Antes se asumía "sí" en silencio, lo que volvía decorativo el flag --yes y
+  # hacía que 'actualizar en cron' fuera implícito. Ahora, sin TTY y sin --yes,
+  # se ABORTA con aviso: actualizar es una acción destructiva; que sea explícito.
+  if [[ ! -t 0 ]]; then
+    err "sin TTY y sin --yes: no puedo pedir confirmación; aborto"
+    err "si es intencional (cron), usá:  $0 --yes"
+    return 1
+  fi
   local r
   printf '\033[1;33m?\033[0m %s [s/N] ' "$1"
   read -r r
@@ -104,17 +117,19 @@ update_sistema(){
     pacman)
       if [[ $CHECK_ONLY -eq 1 ]]; then
         info "consultando actualizaciones…"
-        # checkupdates viene de pacman-contrib; si no está, usamos -Sy -Qu
+        # checkupdates viene de pacman-contrib; si no está, usamos -Qu
         if command -v checkupdates >/dev/null 2>&1; then
-          checkupdates || ok "sistema al día"
+          if checkupdates; then :; else ok "sistema al día"; fi
         else
-          pacman -Sy --noconfirm >/dev/null 2>&1
+          pacman -Sy --noconfirm >/dev/null 2>&1 || true
           local cups; cups="$(pacman -Qu 2>/dev/null | wc -l | tr -d ' ')"
           [[ "$cups" -eq 0 ]] && ok "sistema al día" || warn "$cups paquete(s) por actualizar"
-          pacman -Qu 2>/dev/null | sed 's/^/  /' | head -30
+          pacman -Qu 2>/dev/null | sed 's/^/  /' | head -30 || true
         fi
+        return 0
       elif [[ $DRY_RUN -eq 1 ]]; then
         warn "(dry-run) haría: pacman -Syu --noconfirm"
+        return 0
       else
         info "pacman -Syu (sin pedir confirmación)"
         pacman -Syu --noconfirm && ok "sistema actualizado" || { err "pacman falló"; return 1; }
@@ -126,9 +141,11 @@ update_sistema(){
         apt-get update -qq >/dev/null 2>&1 || warn "apt-get update falló (¿red?)"
         local cups; cups="$(apt-get -s upgrade 2>/dev/null | grep -c '^Inst' || true)"
         [[ "$cups" -eq 0 ]] && ok "sistema al día" || warn "$cups paquete(s) por actualizar"
-        apt list --upgradable 2>/dev/null | tail -n +2 | sed 's/^/  /' | head -30
+        apt list --upgradable 2>/dev/null | tail -n +2 | sed 's/^/  /' | head -30 || true
+        return 0
       elif [[ $DRY_RUN -eq 1 ]]; then
         warn "(dry-run) haría: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y"
+        return 0
       else
         info "apt-get update && upgrade"
         export DEBIAN_FRONTEND=noninteractive
@@ -139,16 +156,21 @@ update_sistema(){
     dnf)
       if [[ $CHECK_ONLY -eq 1 ]]; then
         info "dnf check-update"
-        dnf -q check-update && ok "sistema al día" || warn "hay actualizaciones (ver arriba)"
+        if dnf -q check-update; then ok "sistema al día"; else warn "hay actualizaciones (ver arriba)"; fi
+        return 0
       elif [[ $DRY_RUN -eq 1 ]]; then
         warn "(dry-run) haría: dnf -y upgrade"
+        return 0
       else
         info "dnf upgrade"
         dnf -y upgrade && ok "sistema actualizado" || { err "dnf falló"; return 1; }
       fi
       ;;
     *)
+      # Sin gestor reconocido: en --check/dry-run NO es un fallo del script
+      # (solo informa); al aplicar de verdad, sí.
       warn "no reconozco el gestor de paquetes; actualiza a mano"
+      [[ $CHECK_ONLY -eq 1 || $DRY_RUN -eq 1 ]] && return 0
       return 1
       ;;
   esac
@@ -166,68 +188,104 @@ version_rustdesk(){
   fi
 }
 
+# ¿El RustDesk instalado es el que trae libdrmtap (captura DRM en Wayland)?
+# En Debian/Ubuntu no hay un nombre de paquete distinto: se comprueba que el
+# binario/instalación incluya libdrmtap.so. Sin eso, el desatendido en Wayland
+# casca al portal XDG (H-14).
+tiene_drm(){
+  [[ -e /usr/lib/rustdesk/libdrmtap.so ]] && return 0
+  # Rutas alternativas según cómo se extrajo/instaló el .deb
+  [[ -e /usr/lib/rustdesk/libdrmtap.so.* ]] && return 0
+  dpkg -L rustdesk 2>/dev/null | grep -q 'libdrmtap' && return 0
+  return 1
+}
+
 update_rustdesk(){
   hdr "RustDesk"
   local v; v="$(version_rustdesk)"
   info "versión instalada: ${v:-no detectada}"
 
   if [[ $CHECK_ONLY -eq 1 ]]; then
+    if tiene_drm; then ok "capturador DRM (libdrmtap) presente";
+    else warn "NO tiene libdrmtap: el desatendido en Wayland puede fallar (H-14)"; fi
     info "última versión y .deb oficial: $RUSTDESK_PAGE"
-    warn "para ver si hay una más nueva, compara a mano en la web"
     return 0
   fi
 
   if [[ "$PM" == "apt" ]]; then
-    # El .deb de GitHub Releases es la fuente OFICIAL de RustDesk en
-    # Debian/Ubuntu. Se consulta la ÚLTIMA release por API (no se fija una
-    # versión en el script, que quedaría obsoleta). Si la API no responde
-    # (rate limit, sin red), se cae a la página de descargas.
-    local tmp url="" tag="" meta arch
-    tmp="$(mktemp -d)"
-    # La arquitectura del .deb debe coincidir con la del equipo (los releases
-    # traen x86_64 y aarch64). dpkg --print-architecture: amd64/arm64.
-    arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
-    info "consultando la última release de RustDesk (arch: $arch)…"
-    meta="$(curl -fsSL --retry 2 --connect-timeout 15 \
-      -H 'Accept: application/vnd.github+json' "$RUSTDESK_API" 2>/dev/null || true)"
-    if [[ -n "$meta" ]]; then
-      tag="$(printf '%s' "$meta" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-      # Busca el .deb de ESTA arquitectura; si no, el x86_64; si no, cualquiera.
-      url="$(printf '%s' "$meta" | grep -o '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*'"$arch"'\.deb"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-      [[ -z "$url" ]] && url="$(printf '%s' "$meta" | grep -o '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*x86_64\.deb"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-      [[ -z "$url" ]] && url="$(printf '%s' "$meta" | grep -o '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*\.deb"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-    fi
-    [[ -n "$tag" ]] && info "última versión publicada: $tag"
-    if [[ -z "$url" ]]; then
-      warn "no pude resolver el .deb por API (¿rate limit o sin red?)"
-      warn "bájalo a mano desde: $RUSTDESK_PAGE"
-      return 1
-    fi
-    info "asset: $url"
+    # SIEMPRE el asset 'unattended-wayland' (con DRM), nunca el estándar.
+    # Se usa RD_VERSION (fijada) en vez de "auto-descubrir la última por API":
+    # así el nombre y el sha256 son conocidos y verificables. Si sale una
+    # versión nueva, el aviso al fallar el sha256 lo dice.
+    local url="https://github.com/rustdesk/rustdesk/releases/download/${RD_VERSION}/rustdesk-unattended-wayland-${RD_VERSION}-x86_64.deb"
+    local tmp; tmp="$(mktemp -d)"
+
+    info "asset oficial con DRM: unattended-wayland ${RD_VERSION}"
     if [[ $DRY_RUN -eq 1 ]]; then
-      warn "(dry-run) haría: curl -fL $url -o $tmp/rustdesk.deb && apt-get install -y $tmp/rustdesk.deb"
+      warn "(dry-run) curl -fL $url -o $tmp/rustdesk.deb"
+      warn "(dry-run) verificaría sha256 $RD_SHA256"
+      warn "(dry-run) apt-get install -y $tmp/rustdesk.deb && systemctl restart rustdesk"
       rm -rf "$tmp"; return 0
     fi
-    if curl -fL --retry 3 --connect-timeout 15 "$url" -o "$tmp/rustdesk.deb"; then
-      info "instalando .deb (apt resuelve dependencias)…"
-      if DEBIAN_FRONTEND=noninteractive apt-get install -y "$tmp/rustdesk.deb"; then
-        ok "RustDesk actualizado a $(version_rustdesk)"
-        # El servicio puede quedar caído tras reinstalar: se reactiva.
-        systemctl restart rustdesk 2>/dev/null && ok "servicio rustdesk reiniciado"
+
+    # Requisitos para descargar y verificar
+    command -v sha256sum >/dev/null 2>&1 || { err "falta sha256sum (coreutils)"; rm -rf "$tmp"; return 1; }
+
+    info "descargando el .deb oficial…"
+    if ! curl -fL --retry 3 --connect-timeout 15 --max-time 300 "$url" -o "$tmp/rustdesk.deb"; then
+      err "no se pudo descargar el .deb (¿red?). Bájalo a mano: $RUSTDESK_PAGE"
+      rm -rf "$tmp"; return 1
+    fi
+
+    # Verificación de integridad (igual que setup-remote-target.sh). Instalar
+    # como root un binario bajado de internet SIN comprobar el hash no es
+    # aceptable.
+    local actual; actual="$(sha256sum "$tmp/rustdesk.deb" | awk '{print $1}')"
+    if [[ "$actual" != "$RD_SHA256" ]]; then
+      err "sha256 NO coincide: el .deb no es el esperado"
+      err "  esperado: $RD_SHA256"
+      err "  obtenido: $actual"
+      warn "puede haber salido una versión nueva; si es así, actualizá"
+      warn "RD_VERSION y RD_SHA256 en update.sh y setup-remote-target.sh"
+      rm -rf "$tmp"; return 1
+    fi
+    ok "sha256 verificado"
+
+    # Antes de instalar, registramos qué había (para detectar regresión de DRM).
+    local drm_antes=0
+    if tiene_drm; then drm_antes=1; fi
+
+    info "instalando .deb (apt resuelve dependencias)…"
+    if DEBIAN_FRONTEND=noninteractive apt-get install -y "$tmp/rustdesk.deb"; then
+      ok "RustDesk actualizado a $(version_rustdesk)"
+      # Comprobación CRÍTICA: que el paquete instalado traiga el capturador DRM.
+      if tiene_drm; then
+        ok "capturador DRM (libdrmtap) presente"
       else
-        err "apt no pudo instalar el .deb"
+        err "tras instalar NO aparece libdrmtap: el Wayland desatendido fallará (H-14)"
+        err "revisá el paquete o reinstalá con setup-remote-target.sh"
+        rm -rf "$tmp"; return 1
+      fi
+      # El servicio puede quedar caído tras reinstalar: se reactiva.
+      if systemctl restart rustdesk 2>/dev/null; then
+        ok "servicio rustdesk reiniciado"
+      else
+        warn "no se pudo reiniciar rustdesk (revisá: systemctl status rustdesk)"
       fi
     else
-      warn "no se pudo descargar el .deb (¿red?). Bájalo a mano: $RUSTDESK_PAGE"
+      err "apt no pudo instalar el .deb"
+      rm -rf "$tmp"; return 1
     fi
     rm -rf "$tmp"
+    [[ $drm_antes -eq 1 ]] && info "(el equipo ya tenía DRM; se conserva)"
   else
     # Arch/Fedora: se actualiza con el gestor del sistema (paso 1) o el repo
     # oficial de RustDesk si está configurado.
     info "en $DISTRO RustDesk se actualiza con $PM (ya hecho en el paso anterior)"
     local after; after="$(version_rustdesk)"
     [[ -n "$after" ]] && ok "versión tras actualizar: $after"
-    warn "si quieres la última, revisa: $RUSTDESK_PAGE"
+    if tiene_drm; then ok "capturador DRM presente";
+    else warn "NO se detecta libdrmtap (H-14); revisá el paquete de RustDesk"; fi
   fi
 }
 
@@ -263,8 +321,14 @@ update_tailscale(){
 # ---------------------------------------------------------------------------
 verificar(){
   hdr "Verificación final"
-  local s
+  # Solo se exige lo que este equipo realmente usa: si sshd/tailscaled no están
+  # instalados, no es un fallo (aviso informativo, no alarma).
   for s in rustdesk sshd tailscaled; do
+    if ! systemctl list-unit-files "$s.service" >/dev/null 2>&1 \
+       || [[ -z "$(systemctl list-unit-files "$s.service" 2>/dev/null)" ]]; then
+      info "$s: no instalado (no aplica)"
+      continue
+    fi
     local act; act="$(systemctl is-active "$s" 2>/dev/null || echo inactivo)"
     case "$act" in
       active) ok "$s: $act" ;;
@@ -283,13 +347,24 @@ hdr "update.sh — $DISTRO"
 [[ $DRY_RUN  -eq 1 ]] && info "MODO SIMULACRO (no se aplica nada)"
 
 if [[ $CHECK_ONLY -eq 0 && $DRY_RUN -eq 0 && $ASSUME_YES -eq 0 ]]; then
-  confirmar "¿Actualizar el sistema ahora?" || { warn "cancelado"; exit 0; }
+  confirmar "¿Actualizar el sistema ahora?" || { warn "cancelado (no se aplicó nada)"; exit 1; }
 fi
 
-[[ $DO_SISTEMA   -eq 1 ]] && update_sistema
-[[ $DO_RUSTDESK  -eq 1 ]] && update_rustdesk
-[[ $DO_TAILSCALE -eq 1 ]] && update_tailscale
-[[ $CHECK_ONLY   -eq 0 && $DRY_RUN -eq 0 ]] && verificar
+# El flujo NO debe seguir si un paso falla: si apt/pacman/dnf falla, no tiene
+# sentido (ni es honesto) terminar con "listo" en verde. H-22 es explícito:
+# un fallo silencioso cuesta una visita al cliente.
+RC=0
+if [[ $DO_SISTEMA -eq 1 ]]; then update_sistema || RC=1; fi
+if [[ $DO_RUSTDESK -eq 1 ]]; then update_rustdesk || RC=1; fi
+if [[ $DO_TAILSCALE -eq 1 ]]; then update_tailscale || RC=1; fi
+
+if [[ $RC -ne 0 ]]; then
+  echo
+  err "hubo fallos: revisá la salida de arriba (NO se completó todo)"
+  exit 1
+fi
+
+if [[ $CHECK_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then verificar; fi
 
 echo
 ok "listo. Si algo quedó raro, revisa el log y el repo del kit."

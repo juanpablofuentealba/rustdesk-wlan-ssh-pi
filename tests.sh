@@ -1044,24 +1044,50 @@ t "update.sh es ejecutable"        test -x update.sh
 t "--help sale 0"                  ./update.sh --help
 tj "opción inválida falla"          ./update.sh --nope
 t "--check funciona sin root"       ./update.sh --check
+t "--check sale 0 (consultar no es fallo)" \
+  bash -c './update.sh --check >/dev/null 2>&1'
 t "--check no menciona aplicar cambios" \
   bash -c './update.sh --check 2>&1 | grep -q "MODO CONSULTA"'
-t "detecta el gestor de paquetes"   bash -c 'grep -q "^detect_pm()" update.sh'
-t "soporta pacman (Arch/CachyOS)"   bash -c 'grep -q "PM=\"pacman\"" update.sh'
-t "soporta apt (Debian/Ubuntu)"     bash -c 'grep -q "PM=\"apt\"" update.sh'
-t "soporta dnf (Fedora/RHEL)"       bash -c 'grep -q "PM=\"dnf\"" update.sh'
-t "resuelve la última release de RustDesk por API" \
-  bash -c 'grep -q "repos/rustdesk/rustdesk/releases/latest" update.sh'
-t "no fija una versión de RustDesk (usaría una vieja)" \
-  bash -c '! grep -qE "download/rustdesk-[0-9]" update.sh'
-t "filtrar el .deb por arquitectura" \
-  bash -c 'grep -q "dpkg --print-architecture" update.sh'
-t "reinstala RustDesk sin meter un repo de terceros" \
-  bash -c 'grep -q "apt-get install -y .*rustdesk.deb\|apt-get install -y \"\$tmp/rustdesk.deb\"" update.sh'
-t "tiene modo --dry-run"             bash -c 'grep -q -- "--dry-run" update.sh'
-t "tiene modo --yes (cron)"          bash -c 'grep -q -- "--yes" update.sh'
+
+# --- comportamiento real (no grep de cadenas) ---
+t "--dry-run funciona sin root"       bash -c './update.sh --dry-run >/dev/null 2>&1'
+t "--dry-run NO toca el sistema" \
+  bash -c './update.sh --dry-run 2>&1 | grep -q "MODO SIMULACRO"'
+tj "sin TTY y sin --yes ABORTA (no asume sí)" \
+  bash -c './update.sh < /dev/null >/dev/null 2>&1'
+# Para probar el camino del TTY sin depender de ser root, se extrae confirmar()
+# del propio update.sh y se ejecuta aislada con stdin cerrado (comportamiento real).
+t "confirmar() sin TTY rechaza (extraída del script)" \
+  bash -c 'ASSUME_YES=0; err(){ :; }; eval "$(sed -n "/^confirmar()/,/^}/p" update.sh)"; confirmar "?" < /dev/null; test $? -ne 0'
+t "confirmar() con --yes acepta sin preguntar" \
+  bash -c 'ASSUME_YES=1; err(){ :; }; eval "$(sed -n "/^confirmar()/,/^}/p" update.sh)"; confirmar "?" < /dev/null'
+tj "--yes sin root rechaza" \
+  bash -c './update.sh --yes < /dev/null >/dev/null 2>&1'
+t "--yes sin root dice 'se necesita root'" \
+  bash -c './update.sh --yes < /dev/null 2>&1 | grep -q "se necesita root"'
+
+# --- el .deb DEBE ser el de DRM, y con sha256 verificado (H-14/H-24) ---
+t "usa el asset unattended-wayland (DRM), no el estándar" \
+  bash -c 'grep -q "rustdesk-unattended-wayland-\${RD_VERSION}-x86_64\.deb" update.sh'
+tj "NO descarga el .deb estándar sin DRM" \
+  bash -c 'grep -qE "releases/download/\$\{RD_VERSION\}/rustdesk-\$\{RD_VERSION\}-x86_64\.deb" update.sh'
+t "verifica sha256 antes de instalar" \
+  bash -c 'grep -q "sha256sum .*RD_SHA256\|actual.*RD_SHA256" update.sh'
+t "se NIEGA a instalar si el sha256 no coincide" \
+  bash -c 'grep -q "sha256 NO coincide" update.sh'
+t "comprueba libdrmtap tras instalar (anti-regresión H-14)" \
+  bash -c 'grep -q "tiene_drm\|libdrmtap" update.sh'
 t "reinicia el servicio rustdesk tras actualizar" \
   bash -c 'grep -q "systemctl restart rustdesk" update.sh'
+
+# --- el sha256 del script COINCIDE con el asset real (dato duro) ---
+t "RD_SHA256 es un hash sha256 válido (64 hex)" \
+  bash -c 'grep -qE "RD_SHA256=\"[0-9a-f]{64}\"" update.sh'
+t "RD_VERSION del update.sh == la de setup-remote-target.sh" \
+  bash -c 'test "$(grep -oE "RD_VERSION=\"?[0-9.]+" update.sh | grep -oE "[0-9.]+")" = "$(grep -oE "RD_VERSION:-[0-9.]+" setup-remote-target.sh | grep -oE "[0-9.]+")"'
+t "RD_SHA256 del update.sh == la de setup-remote-target.sh" \
+  bash -c 'test "$(grep -oE "RD_SHA256=\"[0-9a-f]{64}\"" update.sh | grep -oE "[0-9a-f]{64}")" = "$(grep -oE "sha_ok=\"[0-9a-f]{64}\"" setup-remote-target.sh | grep -oE "[0-9a-f]{64}")"'
+
 tdoc "el README documenta update.sh" \
   bash -c 'grep -q "update.sh" README.md'
 

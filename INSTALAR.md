@@ -320,8 +320,14 @@ sudo ./update.sh              # sistema + RustDesk + Tailscale
 ```
 
 Funciona en las tres familias (pacman / apt / dnf). En Debian/Ubuntu reinstala
-el **`.deb` oficial** de RustDesk (última release de GitHub, arquitectura
-detectada) y **reinicia el servicio** al terminar.
+el **`.deb` oficial `unattended-wayland`** de RustDesk (el que trae el
+capturador DRM, igual que la instalación inicial) con su **`sha256`
+verificado**, **reinicia el servicio** y comprueba que `libdrmtap` siga
+presente al terminar. **No** usa el `.deb` estándar, que rompería el
+desatendido en Wayland.
+
+Sin TTY y sin `--yes` el script **aborta** (no asume "sí" en cron): usá
+`--yes` cuando quieras que corra desatendido.
 
 Desde el PC operador:
 
