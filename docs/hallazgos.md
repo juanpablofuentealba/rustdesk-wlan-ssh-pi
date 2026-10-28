@@ -1538,3 +1538,138 @@ Los hallazgos están cubiertos por pruebas ejecutables:
 Para los hallazgos de comportamiento profundo (sobrevivir a un reinicio real),
 la verificación es la prueba de reinicio descrita arriba: reiniciar el equipo y
 comprobar que todo vuelve.
+
+---
+
+## H-33 — Inyección en `/etc/sudoers.d` vía `--user` (reboot-remoto.sh)
+
+**Síntoma:** ninguno visible. El script funciona bien con nombres normales. El
+problema aparece solo si el nombre de usuario trae una comilla simple.
+
+**Causa:** `USER_RULE` (de `--user`, o deducido de `${HOST%@*}`) se interpolaba
+directo dentro de un heredoc que escribe en `/etc/sudoers.d/99-reboot`:
+
+```bash
+printf '%s\n' '$(printf "$SUDO_RULE_TMPL" "$USER_RULE")' | sudo tee "$SUDOERS_FILE"
+```
+
+Con un valor como:
+
+```bash
+./reboot-remoto.sh --host "evil@1.2.3.4" --user "evil' ALL=(ALL) NOPASSWD: ALL #" --enable
+```
+
+el archivo que se escribía era:
+
+```
+evil ALL=(ALL) NOPASSWD: ALL # ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, ...
+```
+
+Es decir: **sudo total sin contraseña**, y `visudo -cf` lo valida como
+sintaxis correcta (no lo detecta).
+
+**Vector real:** limitado — el operador controla `--user` y el heredoc corre
+sobre una sesión SSH ya autenticada con TTY. Pero (a) rompe con cualquier
+nombre con comilla y (b) es defensa en profundidad: un `--host` mal escrito o
+un nombre exótico no debe poder inyectar reglas de sudo.
+
+**Solución:**
+
+1. Validar el nombre contra un patrón POSIX antes de usarlo:
+   ```bash
+   [[ "$USER_RULE" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo "usuario invalido" >&2; exit 2; }
+   ```
+2. Pasar el usuario **como argumento** al heredoc (`rsh_tty -- "$rule" "$file"`)
+   y leerlo con `"$1"` dentro, en vez de interpolarlo en el texto. Así una
+   comilla no rompe el quoting ni inyecta líneas.
+
+**Verificación:** `tests.sh` sección **H-33** (rechaza comilla/espacios, exige
+que el usuario llegue como argumento).
+
+**Lección:** nunca interpolar datos externos dentro de un heredoc que escribe
+en sudoers (ni en ningún archivo de config privilegiado). Pasalos como
+argumento o por stdin, y validalos antes.
+
+---
+
+## H-34 — `--authkey` avisaba tarde (AUTHKEY_POR_ARGV muerta)
+
+**Síntoma:** ninguno. El script instalaba igual.
+
+**Causa:** el commit `ea87efe` introdujo `AUTHKEY_POR_ARGV=1` para avisar cuando
+la auth key viene por `--authkey` (queda en `~/.bash_history` del cliente y es
+visible en `ps` durante toda la instalación). Pero la variable **se asignaba y
+nunca se leía**: el aviso quedó a medias. `unir-tailscale.sh` sí lo hace con su
+`KEY_POR_ARGV`; `instalar-todo.sh` no.
+
+**Solución:** añadir el bloque de aviso tras parsear los argumentos, igual que
+en `unir-tailscale.sh`, sugiriendo `--authkey-stdin`:
+
+```bash
+if [[ $AUTHKEY_POR_ARGV -eq 1 ]]; then
+  warn "--authkey en la linea de comandos queda en el historial y en 'ps'."
+  warn "  Mejor:  printf %s \"tskey-...\" | sudo ./instalar-todo.sh --authkey-stdin ..."
+fi
+```
+
+**Verificación:** `tests.sh` sección **H-34** (usa `AUTHKEY_POR_ARGV`, avisa y
+sugiere el stdin).
+
+**Lección:** si declarás un flag de seguridad, usalo; una variable asignada y
+nunca leída pasa shellcheck (a veces) pero es código muerto que da falsa
+sensación de protección.
+
+---
+
+## H-35 — `printf` sin escapar mostraba mal el consejo de `--key-stdin`
+
+**Síntoma:** el mensaje de aviso de `unir-tailscale.sh` decía:
+
+```
+▲   Mejor:  printf  "$KEY" | ./unir-tailscale.sh --key-stdin
+```
+
+con un **espacio doble** donde debía ir `%s`. El ejemplo impreso no era el
+comando correcto.
+
+**Causa:** la cadena de formato tenía un `%s` literal (parte del ejemplo de
+comando) **sin escapar**, así que `printf` lo interpretó como marcador de
+formato y lo reemplazó por un argumento vacío (SC2183):
+
+```bash
+printf '...Mejor:  printf %s "$KEY" | ./unir-tailscale.sh --key-stdin\n' >&2
+```
+
+**Solución:** escapar el `%s` del ejemplo como `%%s`:
+
+```bash
+printf '...Mejor:  printf %%s "$KEY" | ./unir-tailscale.sh --key-stdin\n' >&2
+```
+
+**Verificación:** `tests.sh` sección **H-35**; y shellcheck 0.10.0 lo marca como
+SC2183.
+
+**Lección:** en `printf`, cualquier `%` que deba mostrarse literal va como `%%`.
+Esto vale sobre todo en mensajes que **enseñan a usar el propio programa**:
+un ejemplo mal impreso confunde más que no darlo.
+
+---
+
+## Nota de CI: shellcheck 0.9.0 no caza H-34/H-35
+
+El job `shellcheck` del CI instala con `apt-get install shellcheck`, que en
+Ubuntu da **0.9.0**. Esa versión **no reporta** SC2034 (variable sin usar) en el
+caso de H-34 ni SC2183 en el de H-35, así que el CI pasa en verde aunque el
+problema exista. Con **shellcheck 0.10.0** el CI falla en ambos.
+
+**Sugerencia:** fijar la versión con el binario estático (reproducible):
+
+```yaml
+- name: shellcheck 0.10.0
+  run: |
+    curl -sL https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz | tar -xJ
+    sudo mv shellcheck-v0.10.0/shellcheck /usr/local/bin/
+```
+
+**Lección:** un linter que sube solo puede quedarse atrás sin que nadie lo note.
+Fijá la versión de las herramientas de CI.

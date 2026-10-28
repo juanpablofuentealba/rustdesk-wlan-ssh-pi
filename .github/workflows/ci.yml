@@ -13,8 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Instalar shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Instalar shellcheck 0.10.0 (versión fija)
+        run: |
+          # Versión FIJA: 'apt-get install shellcheck' da 0.9.0, que no reporta
+          # SC2034 ni SC2183 en los casos que nos interesan (falso verde).
+          curl -sL https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz -o /tmp/sc.tar.xz
+          tar -xJf /tmp/sc.tar.xz -C /tmp
+          sudo mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/shellcheck
+          chmod +x /usr/local/bin/shellcheck
 
       - name: shellcheck de todos los scripts
         run: |
@@ -22,7 +28,7 @@ jobs:
           # Los 'source' relativos no se siguen (los scripts son autocontenidos).
           shellcheck --version
           fail=0
-          for f in *.sh .rd-setpass-root.sh; do
+          for f in ./*.sh ./.rd-setpass-root.sh; do
             echo "── $f"
             shellcheck -S warning -e SC1090,SC1091 "$f" || fail=1
           done
@@ -67,10 +73,14 @@ jobs:
           if grep -rIlE 'BEGIN (OPENSSH|RSA|EC) PRIVATE KEY' --exclude-dir=.git . ; then
             echo "::error::hay una clave privada en el repo"; exit 1
           fi
-          # Las docs llevan un PLACEHOLDER de ejemplo (empieza por 'tskey-auth-k');
-          # no es una clave real. Se ignora cualquier match con ese prefijo falso.
+          # Las auth keys de Tailscale reales empiezan por 'tskey-auth-' y son
+          # largas. Algunos literales de PRUEBA (en tests.sh y la doc) usan ese
+          # prefijo a propósito para verificar el comportamiento del kit: no son
+          # claves reales. Se excluyen por nombre para no dar falso positivo.
+          #   tskey-auth-k1234     (placeholder de la doc)
+          #   tskey-auth-SECRETO999XYZ / tskey-auth-TESTSTDIN (datos de test)
           if grep -rInE 'tskey-auth-[A-Za-z0-9]{10,}' --exclude-dir=.git . \
-             | grep -v 'tskey-auth-k1234' ; then
+             | grep -vE 'tskey-auth-(k1234|SECRETO999XYZ|TESTSTDIN)' ; then
             echo "::error::hay una auth key de Tailscale en el repo"; exit 1
           fi
           echo "✔ sin claves privadas ni auth keys"
