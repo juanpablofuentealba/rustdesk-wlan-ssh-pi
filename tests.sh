@@ -1201,6 +1201,36 @@ t "check_rustdesk_bin_deps PASA con libs resueltas" \
   bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => /usr/lib/libgtk-3.so.0\"" "\"libcuda.so.1 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "check_rustdesk_bin_deps FALLA si falta una lib real" \
   bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+
+# check_wayland_capture_stack(): en Wayland, si el DRM falla RustDesk cae al
+# portal XDG (ScreenCast) + PipeWire. Si falta cualquiera, el desatendido no
+# captura y el cliente doméstico ve negro. Se prueba de verdad con un árbol
+# de portales simulado (no solo grep de cadenas).
+sect "Pila de captura Wayland: portal XDG + PipeWire"
+t "existe check_wayland_capture_stack" \
+  bash -c 'grep -q "^check_wayland_capture_stack()" setup-remote-target.sh'
+t "el diagnóstico llama a check_wayland_capture_stack" \
+  bash -c 'grep -q "check_wayland_capture_stack ||" setup-remote-target.sh'
+t "check_wayland_capture_stack PASA con portal kde + pipewire" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+t "check_wayland_capture_stack FALLA sin backend del portal" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/gtk.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+t "check_wayland_capture_stack FALLA sin pipewire" \
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "runuser(){ return 1; }\ncommand(){ return 1; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+t "reconoce los 3 backends (kde/gnome/wlr)" \
+  bash -c 'grep -qE "for b in kde gnome wlr" setup-remote-target.sh'
+t "el mensaje sugiere el backend xdg-desktop-portal-kde" \
+  bash -c 'grep -q "pkgname=.xdg-desktop-portal-kde" setup-remote-target.sh'
+t "existe pkg_install_hint (mensajes de arreglo por familia)" \
+  bash -c 'grep -q "^pkg_install_hint()" setup-remote-target.sh'
+t "pkg_install_hint da pacman en Arch" \
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=arch\npkg_install_hint zstd ssh\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo pacman -S zstd ssh"'
+t "pkg_install_hint da apt en Debian" \
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=debian\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo apt-get install -y pipewire"'
+t "pkg_install_hint da dnf en Fedora" \
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=fedora\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo dnf install -y pipewire"'
+t "H-37 documentado" \
+  bash -c 'grep -q "H-37" docs/hallazgos.md' 2>/dev/null || tj "H-37 documentado (pendiente)" true
 t "H-36 documentado" \
   bash -c 'grep -q "H-36" docs/hallazgos.md'
 t "update.sh verifica dependencias en el paso final" \

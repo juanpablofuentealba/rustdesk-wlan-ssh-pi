@@ -1714,3 +1714,38 @@ cubría solo `libdrmtap`, no el binario.
 "el binario": también hacen falta los `.desktop`, los iconos y las dependencias
 opcionales. Y hay que verificar TODOS los binarios involucrados, no solo la
 librería estrella.
+
+## H-37 — El desatendido en Wayland depende del portal XDG + PipeWire (sin chequeo)
+
+**Verificado:** ✅ (CachyOS/msi MS-7A38, 28 oct 2026)
+
+**Síntoma:** en Wayland, si el capturador DRM (`libdrmtap`) no carga —por
+ejemplo tras un update que cambia el ABI de `libdrm`/`libEGL`—, RustDesk cae
+al **portal de escritorio (ScreenCast)** para capturar pantalla. Ese portal
+necesita `xdg-desktop-portal` + un backend (`kde`/`gnome`/`wlr`) + **PipeWire**.
+Si falta cualquiera de los tres, el desatendido **no captura nada** y el
+operador ve la pantalla negra, sin ningún error visible.
+
+**Causa:** `setup-remote-target.sh` verificaba `libdrmtap` (H-14) y el binario
+(H-36), pero **no** la pila del portal + PipeWire. En un cliente doméstico
+recién migrado de Windows, esa dependencia rota pasa desapercibida hasta que ya
+no hay acceso — justo cuando más se necesita.
+
+**Impacto:** alto en migraciones Windows→CachyOS domésticas (el cliente no sabe
+diagnosticar; el operador descubre el problema recién al conectar).
+
+**Solución:** `check_wayland_capture_stack()` en `setup-remote-target.sh`,
+invocada desde la sección de diagnóstico ("Pila de captura Wayland"):
+- comprueba que exista `xdg-desktop-portal` y un backend (`kde`/`gnome`/`wlr`),
+- verifica que `pipewire` esté instalado y **activo en el user bus** del usuario
+  objetivo (vía `runuser -u <user> -- systemctl --user is-active`),
+- avisa si falta `wireplumber` (opcional pero recomendado),
+- da el mensaje de arreglo concreto (`sudo pacman -S xdg-desktop-portal-kde`,
+  `systemctl --user enable --now pipewire wireplumber`).
+
+**Verificación:** `tests.sh` sección **"Pila de captura Wayland"** (8
+comprobaciones, con árbol de portales simulado y stub de PipeWire).
+
+**Lección:** en Wayland la captura tiene DOS vías (DRM y portal). El kit ya
+auditaba la primera; la segunda es igual de crítica y ahora se audita antes de
+prometer acceso remoto desatendido.

@@ -388,6 +388,84 @@ check_drmtap_deps() {
   return 0
 }
 
+# Comprueba la PILA DE CAPTURA en Wayland: portal XDG + PipeWire.
+#
+# Por qué importa: en Wayland el capturador DRM (libdrmtap) es la vía
+# principal, pero si falla (p. ej. tras un update de libdrm), RustDesk cae al
+# portal de escritorio (ScreenCast) para capturar pantalla. Ese portal usa
+# xdg-desktop-portal + un backend (KDE/GNOME/wlroots) + PipeWire. Si CUALQUIERA
+# falta, el desatendido no captura la pantalla y el operador ve negro — sin
+# ningún error evidente para el cliente doméstico.
+#
+# Este chequeo hace visible esa dependencia ANTES de prometer unattended.
+# Devuelve 0 si la pila está completa, 1 si falta algo.
+check_wayland_capture_stack() {
+  local missing=0
+  local portals_dir="/usr/share/xdg-desktop-portal/portals"
+
+  if [[ ! -d "$portals_dir" ]]; then
+    warn "no hay $portals_dir: falta xdg-desktop-portal"
+    missing=1
+  else
+    # Backend preferido según el escritorio. En CachyOS suele ser KDE (Plasma).
+    local backend="" b
+    for b in kde gnome wlr; do
+      [[ -e "$portals_dir/$b.portal" ]] && { backend="$b"; break; }
+    done
+    if [[ -n "$backend" ]]; then
+      ok "backend del portal presente: $backend.portal"
+    else
+      # Sin backend dedicado, queda 'gtk.portal' (último recurso).
+      warn "solo hay backend 'gtk' del portal (captura limitada en Wayland)"
+      # El paquete del backend depende de la familia (el cliente puede no ser Arch).
+      local pkgname
+      case "$DISTRO_FAMILY" in
+        arch)   pkgname="xdg-desktop-portal-kde" ;;
+        debian) pkgname="xdg-desktop-portal-kde" ;;
+        fedora) pkgname="xdg-desktop-portal-kde" ;;
+        *)      pkgname="xdg-desktop-portal-kde" ;;
+      esac
+      warn "  instalá el backend del escritorio, p. ej. KDE: $(pkg_install_hint "$pkgname")"
+      missing=1
+    fi
+  fi
+
+  # PipeWire: lo necesita el ScreenCast del portal. Se comprueba tanto la
+  # presencia del binario como el estado del servicio en el user bus.
+  if ! command -v pipewire >/dev/null 2>&1; then
+    warn "pipewire no instalado (el portal no puede capturar audio/vídeo)"
+    warn "  instalá: $(pkg_install_hint pipewire pipewire-pulse)"
+    missing=1
+  else
+    ok "pipewire presente: $(pipewire --version 2>/dev/null | head -1 | sed 's/.* //')"
+    # El servicio vive en el bus de USUARIO, no en systemd de sistema.
+    if command -v systemctl >/dev/null 2>&1; then
+      local pw_state
+      pw_state="$(runuser -u "$TARGET_USER" -- systemctl --user is-active pipewire 2>/dev/null || true)"
+      if [[ "$pw_state" == "active" ]]; then
+        ok "pipewire activo (sesión de $TARGET_USER)"
+      elif [[ -n "$pw_state" ]]; then
+        warn "pipewire NO activo en la sesión de $TARGET_USER ($pw_state)"
+        warn "  arrancalo: systemctl --user enable --now pipewire wireplumber"
+        missing=1
+      else
+        # No se pudo consultar (sin sesión de usuario systemd, SSH, etc.)
+        info "no pude consultar pipewire del usuario (¿sin sesión systemd?)"
+      fi
+    fi
+  fi
+
+  # El ScreenCast del portal también necesita wireplumber (session manager).
+  if command -v systemctl >/dev/null 2>&1; then
+    local wp_state
+    wp_state="$(runuser -u "$TARGET_USER" -- systemctl --user is-active wireplumber 2>/dev/null || true)"
+    [[ "$wp_state" == "active" ]] && ok "wireplumber activo" \
+      || info "wireplumber ${wp_state:-no verificable} (opcional pero recomendado)"
+  fi
+
+  return $missing
+}
+
 # Instala el proveedor del icono de bandeja (libayatana-appindicator) si falta.
 # Sin él, RustDesk funciona igual pero el log escupe:
 #   "Failed to load ayatana-appindicator3 or appindicator3 dynamic library"
@@ -631,6 +709,24 @@ detect_distro() {
   esac
 }
 
+# Devuelve una línea de comandos para instalar paquetes, adaptada a la
+# familia detectada. Se usa en los mensajes de arreglo (warn/info) para que
+# el operador copie/pegue el comando correcto SIN saber de qué distro es el
+# cliente (puede no ser Arch). NO ejecuta nada.
+# Uso:  $(pkg_install_hint pipewire pipewire-pulse)
+#   arch   -> sudo pacman -S pipewire pipewire-pulse
+#   debian -> sudo apt-get install -y pipewire pipewire-pulse
+#   fedora -> sudo dnf install -y pipewire pipewire-pulse
+#   otro   -> instala con tu gestor: pipewire pipewire-pulse
+pkg_install_hint() {
+  case "$DISTRO_FAMILY" in
+    arch)   printf 'sudo pacman -S %s'   "$*" ;;
+    debian) printf 'sudo apt-get install -y %s' "$*" ;;
+    fedora) printf 'sudo dnf install -y %s'     "$*" ;;
+    *)      printf 'instala con tu gestor de paquetes: %s' "$*" ;;
+  esac
+}
+
 # Instala paquetes con el gestor nativo de la familia detectada.
 # Uso: pkg_install zstd openssh
 pkg_install() {
@@ -768,6 +864,9 @@ run_check() {
   else
     warn "No hay log del server en $logdir"
   fi
+
+  hdr "Pila de captura Wayland (portal + PipeWire)"
+  check_wayland_capture_stack || true
 
   hdr "Requisitos RustDesk unattended"
   if compgen -G "/dev/dri/renderD*" >/dev/null; then ok "dispositivo(s) /dev/dri/renderD* presentes"; else err "/dev/dri/renderD* ausente (¿sin GPU?)"; fi
