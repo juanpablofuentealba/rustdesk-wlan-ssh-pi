@@ -398,6 +398,17 @@ t "H-48: verifica el config del usuario (jp)" \
   bash -c 'grep -q "config jp" rustdesk-password.sh && grep -q '\''\$jpcfg'\'' rustdesk-password.sh'
 t "H-48: avisa si sudo pide contraseña en la verificación" \
   bash -c 'grep -q "no se pudo verificar el config de root" rustdesk-password.sh'
+
+sect "H-49: pam_faillock y reintentos de contraseña"
+t "H-49 documentado" bash -c 'grep -q "H-49" docs/hallazgos.md'
+t "H-49 menciona pam_faillock" \
+  bash -c 'grep -q "pam_faillock" docs/hallazgos.md'
+t "H-49 explica el auto-bloqueo por reintentos" \
+  bash -c 'grep -qi "bloquea la autenticaci" docs/hallazgos.md'
+t "H-49 recomienda su para probar credenciales" \
+  bash -c 'grep -q "su -c" docs/hallazgos.md'
+t "H-49 explica faillock --reset" \
+  bash -c 'grep -q "faillock --user" docs/hallazgos.md'
 t "instalar-todo: --sudopass eleva el sudo inicial" \
   bash -c 'grep -q "exec sudo -E bash" instalar-todo.sh'
 t "instalar-todo: avisa de contraseñas debiles" \

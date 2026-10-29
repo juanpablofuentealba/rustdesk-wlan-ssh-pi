@@ -120,7 +120,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | RustDesk con DRM en Fedora/RHEL (desde el `.deb`) · [H-14](docs/hallazgos.md) |
 | [`verify-offlan.sh`](verify-offlan.sh) | Prueba el acceso desde fuera de la LAN |
 | [`inventory.sh`](inventory.sh) | Ficha de specs del equipo (texto/JSON/Markdown) |
-| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**600**) |
+| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**605**) |
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
 | [`windows/`](windows/) | **Kit para Windows 10/11**: `setup-remote-target.ps1`, `inventory.ps1`, `rustdesk-password.ps1` · [H-45..H-47](docs/hallazgos.md) |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
@@ -137,7 +137,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-48: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-49: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/estado-sesion.md`](docs/estado-sesion.md) | Estado del trabajo, para retomar |

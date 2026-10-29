@@ -2188,3 +2188,47 @@ verificación, dando la falsa impresión de error.
 relojería si el host puede tener fish. La regla del kit (H-23) es **siempre**
 `printf '%s\n' "$SCRIPT" | ssh host bash -s`, y la primera verificación
 remota hay que hacerla **en un host con fish** para cazarlo.
+
+---
+
+## H-49 — `pam_faillock` convierte los reintentos de contraseña de sudo en un auto-bloqueo (trampa para agentes)
+
+**Verificado:** ✅ (prueba real contra el MSI, 29-oct-2026)
+
+Síntoma: un agente intenta una operación con `sudo -S` y la contraseña que el
+usuario **sabe correcta** es rechazada una y otra vez. Al probar variantes
+(`krishna`, `Krishna`, `krishna1`…), todas fallan; el agente concluye
+erróneamente que "la contraseña cambió".
+
+**Causa real:** `pam_faillock` cuenta los fallos y **bloquea la autenticación
+sudo del usuario** tras 3 intentos. A partir del bloqueo, **incluso la
+contraseña correcta es rechazada**, formando un bucle de falsos negativos. En
+los logs:
+
+```
+pam_faillock(sudo:auth): User jp is temporarily locked out due to 3 consecutive failed login attempts
+pam_unix(sudo:auth): auth could not identify password for [jp]
+```
+
+Detalle clave: el bloqueo aplica a **sudo** (el stack PAM de `sudo`), pero
+`su` usa un stack distinto **sin faillock** → `su` sigue aceptando la
+contraseña correcta. Eso permite **diagnosticar y desbloquear**:
+
+```bash
+printf '%s\n' 'LA_CONTRASEÑA' | su -c 'id'          # ¿es correcta? (salta faillock)
+printf '%s\n' 'LA_CONTRASEÑA' | su -c 'faillock --user jp --reset'
+```
+
+**Solución / reglas para agentes:**
+
+1. **No reintentar a ciegas** con `sudo -S`: cada fallo acerca el bloqueo.
+2. Verificar una contraseña con **`su -c`** (no toca faillock) o con
+   `sudo -A` una sola vez.
+3. Si sudo empieza a rechazar algo que "debería" funcionar, **comprobar
+   `faillock --user <u>`** antes de dudar de la contraseña.
+4. Desbloquear con `faillock --user <u> --reset` (vía `su` o desde consola).
+
+**Lección:** "contraseña incorrecta" puede significar en realidad **"cuenta
+bloqueada"**. Un agente que martillea `sudo` se autobloquea y se engaña a sí
+mismo. Probar credenciales por un camino que **no cuente fallos** (`su`) y
+mirar los logs de PAM antes de sacar conclusiones.

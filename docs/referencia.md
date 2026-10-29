@@ -299,7 +299,7 @@ Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
-./tests.sh                      # ~600 comprobaciones locales
+./tests.sh                      # ~605 comprobaciones locales
 ./tests.sh USUARIO@192.168.1.20 # + los hallazgos contra un host real (~462)
 ```
 
