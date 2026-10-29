@@ -1837,3 +1837,47 @@ ahora da un error claro en dos líneas, sin la traza confusa.
 mensaje como "variable sin asignar" hace perder minutos; "contraseña de sudo
 incorrecta, verificala así" resuelve el problema. Y los traps con `set -u` y
 variables `local` son una trampa clásica.
+
+---
+
+## H-37 — El portapapeles por SSH fallaba en un guest con fish (y con Wayland sin env)
+
+**Verificado:** ✅ (HP → MSI CachyOS/Wayland, 28 oct 2026)
+
+**Síntoma:** `clip-vm.sh put` (host → guest) devolvía:
+
+```
+fish: Uso no soportado de '='. En fish, utiliza 'set f "$(mktemp)"'.
+Aviso: falló el envío al guest (rc=127)
+```
+
+El portapapeles entre host y guest no se propagaba.
+
+**Causa (dos capas):**
+
+1. **Bash suelto por SSH a un guest con fish (H-23).** La rama `put` mandaba un
+   script bash sin `bash -s`; el shell del guest (fish) lo interpretaba y
+   `f="$(mktemp)"` es inválido en fish.
+2. **`WAYLAND_DISPLAY` vacío por SSH.** Aunque se arregle lo anterior,
+   `wl-copy`/`wl-paste` fallan con *"Failed to connect to a Wayland server"*
+   porque por SSH no se hereda la sesión gráfica. El socket **no es fijo**:
+   KDE suele usar `wayland-1`, no `wayland-0`.
+
+Un tercer detalle: `wl-copy` queda **residente** sirviendo el portapapeles; si
+se lanza en primer plano, el script parece colgado.
+
+**Solución (en `clip-vm.sh`):**
+- Mandar todo script al guest con **`bash -s`** (nunca bash suelto).
+- `guest_env()`: descubrir el entorno gráfico del guest — `XDG_RUNTIME_DIR` y
+  el socket Wayland real (`/run/user/<uid>/wayland-*`, priorizando
+  `wayland-1`). Exportarlos en `get`, `put` y `show`.
+- Lanzar `wl-copy` con **`nohup ... &` + `disown`** tanto en el `get` (host)
+  como en el `put` (guest) para no bloquear.
+
+**Verificación:** `tests.sh` sección **clip-vm.sh** (11 comprobaciones) y prueba
+real HP↔MSI en ambas direcciones.
+
+**Lección:** un puente por SSH hacia un guest Wayland necesita **el entorno
+gráfico explícito** (runtime dir + socket), no basta con `wl-clipboard`. Y el
+nombre del socket Wayland no es portable: hay que descubrirlo, no asumir
+`wayland-0`.
