@@ -60,6 +60,31 @@ guest_has_wl() {
   ssh -o BatchMode=yes "$TARGET" 'command -v wl-copy >/dev/null 2>&1' 2>/dev/null
 }
 
+# Descubre el entorno gráfico del guest. Por SSH, WAYLAND_DISPLAY suele venir
+# VACÍO (no se hereda la sesión gráfica), así que wl-copy/wl-paste fallan con
+# "Failed to connect to a Wayland server". Hay que reconstruirlo:
+#   - WAYLAND_DISPLAY: el socket real (wayland-0, wayland-1, ...).
+#   - XDG_RUNTIME_DIR: /run/user/<uid>.
+# El nombre del socket no es fijo: KDE suele usar wayland-1. Se deduce del
+# sistema de archivos del guest (primer /run/user/<uid>/wayland-*).
+guest_env() {
+  ssh -o BatchMode=yes "$TARGET" 'bash -s' 2>/dev/null <<'REMOTE'
+uid="$(id -u)"
+rt="${XDG_RUNTIME_DIR:-/run/user/$uid}"
+wd="${WAYLAND_DISPLAY:-}"
+# Si no hay WAYLAND_DISPLAY, elegir el socket disponible (preferir wayland-1,0).
+if [ -z "$wd" ] || [ ! -S "$rt/$wd" ]; then
+  for s in "$rt"/wayland-*; do
+    [ -S "$s" ] || continue
+    case "$s" in *.lock) continue ;; esac
+    wd="$(basename "$s")"
+    case "$wd" in wayland-1) break ;; esac
+  done
+fi
+printf 'XDG_RUNTIME_DIR=%s WAYLAND_DISPLAY=%s\n' "$rt" "$wd"
+REMOTE
+}
+
 check_all() {
   need wl-copy
   need wl-paste
@@ -73,6 +98,24 @@ check_all() {
     echo "  Instálalo: ssh $TARGET 'sudo dnf install -y wl-clipboard'" >&2
     exit 1
   fi
+  # Entorno gráfico del guest (WAYLAND_DISPLAY vacío por SSH es lo normal).
+  local env
+  env="$(guest_env)" || env=""
+  if [[ -n "$env" ]]; then
+    # Formato: XDG_RUNTIME_DIR=... WAYLAND_DISPLAY=...  -> exportar una a una.
+    local k v
+    for pair in $env; do
+      k="${pair%%=*}"; v="${pair#*=}"
+      case "$k" in
+        XDG_RUNTIME_DIR|WAYLAND_DISPLAY) export "$k=$v" ;;
+      esac
+    done
+    say "entorno del guest: $env"
+  fi
+  if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+    echo "Aviso: no pude detectar WAYLAND_DISPLAY en el guest." >&2
+    echo "  ¿Hay sesión gráfica activa en $TARGET? El portapapeles la necesita." >&2
+  fi
 }
 
 case "$CMD" in
@@ -85,7 +128,16 @@ case "$CMD" in
     check_all
     say "leyendo portapapeles de $TARGET..."
     tmp="$(mktemp)"
-    if ! ssh -o BatchMode=yes "$TARGET" 'wl-paste' >"$tmp" 2>/dev/null; then
+    # wl-paste necesita el entorno Wayland del guest (WAYLAND_DISPLAY), que por
+    # SSH no se hereda: se pasa explícitamente con 'bash -s' y export.
+    # shellcheck disable=SC2087  # queremos expandir WAYLAND_DISPLAY en el cliente
+    if ! ssh -o BatchMode=yes "$TARGET" 'bash -s' >"$tmp" 2>/dev/null <<REMOTE
+set -e
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/\$(id -u)}"
+export WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+wl-paste
+REMOTE
+    then
       rm -f "$tmp"
       echo "Error: falló wl-paste en el guest" >&2
       exit 1
@@ -96,7 +148,11 @@ case "$CMD" in
       exit 1
     fi
     say "copiado al portapapeles del host ($(wc -c <"$tmp") bytes)"
-    wl-copy <"$tmp"
+    # wl-copy queda RESIDENTE sirviendo el portapapeles. Si se lanza en primer
+    # plano, el script no termina (parece colgado). Se lanza en segundo plano
+    # con nohup + disown; el proceso sobrevive y sirve el contenido.
+    nohup wl-copy <"$tmp" >/dev/null 2>&1 &
+    disown 2>/dev/null || true
     rm -f "$tmp"
     echo "OK: portapapeles del guest → host"
     ;;
@@ -118,21 +174,31 @@ case "$CMD" in
       exit 1
     fi
     say "enviando a $TARGET ($(wc -c <"$tmp") bytes)"
-    # wl-copy se queda RESIDENTE sirviendo el portapapeles. Si se lanza en
-    # primer plano por SSH, el comando NO termina nunca. Se guarda el contenido
-    # en un archivo del guest y se lanza desacoplado con nohup + disown,
-    # heredando el stdin desde ese archivo. Asi el SSH cierra con exit 0.
-    timeout 20 ssh -o BatchMode=yes "$TARGET" '
-      f="$(mktemp)"
-      cat > "$f"
-      pkill -u "$(id -u)" -x wl-copy 2>/dev/null || true
-      sleep 0.2
-      nohup wl-copy < "$f" >/dev/null 2>&1 &
-      disown 2>/dev/null || true
-      sleep 0.8
-      rm -f "$f"
-      exit 0
-    ' <"$tmp"
+    # El shell del guest puede ser fish: NO se le puede mandar un script bash
+    # suelto por SSH (lo interpretaría fish y fallaría; ver H-23). Se construye
+    # un script bash AUTOCONTENIDO con el contenido codificado en base64 y se
+    # envía con 'bash -s'. Así el stdin lleva el propio script (no el contenido)
+    # y no hay conflicto.
+    #
+    # wl-copy se queda RESIDENTE sirviendo el portapapeles; si se lanza en
+    # primer plano por SSH, el comando NO termina. Se guarda el contenido en un
+    # archivo del guest y se lanza desacoplado con nohup + disown, de modo que
+    # el SSH cierra con exit 0.
+    b64="$(base64 -w0 <"$tmp")"
+    timeout 20 ssh -o BatchMode=yes "$TARGET" 'bash -s' <<REMOTE
+set -e
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/\$(id -u)}"
+export WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+f="\$(mktemp)"
+printf '%s' '$b64' | base64 -d > "\$f"
+pkill -u "\$(id -u)" -x wl-copy 2>/dev/null || true
+sleep 0.2
+nohup wl-copy < "\$f" >/dev/null 2>&1 &
+disown 2>/dev/null || true
+sleep 0.8
+rm -f "\$f"
+exit 0
+REMOTE
     rc=$?
     rm -f "$tmp"
     if [[ $rc -ne 0 ]]; then
@@ -145,7 +211,13 @@ case "$CMD" in
   show)
     # Solo lectura: qué hay en el portapapeles de la VM.
     check_all
-    out="$(ssh -o BatchMode=yes "$TARGET" 'wl-paste' 2>/dev/null)"
+    # shellcheck disable=SC2087  # queremos expandir WAYLAND_DISPLAY en el cliente
+    out="$(ssh -o BatchMode=yes "$TARGET" 'bash -s' 2>/dev/null <<REMOTE
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/\$(id -u)}"
+export WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+wl-paste
+REMOTE
+)"
     if [[ -z "$out" ]]; then
       echo "(portapapeles del guest vacío)"
     else

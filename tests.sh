@@ -651,6 +651,20 @@ t "README enlaza agente-operador" \
 t "AGENTS.md enlaza agente-operador" \
   bash -c 'grep -q "agente-operador.md" AGENTS.md'
 
+sect "Caso real (docs/caso-real-msi.md)"
+t "existe docs/caso-real-msi.md" \
+  bash -c 'test -f docs/caso-real-msi.md'
+t "documenta que se instaló con el kit (libdrmtap)" \
+  bash -c 'grep -q "libdrmtap" docs/caso-real-msi.md'
+t "incluye la verificación por boot_id" \
+  bash -c 'grep -q "boot_id" docs/caso-real-msi.md'
+t "menciona el bloqueo de sudo como cuello de botella" \
+  bash -c 'grep -qi "sudo" docs/caso-real-msi.md'
+t "usa pactree -r antes de desinstalar metapaquetes" \
+  bash -c 'grep -q "pactree -r" docs/caso-real-msi.md'
+t "README enlaza el caso real" \
+  bash -c 'grep -q "caso-real-msi.md" README.md'
+
 sect "Las pruebas nuevas están en TODOS los documentos"
 t "INSTALAR.md documenta la prueba de reinicio" \
   bash -c 'grep -q "reboot-remoto.sh" INSTALAR.md'
@@ -976,6 +990,16 @@ t "clip-vm documenta por que existe (vdagent Wayland)" \
   bash -c 'grep -qi "spice-vdagent\|vdagent" clip-vm.sh'
 t "clip-vm soporta get|put|show" \
   bash -c 'for c in get put show; do grep -q "$c)" clip-vm.sh || exit 1; done'
+t "clip-vm manda bash -s (el guest puede ser fish, H-23)" \
+  bash -c 'grep -q "bash -s" clip-vm.sh'
+t "clip-vm define guest_env (descubre WAYLAND_DISPLAY)" \
+  bash -c 'grep -q "^guest_env()" clip-vm.sh'
+t "clip-vm detecta el entorno Wayland del guest" \
+  bash -c 'grep -q "guest_env" clip-vm.sh'
+t "clip-vm exporta WAYLAND_DISPLAY en los 3 comandos" \
+  bash -c 'n=$(grep -c "export WAYLAND_DISPLAY" clip-vm.sh); test "$n" -ge 3'
+t "clip-vm desacopla tambien el wl-copy del get (no cuelga)" \
+  bash -c 'awk "/^  get\)/,/^  ;;/" clip-vm.sh | grep -q "nohup wl-copy"'
 
 sect "Hallazgo H-09 (MagicDNS / resolved-NM)"
 tdoc "docs/hallazgos.md documenta H-09" bash -c 'grep -q "H-09" docs/hallazgos.md'

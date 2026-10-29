@@ -123,6 +123,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
 | [`docs/agente-operador.md`](docs/agente-operador.md) | Agente IA como **operador** remoto: flujos y reglas para mantener clientes |
+| [`docs/caso-real-msi.md`](docs/caso-real-msi.md) | **Caso real**: instalación y mantención de punta a punta en un cliente de trabajo |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen |
 | [`REPO.txt`](REPO.txt) | Este repositorio: URL, uso rápido, índice |
