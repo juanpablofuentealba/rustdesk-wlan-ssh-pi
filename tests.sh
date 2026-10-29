@@ -1390,6 +1390,15 @@ t "H-44 enlaza con H-42 (machine-id)" \
 # --- Kit Windows: sintaxis real con pwsh (si está disponible) ---
 # H-50: se cazó un `}` sobrante en inventory.ps1 que rompía el script por
 # completo. Si pwsh está instalado, se valida la SINTAXIS de verdad, no grep.
+sect "Kit Windows: encoding (BOM UTF-8 para PowerShell 5.1)"
+# H-51: Windows PowerShell 5.1 (el que trae Windows) lee los .ps1 como ANSI si
+# no tienen BOM UTF-8. Con caracteres no-ASCII (—, á, é, box-drawing) el parser
+# revienta con "Token '}' inesperado". Los .ps1 DEBEN llevar BOM UTF-8.
+for f in windows/setup-remote-target.ps1 windows/inventory.ps1 windows/rustdesk-password.ps1 windows/diagnostico.ps1; do
+  t "BOM UTF-8 presente: $(basename "$f")" \
+    bash -c "head -c 3 '$f' | od -An -tx1 | grep -qi 'ef bb bf'"
+done
+
 sect "Kit Windows: sintaxis (pwsh)"
 PWSH=""
 for cand in pwsh "$HOME/.local/opt/pwsh/pwsh"; do

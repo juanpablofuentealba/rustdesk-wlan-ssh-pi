@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   setup-remote-target.ps1 — Prepara un PC con Windows para soporte remoto.
 

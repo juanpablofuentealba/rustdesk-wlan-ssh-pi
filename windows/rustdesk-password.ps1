@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   rustdesk-password.ps1 — Fija la contraseña permanente de RustDesk en Windows.
 
