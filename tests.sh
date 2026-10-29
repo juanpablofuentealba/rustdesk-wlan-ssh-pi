@@ -410,6 +410,21 @@ t "H-15 rechaza password vacía" \
 t "H-15 el repo no contiene la contraseña de prueba" \
   bash -c '! grep -rq "Prueba-Unattended" README.md docs/ setup-remote-target.sh install-rustdesk-unattended-fedora.sh rustdesk-password.sh .rd-setpass-root.sh 2>/dev/null'
 
+# H-39: manejo de error de rustdesk-password.sh. Salió de probarlo contra un
+# cliente real cuyo sudo pedía contraseña: el script fallaba con un confuso
+# 'target: variable sin asignar' en vez de decir que la contraseña era mala.
+sect "H-39 rustdesk-password.sh: manejo de error del modo remoto"
+t "H-39 la rama REMOTA detecta el fallo de sudo (|| { err ...; return 1; })" \
+  bash -c 'grep -q "falló la escritura de la config remota" rustdesk-password.sh'
+t "H-39 el mensaje sugiere verificar la contraseña de sudo" \
+  bash -c 'grep -q "¿contraseña de sudo incorrecta?" rustdesk-password.sh'
+t "H-39 el trap incrusta el valor de target al definirlo (printf %q)" \
+  bash -c 'grep -q "trap \"ssh.*printf.*%q.*\$target" rustdesk-password.sh'
+t "H-39 el trap ya no referencia \$target diferido (que rompía con set -u)" \
+  bash -c '! grep -qE "trap .ssh.*\"\$target\".* EXIT" rustdesk-password.sh'
+t "H-39 documentado" \
+  bash -c 'grep -q "H-39" docs/hallazgos.md'
+
 sect "instalar-todo.sh (un solo comando)"
 t "bash -n instalar-todo.sh"   bash -n instalar-todo.sh
 t "es ejecutable"              test -x instalar-todo.sh

@@ -222,13 +222,23 @@ install_remote() {
     scp -q -o BatchMode=yes "$helper" "$target:/tmp/rd-setpass-root.sh"
     # Trap: si algo falla de aquí en adelante (sudo mal, corte de red), el
     # helper no debe quedar en el /tmp del cliente.
-    trap 'ssh -o BatchMode=yes "$target" "rm -f /tmp/rd-setpass-root.sh" 2>/dev/null || true' EXIT
+    # OJO: $target es 'local' de esta función; el trap EXIT corre al SALIR, con
+    # la función ya desmontada. Hay que incrustar el valor AHORA (no diferir el
+    # "$target"), o con set -u revienta con "target: variable sin asignar".
+    # shellcheck disable=SC2064
+    trap "ssh -o BatchMode=yes $(printf '%q' "$target") 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true" EXIT
     if [[ -n "$sudo_pass" ]]; then
       printf '%s\n%s\n%s\n' "$sudo_pass" "$salt" "$storage" | \
-        ssh -o BatchMode=yes "$target" "sudo -S -p '' bash /tmp/rd-setpass-root.sh --stdin-with-pass"
+        ssh -o BatchMode=yes "$target" "sudo -S -p '' bash /tmp/rd-setpass-root.sh --stdin-with-pass" \
+        || { err "falló la escritura de la config remota (¿contraseña de sudo incorrecta?)"; \
+             err "  verificala a mano:  ssh $target 'sudo true'"; \
+             ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true; return 1; }
     else
       printf '%s\n%s\n' "$salt" "$storage" | \
-        ssh -o BatchMode=yes "$target" "sudo -n bash /tmp/rd-setpass-root.sh --stdin"
+        ssh -o BatchMode=yes "$target" "sudo -n bash /tmp/rd-setpass-root.sh --stdin" \
+        || { err "falló la escritura de la config remota (¿sudo NOPASSWD no configurado?)"; \
+             err "  probá con:  SUDO_PASS='clave' $0 install $target <password>"; \
+             ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true; return 1; }
     fi
     # Limpiar SIEMPRE el helper del /tmp del objetivo, aunque sudo fallara:
     # aquí (caso normal) y en el trap de salida (casos de error).

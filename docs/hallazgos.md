@@ -1796,3 +1796,44 @@ aparecían como discos basura en el inventario. Ahora se filtran.
 doméstico casi siempre está **en español** y con software que uno no eligió.
 Forzar `LC_ALL=C` al parsear herramientas del sistema y avisar de agentes
 remotos ajenos son dos defensas que solo aparecen probando en el mundo real.
+
+## H-39 — `rustdesk-password.sh` fallaba con error confuso al no poder usar sudo
+
+**Verificado:** ✅ (probado contra cliente real/msi, 28 oct 2026)
+
+**Síntoma:** al rotar la contraseña de RustDesk en un cliente donde `sudo`
+pedía contraseña (o la dada era incorrecta), el script terminaba con:
+
+```
+sudo: 3 incorrect password attempts
+./rustdesk-password.sh: línea 1: target: variable sin asignar
+```
+
+Un mensaje **inútil**: no decía ni que la contraseña de sudo era incorrecta ni
+qué hacer. El operador quedaba a ciegas.
+
+**Causa:** dos defectos en `install_remote`:
+
+1. La rama **REMOTO** del bloque de escritura de config **no** tenía
+   `|| { err ...; return 1; }` (la rama **LOCAL** sí). Al fallar sudo, el script
+   seguía adelante en vez de abortar con un mensaje claro.
+2. El `trap ... EXIT` de limpieza del helper referenciaba `$target`, que es
+   `local` de la función. El trap corre al **salir** de la función, cuando
+   `$target` ya no existe → con `set -u` explotaba con "variable sin asignar",
+   tapando el error real.
+
+**Solución:**
+- Añadir manejo de error en la rama remota, con mensajes que distinguen
+  "contraseña de sudo incorrecta" (con `SUDO_PASS`) de "sudo NOPASSWD no
+  configurado", y que sugieren cómo verificarlo (`ssh host 'sudo true'`).
+- Incrustar el valor de `$target` en el trap al **definirlo**
+  (`printf '%q' "$target"`), no diferir la expansión.
+
+**Verificación:** `tests.sh` sección **H-39**.
+**Probado en vivo** contra el cliente real (sudo con contraseña desconocida):
+ahora da un error claro en dos líneas, sin la traza confusa.
+
+**Lección:** un buen manejo de error no es cosmético. En soporte remoto, un
+mensaje como "variable sin asignar" hace perder minutos; "contraseña de sudo
+incorrecta, verificala así" resuelve el problema. Y los traps con `set -u` y
+variables `local` son una trampa clásica.
