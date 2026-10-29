@@ -960,6 +960,29 @@ run_check() {
     info "sin batería/tapa: parece un equipo de escritorio o VM (no aplica)"
   fi
 
+  hdr "Otros agentes de acceso remoto (H-38)"
+  # Dos agentes de control remoto pueden competir por la captura en Wayland
+  # (uinput/DRM/portal de ScreenCast): uno captura, el otro ve negro. Avisar
+  # si hay otros agentes además de RustDesk, sin tocarlos.
+  local agents="" a
+  for a in dwagent anydesk teamviewer chrome-remote-desktop xrdp vncserver tigervnc guacamole; do
+    if systemctl list-unit-files "${a}.service" >/dev/null 2>&1 \
+       && systemctl is-active --quiet "${a}" 2>/dev/null; then
+      agents="$agents $a"
+    fi
+  done
+  # Processo sueltos por nombre (cubre instalaciones sin unidad systemd).
+  for a in anydesk teamviewer; do
+    pgrep -x "$a" >/dev/null 2>&1 && [[ "$agents" != *" $a"* ]] && agents="$agents $a"
+  done
+  if [[ -n "$agents" ]]; then
+    warn "hay otros agentes de acceso remoto ACTIVOS:$agents"
+    warn "  pueden competir con RustDesk por la captura (uinput/DRM/portal)"
+    warn "  si RustDesk ve negro, probá detener uno de ellos y reconectar"
+  else
+    ok "sin otros agentes de acceso remoto detectados (RustDesk queda solo)"
+  fi
+
   hdr "Dependencias que suelen faltar"
   if command -v curl >/dev/null 2>&1; then ok "curl presente"
   else warn "FALTA curl (necesario para descargar el .deb oficial de RustDesk)"; fi

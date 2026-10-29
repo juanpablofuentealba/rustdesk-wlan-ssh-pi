@@ -1230,7 +1230,28 @@ t "pkg_install_hint da apt en Debian" \
 t "pkg_install_hint da dnf en Fedora" \
   bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=fedora\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo dnf install -y pipewire"'
 t "H-37 documentado" \
-  bash -c 'grep -q "H-37" docs/hallazgos.md' 2>/dev/null || tj "H-37 documentado (pendiente)" true
+  bash -c 'grep -q "H-37" docs/hallazgos.md'
+
+# H-38: aviso de otros agentes de acceso remoto (dwagent/anydesk/...) y filtro
+# de discos de tamaño 0 en el inventario. Ambos salieron de la prueba real
+# contra un cliente (msi con DWAgent activo + locales es_ES).
+sect "H-38: otros agentes de acceso remoto + inventario robusto a locale"
+t "setup-remote-target avisa de otros agentes de acceso remoto" \
+  bash -c 'grep -q "Otros agentes de acceso remoto" setup-remote-target.sh'
+t "cubre dwagent, anydesk, teamviewer, etc." \
+  bash -c 'grep -q "dwagent anydesk teamviewer chrome-remote-desktop" setup-remote-target.sh'
+t "detecta procesos sueltos (no solo unidades systemd)" \
+  bash -c 'grep -q "pgrep -x" setup-remote-target.sh'
+t "avisa de conflicto por la captura (uinput/DRM/portal)" \
+  bash -c 'grep -q "competir con RustDesk por la captura" setup-remote-target.sh'
+t "inventory.sh fuerza LC_ALL=C (locale del cliente puede no ser inglés)" \
+  bash -c 'test "$(grep -c "LC_ALL=C" inventory.sh)" -ge 5'
+t "inventory.sh filtra discos de tamaño 0 (lectores vacíos)" \
+  bash -c 'grep -q "0B" inventory.sh && grep -q "2>/dev/null | grep -vE" inventory.sh'
+t "inventory.sh tiene fallback a /proc/cpuinfo para la CPU" \
+  bash -c 'grep -q "/proc/cpuinfo" inventory.sh'
+t "H-38 documentado" \
+  bash -c 'grep -q "H-38" docs/hallazgos.md'
 t "H-36 documentado" \
   bash -c 'grep -q "H-36" docs/hallazgos.md'
 t "update.sh verifica dependencias en el paso final" \
