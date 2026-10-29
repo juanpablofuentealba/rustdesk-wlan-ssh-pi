@@ -1352,6 +1352,21 @@ tdoc "el README lista hallazgos hasta H-43" \
 t "operador-multiple describe la lista fija de OPERADORES" \
   bash -c 'grep -q "set -l OPERADORES" docs/operador-multiple.md'
 
+# --- H-44: migrar disco deja libvirt sin credential.secret ---
+sect "H-44: libvirt tras migrar (credential.secret)"
+t "H-44 documentado" \
+  bash -c 'grep -q "H-44" docs/hallazgos.md'
+t "H-44 menciona status=243/CREDENTIALS" \
+  bash -c 'grep -q "243/CREDENTIALS" docs/hallazgos.md'
+t "H-44 menciona credential.secret de systemd" \
+  bash -c 'grep -q "credential.secret" docs/hallazgos.md'
+t "H-44 menciona virt-secret-init-encryption" \
+  bash -c 'grep -q "virt-secret-init-encryption" docs/hallazgos.md'
+t "H-44 explica como regenerar la clave" \
+  bash -c 'grep -q "secrets-encryption-key" docs/hallazgos.md'
+t "H-44 enlaza con H-42 (machine-id)" \
+  bash -c 'grep -q "H-42" docs/hallazgos.md'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"

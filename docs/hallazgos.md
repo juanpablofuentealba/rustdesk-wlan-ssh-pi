@@ -2007,3 +2007,70 @@ hubo que `systemctl enable --now sshd` para poder ser operado.
 **Lección:** en flotas con varios operadores, **una identidad SSH por máquina**.
 Nunca compartas la clave privada entre nodos: impide auditar, y un compromiso
 afecta a toda la flota.
+
+---
+
+## H-44 — Migrar el sistema de disco deja libvirt sin poder arrancar (`status=243/CREDENTIALS`)
+
+**Verificado:** ✅ (HP, migración HDD→SSD, 29 oct 2026)
+
+**Síntoma:** tras migrar el sistema a un disco nuevo, `libvirtd` **falla en
+bucle** y no se puede abrir virt-manager ni `virsh`:
+
+```
+libvirtd.service: Failed to determine local credential key: No such file or directory
+libvirtd.service: Failed at step CREDENTIALS spawning /usr/bin/libvirtd
+libvirtd.service: Main process exited, code=exited, status=243/CREDENTIALS
+libvirtd.service: Start request repeated too quickly.
+libvirtd.service: Failed with result 'start-limit-hit'.
+```
+
+**Causa (dos capas encadenadas):**
+
+1. **Falta la clave de credenciales de systemd.** El drop-in de libvirt
+   (`/usr/lib/systemd/system/libvirtd.service.d/10-secret.conf`) usa:
+
+   ```
+   LoadCredentialEncrypted=secrets-encryption-key:/var/lib/libvirt/secrets/secrets-encryption-key
+   ```
+
+   Para descifrar eso, systemd necesita su clave maestra
+   **`/var/lib/systemd/credential.secret`**. Una migración/copia del sistema
+   de archivos **no siempre la lleva**, y el secret de libvirt queda cifrado
+   con una clave que ya no existe.
+
+2. **Círculo vicioso con el servicio reparador.** El drop-in también tiene
+   `Requires=virt-secret-init-encryption.service`, pero ese servicio solo
+   corre si la clave **NO** existe (`ConditionPathExists=!…secrets-encryption-key`).
+   Como la clave existe (aunque sea indescifrable), el reparador se salta → y
+   sin él, `libvirtd` se niega a arrancar.
+
+**Solución:**
+
+1. Comprobar que **no hay secretos que perder**: `ls /var/lib/libvirt/images`
+   (si no hay VMs con cifrado, la clave se puede regenerar sin pérdida).
+2. **Backup** y **borrar** la clave indescifrable:
+   ```bash
+   sudo cp -a /var/lib/libvirt/secrets/secrets-encryption-key /root/
+   sudo rm -f /var/lib/libvirt/secrets/secrets-encryption-key
+   ```
+3. Dejar que el servicio la **regenere** (crea también la `credential.secret`):
+   ```bash
+   sudo systemctl reset-failed libvirtd.service
+   sudo systemctl start virt-secret-init-encryption.service
+   ```
+4. Verificar que aparecieron ambas claves y arrancar:
+   ```bash
+   ls -la /var/lib/systemd/credential.secret
+   ls -la /var/lib/libvirt/secrets/secrets-encryption-key
+   sudo systemctl start libvirtd.service   # o el socket
+   ```
+
+**Resultado:** `libvirtd` activo, 0 servicios fallidos.
+
+**Lección:** al **clonar/migrar un sistema Linux**, dos identidades pueden no
+copiarse y romper servicios en silencio: el **`machine-id`** (cambia el ID de
+RustDesk, ver **H-42**) y la **`credential.secret`** de systemd (rompe
+`LoadCredentialEncrypted` y, con ello, libvirt). Conviene copiarlas
+explícitamente **antes** de migrar, o regenerar los secretos dependientes
+**después**.

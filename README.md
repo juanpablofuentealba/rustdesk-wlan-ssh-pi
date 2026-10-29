@@ -135,7 +135,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-43: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-44: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/estado-sesion.md`](docs/estado-sesion.md) | Estado del trabajo, para retomar |
