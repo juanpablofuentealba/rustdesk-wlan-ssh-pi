@@ -1749,3 +1749,50 @@ comprobaciones, con árbol de portales simulado y stub de PipeWire).
 **Lección:** en Wayland la captura tiene DOS vías (DRM y portal). El kit ya
 auditaba la primera; la segunda es igual de crítica y ahora se audita antes de
 prometer acceso remoto desatendido.
+
+## H-38 — El inventario falla con locale ≠ inglés; otros agentes compiten por la captura
+
+**Verificado:** ✅ (prueba real contra cliente/msi CachyOS **en español**, 28 oct 2026)
+
+**Contexto:** prueba end-to-end tratando un equipo real como cliente doméstico
+que migra de Windows a CachyOS. Salió un bug grave y una mejora.
+
+### Bug: `inventory.sh` daba CPU/Swap vacíos con el sistema en español
+
+**Síntoma:** el inventario salía con `CPU: ?`, `Núcleos: ?`, `Swap: ?`.
+
+**Causa:** `inventory.sh` parseaba la salida **traducida** de `lscpu`, `free`,
+`df` y `sensors`. En español:
+- `lscpu` dice "Nombre del modelo" (no "Model name"),
+- `free` dice "Intercambio" (no "Swap:"),
+- `df` dice "usados de".
+
+Como el cliente doméstico argentino suele tener el sistema **en español**, el
+inventario salía incompleto y el operador creía que la máquina no reportaba.
+
+**Solución:** forzar `LC_ALL=C` en `lscpu`/`free`/`df`/`lsblk`/`sensors`/`upower`
++ fallback a `/proc/cpuinfo` y `nproc` para la CPU (independientes del locale).
+
+### Mejora: aviso de OTROS agentes de acceso remoto
+
+**Síntoma (posible):** dos agentes de control remoto (p. ej. DWAgent + RustDesk)
+pueden **competir** por la captura en Wayland (uinput/DRM/portal ScreenCast):
+uno captura, el otro ve negro.
+
+**Solución:** sección de diagnóstico "Otros agentes de acceso remoto" que
+detecta `dwagent`, `anydesk`, `teamviewer`, `chrome-remote-desktop`, `xrdp`,
+`vncserver`, `tigervnc`, `guacamole` (unidades systemd activas **y** procesos
+sueltos). Avisa, no toca nada.
+
+### Mejora: filtro de discos de tamaño 0
+
+`sdb 0B Storage Device` y `sdc 0B USB` (lectores vacíos / USB sin medio)
+aparecían como discos basura en el inventario. Ahora se filtran.
+
+**Verificación:** `tests.sh` sección **H-38** (8 comprobaciones).
+**Probado en vivo** contra un cliente real con locale es_ES y DWAgent activo.
+
+**Lección:** el kit se diseñó en equipos **en inglés**. Un cliente real
+doméstico casi siempre está **en español** y con software que uno no eligió.
+Forzar `LC_ALL=C` al parsear herramientas del sistema y avisar de agentes
+remotos ajenos son dos defensas que solo aparecen probando en el mundo real.

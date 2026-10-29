@@ -45,21 +45,30 @@ j MODEL "$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
 j BOARD "$(cat /sys/class/dmi/id/board_name 2>/dev/null)"
 j BIOS "$(cat /sys/class/dmi/id/bios_version 2>/dev/null) $(cat /sys/class/dmi/id/bios_date 2>/dev/null)"
 
-j CPU_MODEL "$(lscpu 2>/dev/null | awk -F: '/Model name/{sub(/^ +/,"",$2);print $2; exit}')"
-j CPU_CORES "$(lscpu 2>/dev/null | awk -F: '/^CPU\(s\)/{gsub(/ /,"",$2);print $2; exit}')"
-j CPU_MAXMHZ "$(lscpu 2>/dev/null | awk -F: '/CPU max MHz/{gsub(/ /,"",$2);print $2; exit}')"
+# CPU: lscpu traducido rompe el match en clientes con locale != C (p. ej.
+# 'Nombre del modelo' en español). Se fuerza LC_ALL=C. Además, si lscpu falta
+# o no matchea, se cae a /proc/cpuinfo (independiente del locale).
+j CPU_MODEL "$(LC_ALL=C lscpu 2>/dev/null | awk -F: '/Model name/{sub(/^ +/,"",$2);print $2; exit}')"
+[[ -n "${CPU_MODEL:-}" ]] || CPU_MODEL="$(awk -F: '/model name/{sub(/^ +/,"",$2);print $2; exit}' /proc/cpuinfo 2>/dev/null)"
+j CPU_CORES "$(LC_ALL=C lscpu 2>/dev/null | awk -F: '/^CPU\(s\)/{gsub(/ /,"",$2);print $2; exit}')"
+[[ -n "${CPU_CORES:-}" ]] || CPU_CORES="$(nproc 2>/dev/null)"
+j CPU_MAXMHZ "$(LC_ALL=C lscpu 2>/dev/null | awk -F: '/CPU max MHz/{gsub(/ /,"",$2);print $2; exit}')"
 
-j RAM_TOTAL "$(free -h 2>/dev/null | awk '/^Mem:/{print $2}')"
-j RAM_USED "$(free -h 2>/dev/null | awk '/^Mem:/{print $3}')"
-j SWAP "$(free -h 2>/dev/null | awk '/^Swap:/{print $2}')"
+# free -h también se traduce (es: 'Intercambio'). Forzar LC_ALL=C evita el '?'.
+j RAM_TOTAL "$(LC_ALL=C free -h 2>/dev/null | awk '/^Mem:/{print $2}')"
+j RAM_USED "$(LC_ALL=C free -h 2>/dev/null | awk '/^Mem:/{print $3}')"
+j SWAP "$(LC_ALL=C free -h 2>/dev/null | awk '/^Swap:/{print $2}')"
 
 j GPU "$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | cut -d: -f3- | sed 's/^ //' | paste -sd'|' - | sed 's/|/ | /g')"
 j NET "$(lspci 2>/dev/null | grep -iE 'ethernet|network' | cut -d: -f3- | sed 's/^ //' | paste -sd'|' - | sed 's/|/ | /g')"
-j DISKS "$(lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -vE 'zram|loop' | awk '{printf "%s %s %s | ", $1,$2,substr($0, index($0,$3))}' | sed 's/ | $//')"
-j DISK_ROOT "$(df -h / 2>/dev/null | awk 'NR==2{printf "%s usados de %s (%s)", $3,$2,$5}')"
+# Se filtran discos de tamaño 0 (lectores de tarjetas vacíos, USB sin medio):
+# aparecían como 'sdb 0B Storage Device' y ensuchaban el inventario.
+j DISKS "$(LC_ALL=C lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -vE 'zram|loop' | grep -vE '(^| )[0-9]*B( |$)' | grep -vE '^[^ ]+ 0B' | awk '{printf "%s %s %s | ", $1,$2,substr($0, index($0,$3))}' | sed 's/ | $//')"
+j DISK_ROOT "$(LC_ALL=C df -h / 2>/dev/null | awk 'NR==2{printf "%s usados de %s (%s)", $3,$2,$5}')"
 
-j TEMP_CPU "$(sensors 2>/dev/null | awk '/Tctl|Package id|^temp1/{sub(/^ +/,"");print;exit}' | sed 's/.*: *//')"
-j BATTERY "$(upower -i "$(upower -e 2>/dev/null | grep -i BAT | head -1)" 2>/dev/null | awk -F: '/percentage|capacity/{sub(/^ +/,"",$2);printf "%s ",$2}')"
+# Sensores y batería también dependen del locale: forzar LC_ALL=C.
+j TEMP_CPU "$(LC_ALL=C sensors 2>/dev/null | awk '/Tctl|Package id|^temp1/{sub(/^ +/,"");print;exit}' | sed 's/.*: *//')"
+j BATTERY "$(LC_ALL=C upower -i "$(upower -e 2>/dev/null | grep -i BAT | head -1)" 2>/dev/null | awk -F: '/percentage|capacity/{sub(/^ +/,"",$2);printf "%s ",$2}')"
 j NET_IP "$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
 j IFACE "$(ip -br addr show 2>/dev/null | grep -v '^lo' | awk '{printf "%s:%s ", $1,$3}' | head -c 200)"
 REMOTE_EOF
