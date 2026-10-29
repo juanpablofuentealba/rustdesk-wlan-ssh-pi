@@ -175,4 +175,3 @@ if ($Out) {
     Get-Markdown $info | Set-Content "$base.md" -Encoding UTF8
     Ok "guardado: $base.txt / $base.json / $base.md"
 }
-}

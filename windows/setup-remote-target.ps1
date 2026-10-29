@@ -117,6 +117,21 @@ if ($Apply -and -not $esAdmin) {
     exit 1
 }
 
+# ─── Hostname (opcional) ─────────────────────────────────────────────────
+# Cambiar el nombre del equipo facilita identificarlo en la tailnet.
+if ($Hostname) {
+    if ($env:COMPUTERNAME -ieq $Hostname) {
+        Ok "hostname ya es '$Hostname'"
+    } elseif ($Apply) {
+        try {
+            Rename-Computer -NewName $Hostname -Force -ErrorAction Stop
+            Warn "hostname -> '$Hostname' (requiere reinicio para aplicarse)"
+        } catch { Bad "no se pudo renombrar el equipo: $_" }
+    } else {
+        Info "(en -Apply: renombraria el equipo a '$Hostname')"
+    }
+}
+
 # ─── 1. RustDesk ─────────────────────────────────────────────────────────
 Head "1. RustDesk (acceso visual)"
 $rd = Get-Installed 'RustDesk'
@@ -135,6 +150,35 @@ if ($rd) {
         }
     } else {
         Info "(en -Apply: descargaria el .msi y lo instalaria en silencio)"
+    }
+}
+
+# Contraseña permanente de RustDesk (para acceso UNATTENDED, ver H-15).
+# Sin ella, cada conexión pide aceptación o contraseña temporal.
+if ($RdPass) {
+    $rdExe = @(
+        "$env:ProgramFiles\RustDesk\rustdesk.exe",
+        "${env:ProgramFiles(x86)}\RustDesk\rustdesk.exe"
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $rdExe) {
+        Warn "RustDesk no está presente todavía; no se puede fijar -RdPass"
+    } elseif ($Apply) {
+        if ($RdPass.Length -lt 8) { Warn "clave corta (<8); RustDesk recomienda 8+" }
+        Info "fijando contraseña permanente de RustDesk..."
+        # RustDesk >=1.5 puede no aceptar --password por CLI; si falla, se guía por GUI.
+        & $rdExe --password $RdPass 2>&1 | Out-Null
+        $rc = $LASTEXITCODE
+        $cfg = Join-Path $env:APPDATA "RustDesk\config\RustDesk.toml"
+        $has = $false
+        if (Test-Path $cfg) { $has = (Get-Content $cfg -Raw) -match "password\s*=\s*'" }
+        if ($rc -eq 0 -or $has) {
+            Ok "contraseña permanente de RustDesk fijada"
+        } else {
+            Warn "esta versión no acepta --password; fijala por la GUI:"
+            Info "  Ajustes (⚙) → Seguridad → 'Contraseña permanente'"
+        }
+    } else {
+        Info "(en -Apply: fijaria la contraseña permanente de RustDesk)"
     }
 }
 
