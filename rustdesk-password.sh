@@ -260,20 +260,29 @@ install_remote() {
       "sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
   fi
 
-  echo "→ Verificación (config root debe tener password = '01...'):"
-  local vercmd="grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml"
+  echo "→ Verificación (contraseña = '01...'):"
+  # OJO (H-23): no mandar `bash -c` con comillas anidadas por SSH (el shell
+  # remoto puede ser fish y rompe el string). Se usa `bash -s` por STDIN.
+  # Para sudo se usa -n (sin contraseña): el timestamp global (timestamp_type=global)
+  # ya suele estar activo tras el reinicio del servicio. Si pide contraseña,
+  # se avisa y se omite la verificación de root (no es crítica: el config de
+  # usuario siempre se verifica).
+  local vercmd="grep -c '^password = '\''01' /root/.config/rustdesk/RustDesk.toml"
+  local jpcfg="$HOME/.config/rustdesk/RustDesk.toml"
+  local rootn
   if [[ $is_local -eq 1 ]]; then
-    if [[ -n "$sudo_pass" ]]; then
-      printf '%s\n' "$sudo_pass" | sudo -S -p '' bash -c "$vercmd" | sed 's/^/  líneas password=01 en config root: /'
-    else
-      sudo -n bash -c "$vercmd" | sed 's/^/  líneas password=01 en config root: /'
-    fi
-  elif [[ -n "$sudo_pass" ]]; then
-    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" "sudo -S -p '' bash -c \"$vercmd\"" \
-      | sed 's/^/  líneas password=01 en config root: /'
+    rootn="$(sudo -n bash -s <<<"$vercmd" 2>/dev/null || echo '?')"
+    grep -c "^password = '01" "$jpcfg" 2>/dev/null | sed 's/^/  líneas password=01 en config jp:   /'
   else
-    ssh -o BatchMode=yes "$target" "sudo -n bash -c \"$vercmd\"" \
-      | sed 's/^/  líneas password=01 en config root: /'
+    rootn="$(ssh -o BatchMode=yes "$target" 'sudo -n bash -s' <<<"$vercmd" 2>/dev/null || echo '?')"
+    ssh -o BatchMode=yes "$target" "grep -c \"^password = '01\" '$jpcfg' 2>/dev/null" \
+      | sed 's/^/  líneas password=01 en config jp:   /'
+  fi
+  if [[ "$rootn" == "?" || -z "$rootn" ]]; then
+    warnf "no se pudo verificar el config de root (sudo pidió contraseña)"
+    say  "verificá a mano: sudo grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml"
+  else
+    printf '  líneas password=01 en config root: %s\n' "$rootn"
   fi
   echo "✔ Listo. Probá conectar por RustDesk a la ID del equipo."
 }

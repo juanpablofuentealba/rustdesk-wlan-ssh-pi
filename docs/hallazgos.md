@@ -2148,3 +2148,43 @@ efecto secundario, el `$LASTEXITCODE` se consulta igual después.
 PowerShell; para binarios nativos usar `2>&1 | Out-Null`. Esto ya había
 mordido en Linux con `&&`/`||` en fish (H-23): cada shell/plataforma tiene su
 propia trampa de redirección.
+
+---
+
+## H-48 — `rustdesk-password.sh install` rompía la verificación remota por comillas anidadas (H-23 otra vez)
+
+**Verificado:** ✅ (prueba real contra el MSI, 29-oct-2026)
+
+Al rotar la contraseña permanente por SSH, el paso final de **verificación**
+mandaba:
+
+```bash
+ssh "$target" "sudo -S -p '' bash -c \"$vercmd\""
+# con vercmd="grep -c \"^password = '01\" /root/.config/rustdesk/RustDesk.toml"
+```
+
+El comando viaja por el **shell remoto**, que en CachyOS es **fish**. Fish no
+entiende la anidación de comillas y abortaba con:
+
+```
+fish: Final inesperado del string, las comillas no están balanceadas
+sudo -S -p '' bash -c "grep -c "^password = '01" /root/..."
+```
+
+**La rotación en sí ya había funcionado** (ambos configs actualizados con
+backup y `rustdesk` reiniciado); lo que falló fue solo el mensaje de
+verificación, dando la falsa impresión de error.
+
+**Solución:**
+
+1. Enviar el comando por **STDIN a `bash -s`** (el patrón de H-23), sin
+   `bash -c` ni comillas anidadas.
+2. Usar un patrón de `grep` sin comillas simples conflictivas.
+3. Verificar **siempre** el config del usuario (no necesita sudo) y verificar
+   el de root con `sudo -n`; si sudo pide contraseña, **avisar y omitir** en
+   vez de romper.
+
+**Lección:** cualquier `ssh host "...bash -c \"...\"..."` es una bomba de
+relojería si el host puede tener fish. La regla del kit (H-23) es **siempre**
+`printf '%s\n' "$SCRIPT" | ssh host bash -s`, y la primera verificación
+remota hay que hacerla **en un host con fish** para cazarlo.
