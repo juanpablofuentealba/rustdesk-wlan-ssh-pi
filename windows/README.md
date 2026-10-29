@@ -1,0 +1,63 @@
+# Kit de acceso remoto — **Windows**
+
+Equivalente Windows del kit de Linux. Prepara un PC con **Windows 10/11** para
+soporte remoto con la misma filosofía: **RustDesk** (visual) + **OpenSSH Server**
+(shell) + **Tailscale** (red privada) + **winget** (software).
+
+> El operador es el mismo: desde un Linux (o cualquier equipo) se llega por
+> Tailscale + SSH y, si hace falta la pantalla, por RustDesk.
+
+## Scripts
+
+| Script | Para qué |
+|---|---|
+| [`setup-remote-target.ps1`](setup-remote-target.ps1) | Instala y configura RustDesk + OpenSSH + Tailscale + winget. Idempotente. |
+| [`inventory.ps1`](inventory.ps1) | Inventario de specs (texto / JSON / Markdown) para la ficha del cliente. |
+| [`rustdesk-password.ps1`](rustdesk-password.ps1) | Verifica/fija la contraseña permanente de RustDesk (unattended). |
+
+## Uso rápido
+
+Abrir **PowerShell como Administrador** en la carpeta y:
+
+```powershell
+# 1. Diagnóstico (no cambia nada)
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.\setup-remote-target.ps1 -Check
+
+# 2. Simulacro (muestra qué haría)
+.\setup-remote-target.ps1 -DryRun
+
+# 3. Aplicar (une a Tailscale con la auth key)
+.\setup-remote-target.ps1 -Apply -AuthKey tskey-auth-xxxxx
+
+# 4. Inventario para la ficha del cliente
+.\inventory.ps1 -Out .\ficha
+
+# 5. Contraseña permanente de RustDesk (H-15)
+.\rustdesk-password.ps1 -Set -Password 'MiClaveSegura'
+```
+
+### Parámetros de `setup-remote-target.ps1`
+
+| Parámetro | Efecto |
+|---|---|
+| `-Check` | Solo diagnóstico (por defecto si no se pasa nada → muestra ayuda). |
+| `-DryRun` | Simula, sin tocar el sistema. |
+| `-Apply` | Aplica los cambios (requiere **Administrador**). |
+| `-AuthKey tskey-auth-...` | Une el equipo a la tailnet. La key se crea en https://login.tailscale.com/admin/settings/keys |
+| `-RdPass 'Clave'` | Deja la contraseña permanente de RustDesk. |
+| `-NoSsh` / `-NoTailscale` | Omite el componente (acceso solo visual, etc.). |
+
+## Notas y diferencias con Linux
+
+- **La auth key de Tailscale se genera en la web**, no en el equipo (igual que
+  en Linux; ver el README raíz).
+- **OpenSSH** en Windows es una *Capability* (`Add-WindowsCapability`). Puede
+  requerir **reinicio**.
+- **RustDesk unattended**: en Windows basta el `.msi`; no hace falta el truco
+  del `libdrmtap` para Wayland (eso es solo Linux, H-14/H-37).
+- La contraseña permanente de RustDesk se puede fijar por `--password` (CLI) o,
+  si la versión no lo acepta, por la **GUI**: Ajustes → Seguridad (H-15).
+
+Detalles de problemas reales encontrados al escribir estos scripts:
+[H-45, H-46 y H-47](../docs/hallazgos.md).

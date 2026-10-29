@@ -77,6 +77,13 @@ for f in "${FILES[@]}"; do
 done
 chmod +x "$DEST"/*.sh
 
+# --- Kit de Windows: carpeta completa (scripts .ps1 + su README) ---
+# Se copia si existe; no es obligatorio para el kit Linux, pero si está en el
+# repo se incluye en el pendrive para no dejarlo fuera.
+if [[ -d "$SCRIPT_DIR/windows" ]]; then
+  cp -a "$SCRIPT_DIR/windows" "$DEST/windows"
+fi
+
 # --- runbook: INSTALAR.md (detalle) + PASOS-EN-ORDEN.txt (checklist) ---
 # Fuente única de verdad: los del repo. Si no existen, se avisa.
 for doc in INSTALAR.md PASOS-EN-ORDEN.txt REPO.txt PROMPT-AGENTE.txt; do
@@ -135,7 +142,7 @@ ok "Versión del kit: $KIT_VER"
 (
   set +e
   cd "$DEST"
-  find . -maxdepth 1 -type f ! -name 'MANIFEST.sha256' -printf '%f\n' \
+  find . -type f ! -name 'MANIFEST.sha256' -printf '%P\n' \
     | sort | while IFS= read -r f; do sha256sum "$f"; done > MANIFEST.sha256
   exit 0
 )

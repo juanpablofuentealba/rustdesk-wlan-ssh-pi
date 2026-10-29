@@ -3,7 +3,7 @@
 Registro de comportamientos **comprobados en máquinas reales**, no supuestos.
 Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarlo.
 
-> Última actualización: 2026-10-26
+> Última actualización: 2026-10-29
 > Equipos de prueba: desktop (operador) + laptop **HP** Ryzen 5 (objetivo),
 > ambos CachyOS/Wayland
 
@@ -2074,3 +2074,77 @@ RustDesk, ver **H-42**) y la **`credential.secret`** de systemd (rompe
 `LoadCredentialEncrypted` y, con ello, libvirt). Conviene copiarlas
 explícitamente **antes** de migrar, o regenerar los secretos dependientes
 **después**.
+
+---
+
+## H-45 — El kit de Windows se escribió incompleto: `inventory.ps1` llamaba a una función inexistente
+
+**Verificado:** ✅ (revisión de código, 29-oct-2026)
+
+Al preparar el equivalente Windows del kit, `inventory.ps1`:
+
+1. terminaba con `Ok "guardado: …"` **sin que `Ok` estuviera definida** en el
+   script (solo existía en `setup-remote-target.ps1`) → en PowerShell el script
+   habría fallado con `Ok: no se reconoce…` justo al guardar la ficha;
+2. anunciaba en su `.SYNOPSIS` que generaba **texto, JSON y Markdown**, pero
+   **nunca escribía el `.md`** ni definía el formateador.
+
+**Solución:** definir `Ok`/`Warn` en `inventory.ps1` y añadir `Get-Markdown`
+que produce la ficha en Markdown (con tablas), guardándola además como
+`inventory.md`.
+
+**Lección:** un script nuevo que "copia" el patrón de otro **no hereda sus
+helpers**. Al portar de Linux a Windows, revisar que cada `.ps1` sea
+autocontenido (o comparta un `.psm1`).
+
+---
+
+## H-46 — `rustdesk-password.ps1`: `-Set 'Clave'` NO pasa la clave (confusión switch/parámetro)
+
+**Verificado:** ✅ (revisión de código, 29-oct-2026)
+
+El parámetro se declara como `[switch]$Set` (booleano) y la clave en
+`[string]$Password`, pero el `.SYNOPSIS` y el README mostraban el uso
+`.\rustdesk-password.ps1 -Set 'MiClaveSegura'`. En PowerShell, `[switch]` **no
+acepta un valor posicional con espacio**: el argumento `'MiClaveSegura'` queda
+como argumento sobrante y `$Password` continúa vacío → el script abortaba con
+`-Set requiere -Password`.
+
+**Solución:** documentar y usar siempre `-Set -Password 'Clave'`, y aclararlo
+en el propio script.
+
+**Lección (PowerShell):** `[switch]` es un **flag**; para recibir un valor hay
+que usar `[string]`/`[Parameter(Mandatory)]`. No mezclar "activar acción" con
+"pasar dato" en el mismo nombre posicional.
+
+---
+
+## H-47 — `2>$null` no silencia el stderr de un `.exe` nativo en PowerShell
+
+**Verificado:** ✅ (revisión de código, 29-oct-2026)
+
+En `rustdesk-password.ps1` la llamada
+
+```powershell
+& $rdExe --password $Password 2>$null
+```
+
+pretendía ocultar el ruido de la CLI de RustDesk. Pero `2>$null` solo
+redirecciona el *error stream de PowerShell*; el **stderr real de un proceso
+nativo** (`.exe`) sigue saliendo por la consola en Windows PowerShell 5.1 y
+puede, además, convertirse en `NativeCommandError` con `$ErrorActionPreference`
+en modo estricto.
+
+**Solución:**
+
+```powershell
+& $rdExe --password $Password 2>&1 | Out-Null
+```
+
+Es decir, **fusionar stderr en stdout** (`2>&1`) y descartar la tubería. Como
+efecto secundario, el `$LASTEXITCODE` se consulta igual después.
+
+**Lección:** otra vez la **zona gris**: `2>$null` sólo sirve para cmdlets de
+PowerShell; para binarios nativos usar `2>&1 | Out-Null`. Esto ya había
+mordido en Linux con `&&`/`||` en fish (H-23): cada shell/plataforma tiene su
+propia trampa de redirección.

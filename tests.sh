@@ -223,7 +223,7 @@ t "el kit tiene setup-remote-target.sh" \
 t "el manifiesto valida (sha256sum -c)" \
   bash -c "cd '$_kitdir/kit' && sha256sum -c MANIFEST.sha256 >/dev/null 2>&1"
 t "el manifiesto cubre TODOS los archivos del kit (incl. ocultos)" \
-  bash -c "cd '$_kitdir/kit' && comm -13 <(grep -oP '(?<=  ).*' MANIFEST.sha256 | sort) <(ls -1a | grep -vE '^\\.\$|^\\.\\.\$|^MANIFEST' | sort) | grep -q . && exit 1 || exit 0"
+  bash -c "cd '$_kitdir/kit' && comm -13 <(grep -oP '(?<=  ).*' MANIFEST.sha256 | sort) <(find . -type f ! -name MANIFEST.sha256 -printf '%P\n' | sort) | grep -q . && exit 1 || exit 0"
 t "el manifiesto incluye .kit-version" \
   bash -c "grep -q '.kit-version' '$_kitdir/kit/MANIFEST.sha256'"
 t "el manifiesto incluye .rd-setpass-root.sh (oculto)" \
@@ -1366,6 +1366,74 @@ t "H-44 explica como regenerar la clave" \
   bash -c 'grep -q "secrets-encryption-key" docs/hallazgos.md'
 t "H-44 enlaza con H-42 (machine-id)" \
   bash -c 'grep -q "H-42" docs/hallazgos.md'
+
+# --- Kit Windows: scripts .ps1 + H-45..H-47 ---
+sect "Kit Windows: setup-remote-target.ps1"
+t "setup-remote-target.ps1 existe" test -f windows/setup-remote-target.ps1
+t "setup reconoce -Check"   bash -c 'grep -q "\[switch\]\$Check" windows/setup-remote-target.ps1'
+t "setup reconoce -DryRun"  bash -c 'grep -q "\[switch\]\$DryRun" windows/setup-remote-target.ps1'
+t "setup reconoce -Apply"   bash -c 'grep -q "\[switch\]\$Apply" windows/setup-remote-target.ps1'
+t "setup exige Administrador para -Apply" \
+  bash -c 'grep -q "Test-Admin" windows/setup-remote-target.ps1 && grep -qi "Administrador" windows/setup-remote-target.ps1'
+t "setup instala RustDesk (msi)" bash -c 'grep -q "rustdesk-.*-x86_64.msi" windows/setup-remote-target.ps1'
+t "setup instala OpenSSH.Server (capability)" \
+  bash -c 'grep -q "Add-WindowsCapability" windows/setup-remote-target.ps1'
+t "setup crea regla de firewall SSH" \
+  bash -c 'grep -q "New-NetFirewallRule" windows/setup-remote-target.ps1'
+t "setup une Tailscale con la auth key" \
+  bash -c 'grep -q "tailscale up --authkey" windows/setup-remote-target.ps1'
+t "setup valida que la auth key empiece con tskey-auth-" \
+  bash -c 'grep -q "tskey-auth-" windows/setup-remote-target.ps1'
+t "setup reporta winget" bash -c 'grep -q "winget" windows/setup-remote-target.ps1'
+t "setup H-45: Add-WindowsCapability en try/catch" \
+  bash -c 'grep -q "no se pudo instalar OpenSSH.Server" windows/setup-remote-target.ps1'
+
+sect "Kit Windows: inventory.ps1"
+t "inventory.ps1 existe" test -f windows/inventory.ps1
+t "H-45: inventory define su propia funcion Ok" \
+  bash -c 'grep -q "function Ok" windows/inventory.ps1'
+t "H-45: inventory define su propia funcion Warn" \
+  bash -c 'grep -q "function Warn" windows/inventory.ps1'
+t "H-45: inventory define Get-Markdown" \
+  bash -c 'grep -q "function Get-Markdown" windows/inventory.ps1'
+t "H-45: inventory guarda inventory.md" \
+  bash -c 'grep -q '\''\$base.md'\'' windows/inventory.ps1'
+t "inventory recoge servicios sshd/Tailscale/RustDesk" \
+  grep -qF "foreach (\$s in 'sshd', 'Tailscale', 'RustDesk')" windows/inventory.ps1
+t "inventory expone JSON" bash -c 'grep -q "ConvertTo-Json" windows/inventory.ps1'
+
+sect "Kit Windows: rustdesk-password.ps1"
+t "rustdesk-password.ps1 existe" test -f windows/rustdesk-password.ps1
+t "H-46: documenta -Set -Password (no -Set 'Clave')" \
+  bash -c 'grep -q -- "-Set -Password" windows/rustdesk-password.ps1'
+t "H-46: README de Windows usa -Set -Password" \
+  bash -c 'grep -q -- "-Set -Password" windows/README.md'
+t "H-46: avisa si -Set sin -Password" \
+  bash -c 'grep -q -- "-Set requiere -Password" windows/rustdesk-password.ps1'
+t "H-47: usa 2>&1 | Out-Null (no 2>\$null) para el exe" \
+  bash -c 'grep -q "2>&1 | Out-Null" windows/rustdesk-password.ps1'
+tj "H-47: rustdesk-password NO usa 2>\$null con el exe nativo" \
+  bash -c 'grep -q -- "& \$rdExe --password \$Password 2>\$null" windows/rustdesk-password.ps1'
+t "rustdesk-password guia por GUI si la CLI no acepta --password" \
+  bash -c 'grep -q "Contraseña permanente" windows/rustdesk-password.ps1'
+
+sect "Kit Windows: docs y empaquetado"
+t "existe windows/README.md" test -f windows/README.md
+t "windows/README enlaza los hallazgos" \
+  bash -c 'grep -q "H-45" windows/README.md && grep -q "H-47" windows/README.md'
+t "H-45 documentado" bash -c 'grep -q "H-45" docs/hallazgos.md'
+t "H-46 documentado" bash -c 'grep -q "H-46" docs/hallazgos.md'
+t "H-47 documentado" bash -c 'grep -q "H-47" docs/hallazgos.md'
+t "H-46 explica que [switch] es un flag, no un dato" \
+  bash -c 'grep -q "es un ..flag." docs/hallazgos.md'
+t "H-47 explica 2>&1 | Out-Null" \
+  bash -c 'grep -q "2>&1 | Out-Null" docs/hallazgos.md'
+tdoc "el README raiz lista el kit de Windows" \
+  bash -c 'grep -q "windows/" README.md'
+tdoc "el README lista hallazgos hasta H-47" \
+  bash -c 'grep -q "H-01..H-47" README.md'
+t "make-kit.sh copia la carpeta windows" \
+  bash -c 'grep -q "\$SCRIPT_DIR/windows" make-kit.sh'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
