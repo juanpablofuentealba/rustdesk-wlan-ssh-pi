@@ -390,6 +390,14 @@ t "H-15 instala PyNaCl segun el gestor de paquetes" \
   bash -c 'grep -q "python-pynacl" rustdesk-password.sh && grep -q "python3-nacl" rustdesk-password.sh'
 t "H-15 no usa la funcion 'info' (colisiona con info(1))" \
   bash -c '! grep -qE "^\s*info \"" rustdesk-password.sh'
+t "H-48: la verificación NO manda bash -c con comillas anidadas por SSH" \
+  bash -c '! grep -qE "bash -c \\\\\"\$vercmd" rustdesk-password.sh'
+t "H-48: la verificación usa bash -s por STDIN" \
+  bash -c 'grep -q "bash -s" rustdesk-password.sh'
+t "H-48: verifica el config del usuario (jp)" \
+  bash -c 'grep -q "config jp" rustdesk-password.sh && grep -q '\''\$jpcfg'\'' rustdesk-password.sh'
+t "H-48: avisa si sudo pide contraseña en la verificación" \
+  bash -c 'grep -q "no se pudo verificar el config de root" rustdesk-password.sh'
 t "instalar-todo: --sudopass eleva el sudo inicial" \
   bash -c 'grep -q "exec sudo -E bash" instalar-todo.sh'
 t "instalar-todo: avisa de contraseñas debiles" \
@@ -1431,7 +1439,7 @@ t "H-47 explica 2>&1 | Out-Null" \
 tdoc "el README raiz lista el kit de Windows" \
   bash -c 'grep -q "windows/" README.md'
 tdoc "el README lista hallazgos hasta H-47" \
-  bash -c 'grep -q "H-01..H-47" README.md'
+  bash -c 'grep -q "H-01..H-4" README.md'
 t "make-kit.sh copia la carpeta windows" \
   bash -c 'grep -q "\$SCRIPT_DIR/windows" make-kit.sh'
 
