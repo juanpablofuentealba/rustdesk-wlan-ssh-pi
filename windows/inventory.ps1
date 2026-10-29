@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   inventory.ps1 — Inventario de specs de un PC con Windows (para la ficha del cliente).
 

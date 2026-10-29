@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   diagnostico.ps1 — Diagnóstico de hardware y apagones para Windows.
 
