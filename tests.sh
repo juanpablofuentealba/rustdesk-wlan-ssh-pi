@@ -1396,7 +1396,7 @@ for cand in pwsh "$HOME/.local/opt/pwsh/pwsh"; do
   command -v "$cand" >/dev/null 2>&1 && { PWSH="$cand"; break; }
 done
 if [[ -n "$PWSH" ]]; then
-  for f in windows/setup-remote-target.ps1 windows/inventory.ps1 windows/rustdesk-password.ps1; do
+  for f in windows/setup-remote-target.ps1 windows/inventory.ps1 windows/rustdesk-password.ps1 windows/diagnostico.ps1; do
     t "sintaxis PowerShell valida: $(basename "$f")" \
       "$PWSH" -NoProfile -Command "\$t=\$null;\$e=\$null;\$null=[System.Management.Automation.Language.Parser]::ParseFile('$PWD/$f',[ref]\$t,[ref]\$e); if(\$e.Count){exit 1}"
   done
@@ -1408,6 +1408,31 @@ t "H-50: setup-remote-target usa -RdPass (no es parametro muerto)" \
   bash -c 'grep -q "if (\$RdPass)" windows/setup-remote-target.ps1'
 t "H-50: setup-remote-target usa -Hostname" \
   bash -c 'grep -q "if (\$Hostname)" windows/setup-remote-target.ps1'
+
+sect "Kit Windows: diagnostico.ps1 (apagones/hardware)"
+t "diagnostico.ps1 existe" test -f windows/diagnostico.ps1
+t "detecta apagones bruscos (Kernel-Power 41)" \
+  bash -c 'grep -q "Id=41,6008,1074" windows/diagnostico.ps1'
+t "explica que 41=brusco y 1074=planeado" \
+  bash -c 'grep -q "APAGÓN BRUSCO" windows/diagnostico.ps1 && grep -q "apagado planeado" windows/diagnostico.ps1'
+t "lee temperaturas ACPI" \
+  bash -c 'grep -q "MSAcpi_ThermalZoneTemperature" windows/diagnostico.ps1'
+t "lee SMART / salud de discos" \
+  bash -c 'grep -q "Get-StorageReliabilityCounter" windows/diagnostico.ps1 && grep -q "HealthStatus" windows/diagnostico.ps1'
+t "lee RAM y errores de memoria" \
+  bash -c 'grep -q "Win32_PhysicalMemory" windows/diagnostico.ps1 && grep -q "MemoryDiagnostics" windows/diagnostico.ps1'
+t "detecta batería (portátil)" \
+  bash -c 'grep -q "Win32_Battery" windows/diagnostico.ps1 && grep -q "batteryreport" windows/diagnostico.ps1'
+t "busca minidumps de BSOD" \
+  bash -c 'grep -q "Minidump" windows/diagnostico.ps1'
+t "no cambia nada (solo lee)" \
+  bash -c '! grep -qE "Remove-Item|Set-Service|Stop-Service|Restart-Computer|Format-Volume" windows/diagnostico.ps1'
+t "guarda informe txt y json" \
+  bash -c 'grep -q "diag.txt" windows/diagnostico.ps1 && grep -q "diag.json" windows/diagnostico.ps1'
+t "el README de Windows documenta el diagnostico" \
+  bash -c 'grep -q "diagnostico.ps1" windows/README.md'
+t "el README da la linea irm | iex" \
+  bash -c 'grep -q "diagnostico.ps1 | iex" windows/README.md'
 
 sect "Kit Windows: setup-remote-target.ps1"
 t "setup-remote-target.ps1 existe" test -f windows/setup-remote-target.ps1
