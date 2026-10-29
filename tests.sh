@@ -1367,7 +1367,7 @@ t "operador-multiple refiere a H-41, H-42 y H-43" \
 tdoc "el README enlaza docs/operador-multiple.md" \
   bash -c 'grep -q "operador-multiple.md" README.md'
 tdoc "el README lista hallazgos hasta H-43" \
-  bash -c 'grep -q "H-01..H-43\|H-01..H-4" README.md'
+  bash -c 'grep -qE "H-01\.\.H-[0-9]+" README.md'
 t "operador-multiple describe la lista fija de OPERADORES" \
   bash -c 'grep -q "set -l OPERADORES" docs/operador-multiple.md'
 
@@ -1387,6 +1387,28 @@ t "H-44 enlaza con H-42 (machine-id)" \
   bash -c 'grep -q "H-42" docs/hallazgos.md'
 
 # --- Kit Windows: scripts .ps1 + H-45..H-47 ---
+# --- Kit Windows: sintaxis real con pwsh (si está disponible) ---
+# H-50: se cazó un `}` sobrante en inventory.ps1 que rompía el script por
+# completo. Si pwsh está instalado, se valida la SINTAXIS de verdad, no grep.
+sect "Kit Windows: sintaxis (pwsh)"
+PWSH=""
+for cand in pwsh "$HOME/.local/opt/pwsh/pwsh"; do
+  command -v "$cand" >/dev/null 2>&1 && { PWSH="$cand"; break; }
+done
+if [[ -n "$PWSH" ]]; then
+  for f in windows/setup-remote-target.ps1 windows/inventory.ps1 windows/rustdesk-password.ps1; do
+    t "sintaxis PowerShell valida: $(basename "$f")" \
+      "$PWSH" -NoProfile -Command "\$t=\$null;\$e=\$null;\$null=[System.Management.Automation.Language.Parser]::ParseFile('$PWD/$f',[ref]\$t,[ref]\$e); if(\$e.Count){exit 1}"
+  done
+else
+  sk "sintaxis PowerShell (falta pwsh; instalar o usar ~/.local/opt/pwsh)"
+fi
+
+t "H-50: setup-remote-target usa -RdPass (no es parametro muerto)" \
+  bash -c 'grep -q "if (\$RdPass)" windows/setup-remote-target.ps1'
+t "H-50: setup-remote-target usa -Hostname" \
+  bash -c 'grep -q "if (\$Hostname)" windows/setup-remote-target.ps1'
+
 sect "Kit Windows: setup-remote-target.ps1"
 t "setup-remote-target.ps1 existe" test -f windows/setup-remote-target.ps1
 t "setup reconoce -Check"   bash -c 'grep -q "\[switch\]\$Check" windows/setup-remote-target.ps1'
@@ -1450,7 +1472,7 @@ t "H-47 explica 2>&1 | Out-Null" \
 tdoc "el README raiz lista el kit de Windows" \
   bash -c 'grep -q "windows/" README.md'
 tdoc "el README lista hallazgos hasta H-47" \
-  bash -c 'grep -q "H-01..H-4" README.md'
+  bash -c 'grep -qE "H-01\.\.H-[0-9]+" README.md'
 t "make-kit.sh copia la carpeta windows" \
   bash -c 'grep -q "\$SCRIPT_DIR/windows" make-kit.sh'
 

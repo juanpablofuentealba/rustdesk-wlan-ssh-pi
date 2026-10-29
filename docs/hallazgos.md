@@ -2232,3 +2232,41 @@ printf '%s\n' 'LA_CONTRASEÑA' | su -c 'faillock --user jp --reset'
 bloqueada"**. Un agente que martillea `sudo` se autobloquea y se engaña a sí
 mismo. Probar credenciales por un camino que **no cuente fallos** (`su`) y
 mirar los logs de PAM antes de sacar conclusiones.
+
+---
+
+## H-50 — Los scripts PowerShell del kit Windows tenían errores que solo se ven ejecutándolos
+
+**Verificado:** ✅ (PowerShell 7.4.6 real, 29-oct-2026)
+
+Al instalar **PowerShell 7.4.6 en el operador** (tarball portable, sin root) y
+validar los `.ps1` con el parser de PowerShell + **PSScriptAnalyzer**, aparecieron
+dos fallos que la revisión "a ojo" y los tests por `grep` **no detectaban**:
+
+1. **`inventory.ps1`: `}` sobrante al final** → error de sintaxis
+   (`Unexpected token '}' in expression or statement`). El script **habría
+   fallado siempre** al ejecutarse, pero los tests de grep pasaban.
+2. **`setup-remote-target.ps1`: `-RdPass` y `-Hostname` eran parámetros
+   muertos** (`PSReviewUnusedParameter`): se declaraban y se documentaban, pero
+   **nunca se usaban**. Pedir `-RdPass 'x'` no hacía absolutamente nada.
+
+**Solución:** corregir el `}` y **implementar** de verdad `-RdPass` (fija la
+contraseña permanente de RustDesk, con aviso si la versión no acepta `--password`
+por CLI) y `-Hostname` (`Rename-Computer`).
+
+**Prevención:** `tests.sh` ahora valida la **sintaxis real** de los `.ps1` con
+`pwsh` cuando está disponible (se instala portable en `~/.local/opt/pwsh`).
+
+**Lección:** para código PowerShell, **los tests por `grep` no bastan**: un
+script puede "parecer" correcto y no ejecutarse nunca. Hay que parsearlo (y, si
+se puede, ejecutarlo). Igual que con fish (H-23): el shell/plataforma del
+objetivo es parte de la prueba, no un detalle.
+
+**Cómo instalar pwsh portable (sin root):**
+
+```bash
+curl -sL -o /tmp/pwsh.tar.gz \
+  https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
+mkdir -p ~/.local/opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C ~/.local/opt/pwsh
+chmod +x ~/.local/opt/pwsh/pwsh
+```
