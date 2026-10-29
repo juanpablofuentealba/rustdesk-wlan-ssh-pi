@@ -1220,7 +1220,7 @@ t "check_wayland_capture_stack FALLA sin pipewire" \
 t "reconoce los 3 backends (kde/gnome/wlr)" \
   bash -c 'grep -qE "for b in kde gnome wlr" setup-remote-target.sh'
 t "el mensaje sugiere el backend xdg-desktop-portal-kde" \
-  bash -c 'grep -q "pkgname=.xdg-desktop-portal-kde" setup-remote-target.sh'
+  bash -c 'grep -q "pkg_install_hint xdg-desktop-portal-kde" setup-remote-target.sh'
 t "existe pkg_install_hint (mensajes de arreglo por familia)" \
   bash -c 'grep -q "^pkg_install_hint()" setup-remote-target.sh'
 t "pkg_install_hint da pacman en Arch" \

@@ -417,15 +417,9 @@ check_wayland_capture_stack() {
     else
       # Sin backend dedicado, queda 'gtk.portal' (último recurso).
       warn "solo hay backend 'gtk' del portal (captura limitada en Wayland)"
-      # El paquete del backend depende de la familia (el cliente puede no ser Arch).
-      local pkgname
-      case "$DISTRO_FAMILY" in
-        arch)   pkgname="xdg-desktop-portal-kde" ;;
-        debian) pkgname="xdg-desktop-portal-kde" ;;
-        fedora) pkgname="xdg-desktop-portal-kde" ;;
-        *)      pkgname="xdg-desktop-portal-kde" ;;
-      esac
-      warn "  instalá el backend del escritorio, p. ej. KDE: $(pkg_install_hint "$pkgname")"
+      # El mismo nombre de paquete sirve en las 3 familias; pkg_install_hint
+      # arma el comando correcto (pacman/apt/dnf) según el cliente.
+      warn "  instalá el backend del escritorio, p. ej. KDE: $(pkg_install_hint xdg-desktop-portal-kde)"
       missing=1
     fi
   fi
