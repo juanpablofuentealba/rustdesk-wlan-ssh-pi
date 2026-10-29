@@ -1881,3 +1881,129 @@ real HP↔MSI en ambas direcciones.
 gráfico explícito** (runtime dir + socket), no basta con `wl-clipboard`. Y el
 nombre del socket Wayland no es portable: hay que descubrirlo, no asumir
 `wayland-0`.
+
+---
+
+## H-41 — `ls` como alias de `eza` contamina variables en scripts fish
+
+**Verificado:** ✅ (HP CachyOS, 29 oct 2026)
+
+**Síntoma:** `alta-cliente.sh` (script de operador en fish) no encontraba la
+clave SSH del operador, aunque el archivo existía:
+
+```
+✘ No hay clave SSH en ~/.ssh/id_ed25519.pub
+```
+
+**Causa:** el script capturaba la ruta con `set -l K (ls ~/.ssh/id_*.pub ...)`.
+En la máquina del operador, `ls` es un **alias/wrapper de `eza --color=always`**
+(habitual en CachyOS/fish). La salida con colores ANSI **contamina la variable**:
+
+```
+set -l K (ls ~/.ssh/id_ed25519.pub)
+# $K = "\e[1;33m...\e[0m /home/jp/.ssh/id_ed25519.pub"  ← no es una ruta válida
+```
+
+`test -f $K` falla porque la cadena lleva códigos de escape.
+
+**Solución:** usar herramientas que **no pasan por el alias**, como
+`path filter` (nativo de fish):
+
+```fish
+set -l KEY_PUB (path filter ~/.ssh/id_*operador.pub 2>/dev/null | head -1)
+```
+
+Alternativas: `command ls --color=never`, `find`, o `/usr/bin/ls`.
+
+**Verificación:** `tests.sh` y prueba real en HP y MSI (la autodetección de
+clave devuelve la ruta limpia, `len=32` en vez de 167 con colores).
+
+**Lección:** en scripts, nunca asumas que `ls` es el binario. Un alias en
+fish (`.config/fish/config.fish` o distro) rompe la captura de salida. Usá
+`path filter`/`find` para listar rutas.
+
+---
+
+## H-42 — Migrar el sistema de disco regenera el `machine-id` y cambia el ID de RustDesk
+
+**Verificado:** ✅ (HP, migración HDD→SSD, 29 oct 2026)
+
+**Síntoma:** tras migrar el sistema (btrfs `send/receive` a un disco nuevo), el
+ID de RustDesk del equipo **cambió**:
+
+```
+antes:  1752551151
+después: 1503822041
+```
+
+Para un equipo **unattended** eso es grave: quien tenga guardado el ID viejo
+**ya no puede conectarse**. El operador debe actualizar su ficha del cliente.
+
+**Causa:** el ID de RustDesk se deriva de la **identidad del sistema**, que
+incluye el `machine-id`. Al migrar el sistema de archivos, `/etc/machine-id`
+se **regeneró** (fecha de cambio `2026-10-29 11:36`, justo durante la migración):
+
+```
+$ cat /etc/machine-id
+2806202463764cf1b2a268d8f5c7d0c6      # nuevo tras migrar
+```
+
+`/etc/machine-id` nuevo ⇒ ID de RustDesk nuevo. (En el caso real, la migración
+en caliente copió el contenido pero el `machine-id` se regeneró al primer
+arranque del disco nuevo.)
+
+**Solución / mitigación:**
+- **Antes de migrar**, guardar `cat /etc/machine-id`.
+- **Después de migrar**, restaurarlo (`/etc/machine-id` + copia en
+  `/var/lib/dbus/machine-id`) **antes** de arrancar servicios que dependan de él,
+  para conservar el ID de RustDesk.
+- Si ya cambió, **actualizar la ficha del cliente** con el ID nuevo y avisar a
+  quien tenga el viejo guardado.
+- Verificación: `rustdesk --get-id` y compararlo con el ID esperado.
+
+**Lección:** el ID de RustDesk **no** está atado al hardware, sino a la
+identidad del SO (`machine-id`). Clonar/migrar un disco puede cambiarlo en
+silencio y romper el acceso desatendido.
+
+---
+
+## H-43 — Compartir la clave SSH entre operador y cliente (mala práctica)
+
+**Verificado:** ✅ (HP y MSI, 29 oct 2026)
+
+**Síntoma:** en el montaje inicial, el **operador (HP)** y el **cliente/segundo
+operador (MSI)** usaban **la misma clave SSH**:
+
+```
+HP  ~/.ssh/id_ed25519.pub → ssh-ed25519 AAAAC3...Fc pi-agent@MSI
+MSI ~/.ssh/id_ed25519.pub → ssh-ed25519 AAAAC3...Fc pi-agent@MSI   ← idénticas
+```
+
+Consecuencias:
+- **No auditable**: una conexión no se puede atribuir a un equipo concreto.
+- **Fallo en cascada**: rotar o filtrar esa clave rompe el acceso en **ambas**
+  máquinas a la vez.
+- **Confusión de rol**: la clave se llamaba `pi-agent@MSI` pero vivía en el HP.
+
+**Solución (split de claves por operador):**
+1. Generar una clave **propia** en cada máquina:
+   `ssh-keygen -t ed25519 -f ~/.ssh/id_<rol>_operador -C "<rol>@<host>"`.
+2. **Autorizar cruzado**: la pública de cada uno en el `authorized_keys` del otro.
+3. Actualizar `~/.ssh/config` (un `Host` por operador, con su `IdentityFile`).
+4. **Retirar** la clave compartida de los `authorized_keys`.
+5. Verificar que la vieja **ya no sirve**:
+   `ssh -i vieja -o IdentitiesOnly=yes -o -F /dev/null host true` → `Permission denied`.
+
+**Resultado (2 operadores reales):**
+
+| | HP | MSI |
+|---|---|---|
+| Clave | `id_hp_operador` (`hp-operador@HP`) | `id_msi_operador` (`msi-operador@MSI`) |
+| Entra a | `msi-operador` ✔ | `hp-operador` ✔ |
+
+Extra: el HP **no tenía `sshd`**;
+hubo que `systemctl enable --now sshd` para poder ser operado.
+
+**Lección:** en flotas con varios operadores, **una identidad SSH por máquina**.
+Nunca compartas la clave privada entre nodos: impide auditar, y un compromiso
+afecta a toda la flota.

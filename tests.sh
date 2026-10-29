@@ -1309,6 +1309,49 @@ t "RD_SHA256 del update.sh == la de setup-remote-target.sh" \
 tdoc "el README documenta update.sh" \
   bash -c 'grep -q "update.sh" README.md'
 
+# --- H-41: `ls` alias de eza contamina variables en fish ---
+sect "H-41: scripts fish robustos al alias de ls (eza --color)"
+t "H-41 recomienda path filter en vez de ls" \
+  bash -c 'grep -q "path filter" docs/hallazgos.md'
+t "H-41 documentado" \
+  bash -c 'grep -q "H-41" docs/hallazgos.md'
+t "H-41 menciona el riesgo de ls/eza" \
+  bash -c 'grep -qiE "alias.*eza|eza.*color" docs/hallazgos.md'
+t "recomienda path filter (no ls) en scripts fish" \
+  bash -c 'grep -q "path filter" docs/hallazgos.md'
+
+# --- H-42: migrar disco cambia machine-id -> cambia ID de RustDesk ---
+sect "H-42: machine-id y ID de RustDesk"
+t "H-42 documentado" \
+  bash -c 'grep -q "H-42" docs/hallazgos.md'
+t "H-42 menciona machine-id" \
+  bash -c 'grep -q "machine-id" docs/hallazgos.md'
+t "H-42 menciona que el ID de RustDesk cambia" \
+  bash -c 'grep -qiE "ID de RustDesk.*camb|machine-id.*RustDesk|RustDesk.*machine-id" docs/hallazgos.md'
+t "H-42 explica cómo conservar el ID (guardar/restaurar machine-id)" \
+  bash -c 'grep -q "/var/lib/dbus/machine-id" docs/hallazgos.md'
+
+# --- H-43: claves SSH compartidas entre operadores (mala practica) ---
+sect "H-43: una identidad SSH por operador"
+t "H-43 documentado" \
+  bash -c 'grep -q "H-43" docs/hallazgos.md'
+t "H-43 recomienda clave propia por operador" \
+  bash -c 'grep -q "id_<rol>_operador\|id_<rol>\|_operador" docs/hallazgos.md'
+t "docs/operador-multiple.md existe" \
+  bash -c 'test -f docs/operador-multiple.md'
+t "operador-multiple explica la autorizacion cruzada" \
+  bash -c 'grep -qiE "autoriza|authorized_keys" docs/operador-multiple.md'
+t "operador-multiple menciona flota.sh con dos bloques" \
+  bash -c 'grep -qiE "CLIENTES|OPERADORES" docs/operador-multiple.md'
+t "operador-multiple refiere a H-41, H-42 y H-43" \
+  bash -c 'grep -q "H-41" docs/operador-multiple.md && grep -q "H-42" docs/operador-multiple.md && grep -q "H-43" docs/operador-multiple.md'
+tdoc "el README enlaza docs/operador-multiple.md" \
+  bash -c 'grep -q "operador-multiple.md" README.md'
+tdoc "el README lista hallazgos hasta H-43" \
+  bash -c 'grep -q "H-01..H-43\|H-01..H-4" README.md'
+t "operador-multiple describe la lista fija de OPERADORES" \
+  bash -c 'grep -q "set -l OPERADORES" docs/operador-multiple.md'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"

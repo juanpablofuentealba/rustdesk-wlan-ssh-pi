@@ -123,6 +123,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
 | [`docs/agente-operador.md`](docs/agente-operador.md) | Agente IA como **operador** remoto: flujos y reglas para mantener clientes |
+| [`docs/operador-multiple.md`](docs/operador-multiple.md) | **Varios operadores** (flota con 2+ PCs operadores): identidad SSH propia por operador, operación cruzada, `flota.sh` con dos bloques |
 | [`docs/caso-real-msi.md`](docs/caso-real-msi.md) | **Caso real**: instalación y mantención de punta a punta en un cliente de trabajo |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen |
@@ -134,7 +135,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-30: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-43: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/estado-sesion.md`](docs/estado-sesion.md) | Estado del trabajo, para retomar |
