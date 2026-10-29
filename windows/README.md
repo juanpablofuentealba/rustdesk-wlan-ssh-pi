@@ -14,6 +14,7 @@ soporte remoto con la misma filosofía: **RustDesk** (visual) + **OpenSSH Server
 | [`setup-remote-target.ps1`](setup-remote-target.ps1) | Instala y configura RustDesk + OpenSSH + Tailscale + winget. Idempotente. |
 | [`inventory.ps1`](inventory.ps1) | Inventario de specs (texto / JSON / Markdown) para la ficha del cliente. |
 | [`rustdesk-password.ps1`](rustdesk-password.ps1) | Verifica/fija la contraseña permanente de RustDesk (unattended). |
+| [`diagnostico.ps1`](diagnostico.ps1) | **Diagnóstico de hardware**: apagones (Id 41), temperaturas, SMART, RAM, batería. |
 
 ## Uso rápido
 
@@ -47,6 +48,27 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 | `-AuthKey tskey-auth-...` | Une el equipo a la tailnet. La key se crea en https://login.tailscale.com/admin/settings/keys |
 | `-RdPass 'Clave'` | Deja la contraseña permanente de RustDesk. |
 | `-NoSsh` / `-NoTailscale` | Omite el componente (acceso solo visual, etc.). |
+
+## Diagnóstico rápido desde el cliente (una línea, sin pegar)
+
+Para diagnosticar un equipo remoto sin pedir credenciales ni pegar comandos
+largos, el cliente (o tú por su pantalla) ejecuta **una sola línea** en
+PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/windows/diagnostico.ps1 | iex
+```
+
+Recoge **apagones bruscos (Kernel-Power 41)**, temperaturas ACPI, salud/SMART
+de discos, RAM, batería y top de procesos. **No cambia nada.** Para guardar el
+informe:
+
+```powershell
+$s = irm https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/windows/diagnostico.ps1; iex "& { $s } -Out C:\kit\diag"
+```
+
+> **"Se apaga solo":** varios eventos **Id 41** = apagón **brusco** (hardware:
+térmico o energía). **Id 1074** = apagado **planeado** (software/actualización).
 
 ## Notas y diferencias con Linux
 
