@@ -1268,8 +1268,8 @@ t "pkg_install_hint da apt en Debian" \
   bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=debian\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo apt-get install -y pipewire"'
 t "pkg_install_hint da dnf en Fedora" \
   bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=fedora\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo dnf install -y pipewire"'
-t "H-37 documentado" \
-  bash -c 'grep -q "H-37" docs/hallazgos.md'
+t "H-40 documentado (clip-vm fish+wayland)" \
+  bash -c 'grep -q "## H-40 — El portapapeles por SSH" docs/hallazgos.md'
 
 # H-38: aviso de otros agentes de acceso remoto (dwagent/anydesk/...) y filtro
 # de discos de tamaño 0 en el inventario. Ambos salieron de la prueba real

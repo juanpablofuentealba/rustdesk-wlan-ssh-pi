@@ -1840,7 +1840,7 @@ variables `local` son una trampa clásica.
 
 ---
 
-## H-37 — El portapapeles por SSH fallaba en un guest con fish (y con Wayland sin env)
+## H-40 — El portapapeles por SSH fallaba en un guest con fish (y con Wayland sin env)
 
 **Verificado:** ✅ (HP → MSI CachyOS/Wayland, 28 oct 2026)
 
