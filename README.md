@@ -180,6 +180,14 @@ Detalle por familia, firewall y Linux Mint: [`docs/referencia.md`](docs/referenc
   (Machines → equipo → Disable) o quitando tu línea de `authorized_keys`.
 - Las reglas `NOPASSWD` que agrega el kit son **acotadas** (`reboot`), no todo sudo.
 
+Diseño completo y cómo **reportar vulnerabilidades**: [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Estado y versiones
+
+**v1.0.0** — primera versión estable. Cambios en [`CHANGELOG.md`](CHANGELOG.md).
+
 ---
 
 ## Licencia

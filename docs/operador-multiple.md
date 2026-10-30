@@ -181,51 +181,6 @@ clientes sin depender del portátil/escritorio.
 
 4. **Autorizar su pública** en los demás operadores y en los clientes.
 
-### Autorizar una clave — POSEE versión **fish**
-
-Mandando la orden a un operador con **fish** (CachyOS), la sintaxis debe ser
-fish, no bash (**H-23**). Cualquiera de estas sirve:
-
-```fish
-printf '%s\n' 'ssh-ed25519 AAAA... comentario' >> ~/.ssh/authorized_keys
-```
-
-```fish
-cat >> ~/.ssh/authorized_keys << 'EOF'
-ssh-ed25519 AAAA... comentario
-
----
-
-## Operador móvil (Android/Termux)
-
-Un teléfono puede ser operador más si en él corre **Termux** con Tailscale en
-modo userspace (**H-60/H-61**). Es útil como operador de bolsillo: SSH a los
-clientes sin depender del portátil/escritorio.
-
-### Alta de un operador móvil
-
-1. **Tailscale en Termux** (userspace + `proot`, ver H-60). Poner un hostname
-   propio, distinto al de la app Android:
-
-   ```
-   <host>-termux        (ej. mi-telefono-termux)
-   ```
-
-2. **Clave propia** (jamás la de otro operador — H-43):
-
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/id_<rol>_operador -C "<rol>-operador@<host>"
-   ```
-
-3. **SSH por SOCKS5** (no hay `tun` en userspace), en `~/.ssh/config`:
-
-   ```sshconfig
-   Host <peer> 100.x.y.z
-     ProxyCommand nc -X 5 -x localhost:1055 %h %p
-   ```
-
-4. **Autorizar su pública** en los demás operadores y en los clientes.
-
 ### Autorizar una clave — versión **fish**
 
 Mandando la orden a un operador con **fish** (CachyOS), la sintaxis debe ser
