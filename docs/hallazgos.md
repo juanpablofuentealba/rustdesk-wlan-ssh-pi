@@ -3,7 +3,7 @@
 Registro de comportamientos **comprobados en máquinas reales**, no supuestos.
 Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarlo.
 
-> Última actualización: 2026-10-29
+> Última actualización: 2026-10-30
 > Equipos de prueba: desktop (operador) + laptop **HP** Ryzen 5 (objetivo),
 > ambos CachyOS/Wayland
 
@@ -11,7 +11,7 @@ Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarl
 
 ## Índice
 
-**65 hallazgos** (H-01..H-66; no existe H-25). Agrupados por tema, para ir
+**66 hallazgos** (H-01..H-67; no existe H-25). Agrupados por tema, para ir
 directo a lo que te interesa.
 
 ### ⭐ Top 10 para quien llega nuevo
@@ -76,7 +76,8 @@ Lo que más veces ahorra tiempo en campo, en orden de impacto:
 [H-61](#h-61--android-13-bloquea-faccessat2-por-seccomp-los-binarios-go-modernos-mueren-con-sigsys) ·
 [H-63](#h-63--los-nodos-tailscale-en-userspace-networking-sí-reciben-conexiones-entrantes) ·
 [H-65](#h-65--alternativa-a-los-binarios-de-tailscale-en-termux-proot--userspace) ·
-[H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando)
+[H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando) ·
+[H-67](#h-67--trusted_devices-activo-sin-unlock_pin-hace-que-rustdesk-pida-la-clave-de-contraseñas)
 
 **SSH, shells y automatización**
 
@@ -3089,3 +3090,68 @@ ssh objetivo 'systemctl is-active tailscaled sshd rustdesk'
 # 4. Comprobar captura DRM (solo si hay sesión iniciada)
 ssh objetivo 'grep -iE "drm: consumer cache|UInput" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log | tail -3'
 ```
+
+---
+
+## H-67 — `trusted_devices` activo sin `unlock_pin` hace que RustDesk pida la "clave de contraseñas"
+
+**Verificado:** ✅ (MSI CachyOS, 30-oct-2026)
+
+**Síntoma:** al abrir/entrar por RustDesk en un equipo ya configurado, la app
+pide una **contraseña adicional** ("clave de contraseñas") que **no es** la de
+acceso remoto ni la de `sudo`. Nadie la recuerda y el acceso desatendido queda
+interrumpido.
+
+**Causa:** en `RustDesk2.toml` (config **de la app**) estaba:
+
+```toml
+unlock_pin = ''
+trusted_devices = '00AUifIYMYJnbKdYv+v8kE+yBP6AwZLLqGjlE07D9zAaQE7vL6xoX3DM1QDg=='
+```
+
+`trusted_devices` contiene las **"llaves de confianza"** que se intercambian
+cuando alguien marca "Confiar en este dispositivo". Con dispositivos de
+confianza registrados, RustDesk 1.5 exige confirmar la **contraseña personal**
+al usar la app (protección contra acceso desatendido por terceros). Como el
+usuario no la definió (`unlock_pin = ''`), la app la pide igual y no hay texto
+en disco del que sacarla: solo se guarda el hash.
+
+**Confusión típica:** son **tres contraseñas distintas** en el mismo equipo:
+
+| Clave | Para qué | Dónde se define |
+|---|---|---|
+| **acceso remoto** | conectarse al equipo desde fuera | `RustDesk.toml` → `password` (sealed con la `machine-id`) |
+| **personal / unlock PIN** | usar la app en el equipo, con trusted devices | `RustDesk2.toml` → `unlock_pin` / `trusted_devices` |
+| **sudo del sistema** | terminal | `passwd` |
+
+**Arreglo (reversible):**
+
+```bash
+# 1. backup
+sudo cp /root/.config/rustdesk/RustDesk2.toml{,.bak-pi-$(date +%Y%m%d-%H%M%S)}
+# 2. vaciar los dispositivos de confianza
+sudo sed -i "s/^trusted_devices = .*/trusted_devices = ''/" /root/.config/rustdesk/RustDesk2.toml
+# 3. reiniciar el servicio
+sudo systemctl restart rustdesk
+```
+
+Tras esto la app deja de pedir la clave personal y la **contraseña de acceso
+remoto sigue funcionando igual** (no se toca `RustDesk.toml`).
+
+> Si lo que se quiere es **mantener** los trusted devices, entonces hay que
+> **fijar a mano** una contraseña personal conocida desde la GUI
+> (Configuración → Seguridad) y anotarla. No hay flag CLI para ella.
+
+**Trampa que costó tiempo:** el `rustdesk.service` de estos equipos corre como
+**root**, así que la config real está en **`/root/.config/rustdesk/`**, NO en
+`~<usuario>/.config/rustdesk/`. Mirar en el home del usuario da un archivo
+distinto (o vacío) y hace pensar que no hay trusted devices. Verificar con:
+
+```bash
+systemctl show rustdesk -p User        # vacío/root => config en /root/.config
+sudo ls -la /root/.config/rustdesk/
+```
+
+**Lección:** cuando RustDesk pide "otra" contraseña, no es un bug ni una
+corrupción: es `trusted_devices` sin `unlock_pin`. Y antes de buscar en el
+`~` del usuario, confirmar **con qué usuario corre el servicio**.

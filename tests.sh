@@ -1594,6 +1594,24 @@ t "energia-remota.sh NO mete la clave en argv" \
 t "energia-remota.sh lee la clave de un archivo" \
   bash -c 'grep -q "ENERGIA_SUDO_FILE\|operador-secrets" energia-remota.sh'
 
+# --- H-67: trusted_devices activo sin unlock_pin => pide clave personal ---
+t "H-67 documentado (trusted_devices pide clave personal)" \
+  bash -c 'grep -q "H-67" docs/hallazgos.md'
+t "H-67 menciona trusted_devices y unlock_pin" \
+  bash -c 'grep -q "trusted_devices" docs/hallazgos.md && grep -q "unlock_pin" docs/hallazgos.md'
+t "H-67 distingue las tres contrasenas" \
+  bash -c 'grep -q "tres contraseñas distintas" docs/hallazgos.md'
+t "H-67 avisa de que el servicio corre como root" \
+  bash -c 'grep -q "/root/.config/rustdesk" docs/hallazgos.md'
+t "H-67 trae el arreglo con systemctl restart rustdesk" \
+  bash -c 'grep -q "systemctl restart rustdesk" docs/hallazgos.md'
+t "H-67 dice que no afecta a la contrasena de acceso remoto" \
+  bash -c 'tr "\n" " " < docs/hallazgos.md | grep -q "acceso remoto sigue funcionando"'
+t "H-67 no pisa IDs de otras sesiones" \
+  bash -c 'grep -q "H-66" docs/hallazgos.md && grep -q "H-65" docs/hallazgos.md'
+t "H-66 de la otra sesion (SSH caido) sigue intacto" \
+  bash -c 'tr "\n" " " < docs/hallazgos.md | grep -q "tailscale ping. OK"'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"
