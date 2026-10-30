@@ -3,7 +3,8 @@
 > Caso anonimizado (2026-10-29/30). Notebook gaming **HP Omen** con Windows 11,
 > atendido **de punta a punta en remoto** (RustDesk + SSH por Tailscale).
 > Complementa [`caso-real-apagon-solo.md`](caso-real-apagon-solo.md) y los
-> hallazgos [H-54..H-62](hallazgos.md).
+> hallazgos [H-54..H-62](hallazgos.md) y [H-66](hallazgos.md) (SSH caído con
+> el equipo vivo).
 
 ---
 
@@ -98,3 +99,31 @@ PS='Get-WinEvent -FilterHashtable @{LogName="System";Id=41} -MaxEvents 3'
 ENC=$(printf '%s' "$PS" | iconv -t UTF-16LE | base64 -w0)
 ssh rai "powershell -NoProfile -EncodedCommand $ENC"
 ```
+
+---
+
+## Incidente posterior — se cortó el SSH con el equipo encendido (30-oct)
+
+Días después del seguimiento, **el SSH dejó de funcionar** aunque el equipo
+seguía prendido. Lo que se vio, en orden:
+
+- `tailscale status` → nodo `rai` **`active`**; `tailscale ping` → **pong** por
+  **DERP (relay)**. Es decir: **la red estaba bien**.
+- **RustDesk sí entraba**, y **parecía que la clienta lo estaba usando**.
+- `ssh` a `rai` (probando **dos usuarios** del equipo y **dos claves** de
+  operador distintas, incluso saltando por `msi-operador`) →
+  **`Permission denied`** y a veces **`Connection reset`**.
+
+**Conclusión:** no era red ni equipo apagado: era **autenticación/`sshd`**.
+Causas probables: tras un reinicio quedó `sshd` detenido o la clave se perdió de
+`administrators_authorized_keys` (**H-57**), o **Fast Startup** se reactivó solo
+(**H-62**). Ver **[H-66](hallazgos.md)**.
+
+**Decisión (importante):** como el equipo **estaba en uso**, **no se intervino**.
+No se reinició nada ni se tomó el control por RustDesk. Se acordó **avisar y
+esperar una ventana** para reparar el SSH con el equipo libre:
+
+1. Entrar por **RustDesk** (que sí funciona).
+2. En una consola de Windows: `Get-Service sshd`, revisar
+   `C:\ProgramData\ssh\administrators_authorized_keys` y `powercfg /a`.
+3. Restaurar la clave, comprobar `nc -z rai 22` y luego `ssh`.

@@ -11,7 +11,7 @@ Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarl
 
 ## Índice
 
-**64 hallazgos** (H-01..H-65; no existe H-25). Agrupados por tema, para ir
+**65 hallazgos** (H-01..H-66; no existe H-25). Agrupados por tema, para ir
 directo a lo que te interesa.
 
 ### ⭐ Top 10 para quien llega nuevo
@@ -30,6 +30,7 @@ Lo que más veces ahorra tiempo en campo, en orden de impacto:
 | 8 | [H-23](#h-23--enviar-sintaxis-bash-a-un-objetivo-con-fish-da-falsos-fallos) | Mandar bash a un objetivo fish da falsos fallos |
 | 9 | [H-42](#h-42--migrar-el-sistema-de-disco-regenera-el-machine-id-y-cambia-el-id-de-rustdesk) | Cambiar de disco regenera el ID de RustDesk |
 | 10 | [H-30](#h-30--la-auth-key-no-sale-del-equipo-se-genera-en-la-web) | La auth key se genera en la web, no en el equipo |
+| ⭐ | [H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando) | "SSH caído" con el equipo vivo: `tailscale ping` OK **no** significa `sshd` OK |
 
 ### Por categoría
 
@@ -74,7 +75,8 @@ Lo que más veces ahorra tiempo en campo, en orden de impacto:
 [H-60](#h-60--tailscale-en-termux-android-13-la-app-no-comparte-su-tun-y-los-binarios-mueren-con-sigsys) ·
 [H-61](#h-61--android-13-bloquea-faccessat2-por-seccomp-los-binarios-go-modernos-mueren-con-sigsys) ·
 [H-63](#h-63--los-nodos-tailscale-en-userspace-networking-sí-reciben-conexiones-entrantes) ·
-[H-65](#h-65--alternativa-a-los-binarios-de-tailscale-en-termux-proot--userspace)
+[H-65](#h-65--alternativa-a-los-binarios-de-tailscale-en-termux-proot--userspace) ·
+[H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando)
 
 **SSH, shells y automatización**
 
@@ -2915,6 +2917,77 @@ Ver `docs/android-operador.md`.
 **Lección:** cuando una app móvil choca con una restricción del sistema,
 un **contenedor Linux sin root** la esquiva por completo — misma familia de
 solución que arregló el acceso, no el binario.
+
+---
+
+## H-66 — "SSH caído" con el equipo vivo: `tailscale ping` OK ≠ `sshd` funcionando
+
+**Verificado:** ✅ (cliente `rai`, 2026-10-30)
+
+Síntoma que confunde mucho: **el SSH deja de funcionar** de un momento a otro,
+pero el equipo **está prendido y conectado**.
+
+Los tres chequeos habituales dan **señales contradictorias**:
+
+```
+$ tailscale status | grep rai
+100.x.y.z      rai   windows   idle, tx 10348 rx 8796     ← el nodo está vivo
+
+$ tailscale ping -c 2 rai
+pong from rai (100.x.y.z) via DERP(relay) in 120ms       ← responde
+
+$ ssh USUARIO@rai
+USUARIO@rai: Permission denied (publickey,password,keyboard-interactive).
+```
+
+Y por **RustDesk sí se entra**: el equipo está operativo y con sesión activa
+(incluso con alguien usándolo).
+
+### Por qué pasa
+
+1. **`tailscale ping` prueba la capa de red, no el servicio.** Un nodo que
+   responde `pong` (aunque sea por **DERP/relay**) prueba que Tailscale corre
+   y que el equipo está encendido — **no** que `sshd` esté escuchando, ni que
+   autorice tu clave. Incluso un equipo en **Modern Standby** puede contestar
+   pings (ver H-54).
+2. **Tras un reinicio puede romperse el SSH sin que nadie lo toque:**
+   - `sshd` no quedó `Running/Automatic` (Windows/Servicio detenido), o
+   - la clave se perdió de `administrators_authorized_keys` (**H-57**), o
+   - **Fast Startup** se reactivó solo (**H-62**) y dejó el arranque a medias.
+3. **`Permission denied` ≠ equipo caído.** Significa "llegué al `sshd` y me
+   rechazó la autenticación". Es un problema de **claves/usuario**, no de red.
+4. **`Connection reset`** (visto al insistir con otra clave/usuario) puede ser
+   el propio `sshd` que corta tras varios fallos — **no seguir martillando**
+   (**H-49**, `pam_faillock`).
+
+### Regla de diagnóstico (de más fuerte a más débil)
+
+| Prueba | Qué demuestra |
+|---|---|
+| **RustDesk conecta** | el equipo está **encendido y con sesión** (capa visual) |
+| **`sshd` responde** (`nc -z rai 22`) | el **servicio** está arriba |
+| **`ssh` autentica** | la **clave/usuario** están bien |
+| `tailscale ping` | **solo** que la red Tailscale llega |
+
+> `tailscale ping` **NO** sustituye a probar el puerto 22 ni el login. Es la
+> prueba **más débil** de todas y es la que más engaña.
+
+### Qué hacer (sin romper nada)
+
+1. **No intervenir si RustDesk muestra a alguien usándolo.** Nunca tomar el
+   control, reiniciar servicios ni el equipo mientras hay una persona
+   trabajando: se coordina primero (**"avisar y esperar ventana"**).
+2. Cuando esté libre, **entrar por RustDesk** (que sí funciona) y, en una
+   consola de Windows, revisar en orden:
+   `Get-Service sshd`, la existencia de la clave en
+   `C:\ProgramData\ssh\administrators_authorized_keys`, y `powercfg /a`
+   (Fast Startup).
+3. Restaurar la clave y volver a comprobar `nc -z rai 22` → `ssh` antes de dar
+   el caso por cerrado.
+
+**Lección:** "el equipo está en la tailnet" y "está vivo" **no** implican "puedo
+trabajar por SSH". Son capas distintas. Y si el usuario está usando el equipo,
+la prioridad no es reparar el acceso: es **no estorbar**.
 
 ---
 

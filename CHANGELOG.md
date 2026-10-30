@@ -43,9 +43,10 @@ Fedora, con kit aparte para Windows 10/11.
 - **`windows/`** — kit para Windows 10/11: `setup-remote-target.ps1`,
   `inventory.ps1`, `rustdesk-password.ps1`, `diagnostico.ps1`
   (H-45..H-47, H-51..H-62).
-- **`docs/hallazgos.md`** — H-01..H-65: problemas reales encontrados y su
+- **`docs/hallazgos.md`** — H-01..H-66: problemas reales encontrados y su
   solución, con evidencia (incluye **H-64** WoL remoto con el operador como
-  relé y **H-65** Tailscale en Android vía `proot`+userspace).
+  relé, **H-65** Tailscale en Android vía `proot`+userspace y **H-66** SSH
+  caído con el equipo vivo: `tailscale ping` OK ≠ `sshd` funcionando).
 - **Documentación estratificada**: `docs/guia-desde-cero.md` (principiantes),
   `docs/referencia.md` (técnico), `docs/acceso-primero.md` (fijar el acceso
   antes de todo, H-53), `docs/tailscale.md`, `docs/onboarding-cliente.md`,
@@ -92,5 +93,8 @@ Fedora, con kit aparte para Windows 10/11.
   reinicio remoto por SSH (`docs/wol-y-energia-remota.md`, H-64).
 - Tailscale en Android **sin** los binarios de Termux, vía `proot`+userspace
   (`docs/android-operador.md`, H-65).
+- Corte de SSH con el equipo encendido y en uso: diagnóstico por capas
+  (RustDesk > puerto 22 > login > `tailscale ping`) y regla de **no intervenir**
+  mientras el cliente usa el equipo (`docs/caso-real-rai-omen.md`, H-66).
 
 [1.0.0]: https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/releases/tag/v1.0.0

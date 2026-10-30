@@ -130,7 +130,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`docs/operador-multiple.md`](docs/operador-multiple.md) | **Varios operadores** (flota con 2+ PCs operadores, incluido un **operador móvil Android/Termux**): identidad SSH propia por operador, operación cruzada, **malla todos-contra-todos** y `flota.sh` con dos bloques |
 | [`docs/caso-real-msi.md`](docs/caso-real-msi.md) | **Caso real**: instalación y mantención de punta a punta en un cliente de trabajo |
 | [`docs/caso-real-apagon-solo.md`](docs/caso-real-apagon-solo.md) | **Caso real Windows**: "se apaga solo" = Modern Standby; overclock y SSH ([H-51..H-62](docs/hallazgos.md)) |
-| [`docs/caso-real-rai-omen.md`](docs/caso-real-rai-omen.md) | **Caso real**: HP Omen Windows "se apaga solo", seguimiento a 1 día y acceso de operador móvil ([H-54..H-62](docs/hallazgos.md)) |
+| [`docs/caso-real-rai-omen.md`](docs/caso-real-rai-omen.md) | **Caso real**: HP Omen Windows "se apaga solo", seguimiento a 1 día, acceso de operador móvil y corte de SSH con el equipo vivo ([H-54..H-62](docs/hallazgos.md), [H-66](docs/hallazgos.md)) |
 | [`docs/wol-y-energia-remota.md`](docs/wol-y-energia-remota.md) | **Encendido/apagado remoto**: WoL con el operador como relé, y energía sin exponer la clave · [H-64](docs/hallazgos.md) |
 | [`docs/android-operador.md`](docs/android-operador.md) | **Operador móvil (Android)**: Tailscale por proot+userspace cuando la app no sirve · [H-65](docs/hallazgos.md) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
@@ -143,7 +143,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | **Índice + top 10** y H-01..H-65: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | **Índice + top 10** y H-01..H-66: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/acceso-primero.md`](docs/acceso-primero.md) | **Con un cliente que no sabe RustDesk**: fija el acceso ANTES de todo · [H-53](docs/hallazgos.md) |

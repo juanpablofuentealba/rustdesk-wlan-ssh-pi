@@ -221,7 +221,7 @@ Si tu clave aún no está en el cliente Windows, podés **saltar por un operador
 que sí tenga acceso** (usa `ProxyJump`):
 
 ```bash
-ssh -J jp@hp-operador qquet@rai 'whoami'
+ssh -J jp@hp-operador USUARIO@cliente-windows 'whoami'
 ```
 
 Y para mandar PowerShell sin el infierno de comillas, codificar en UTF-16LE +
