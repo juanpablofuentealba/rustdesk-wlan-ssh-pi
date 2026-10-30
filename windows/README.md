@@ -93,6 +93,20 @@ Otra opción: enviar el script por **STDIN** a `powershell -NoProfile -Command -
 > Un comando de una sola línea simple (`hostname`, `whoami`) sí funciona directo:
 > `ssh rai 'hostname'`.
 
+## Autorizar tu clave SSH (ojo si el usuario es administrador)
+
+Si el usuario SSH es **administrador** de Windows, el `authorized_keys` normal
+**se ignora**: hay que escribir en
+`C:\ProgramData\ssh\administrators_authorized_keys` y arreglar los permisos,
+usando el **SID** del grupo (en Windows en español el grupo se llama
+`Administradores`, no `Administrators`) — ver **H-57**:
+
+```powershell
+$f = 'C:\ProgramData\ssh\administrators_authorized_keys'
+Add-Content -Path $f -Value '<clave-publica>' -Encoding ascii
+icacls $f /inheritance:r /grant '*S-1-5-32-544:F' /grant 'SYSTEM:F'
+```
+
 ## Notas y diferencias con Linux
 
 - **La auth key de Tailscale se genera en la web**, no en el equipo (igual que

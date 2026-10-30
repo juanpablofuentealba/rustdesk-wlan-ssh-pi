@@ -83,7 +83,10 @@ jobs:
           $excl = @(
             'PSAvoidUsingWriteHost',
             'PSUseShouldProcessForStateChangingFunctions',
-            'PSReviewUnusedParameter'
+            'PSReviewUnusedParameter',
+            # RustDesk exige la contraseña en texto plano por CLI
+            # (--password); SecureString/PSCredential no sirven ahí.
+            'PSAvoidUsingPlainTextForPassword'
           )
           $results = Invoke-ScriptAnalyzer `
             -Path .\windows `

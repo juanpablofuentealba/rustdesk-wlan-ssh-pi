@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Pruebas de humo del kit Windows (análogas a tests.sh en Linux).
 
@@ -115,7 +115,10 @@ if (Test-Path $diagP) {
 
 # ─── 4. Reglas de seguridad ───────────────────────────────────────────────
 Head "4. Reglas de seguridad"
-$all = Get-ChildItem -Path $Path -Filter *.ps1 -File
+# Escaneamos los scripts del KIT, no este propio archivo de pruebas (que
+# contiene los literales buscados en sus descripciones y regex).
+$all = Get-ChildItem -Path $Path -Filter *.ps1 -File |
+    Where-Object { $_.Name -ne 'tests-windows.ps1' }
 $joined = ($all | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 
 T "no hay 'NOPASSWD: ALL' (solo reglas acotadas)" {
@@ -175,6 +178,7 @@ if (Test-Path $readme) {
             Where-Object { $rd -notmatch [regex]::Escape($_) }).Count -eq 0
     }
     T "README de windows/ menciona administrators_authorized_keys" {
+        # H-57: SSH con usuario administrador usa este fichero, no el normal.
         $rd -match 'administrators_authorized_keys'
     }
 } else { Sk "windows/README.md ausente" }
