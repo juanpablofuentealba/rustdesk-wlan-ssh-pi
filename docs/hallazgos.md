@@ -2727,3 +2727,39 @@ la causa raíz.
 **Lección:** los ajustes de energía pueden **no persistir** en equipos con
 software de tuning (XTU, suite del fabricante). **Verificar tras cada reinicio**,
 no confiar en el "ya lo apliqué". Ver H-54/H-56/H-58/H-59.
+
+---
+
+## H-63 — Los nodos Tailscale en `userspace-networking` **sí reciben** conexiones entrantes
+
+**Verificado:** ✅ (malla de 3 operadores, 30-oct-2026)
+
+**Creencia previa (corregida):** en [H-60](hallazgos.md) se anotó que correr
+`tailscaled` en `--tun=userspace-networking` (Android/Termux) implicaba que el
+nodo **solo** podía iniciar conexiones (vía SOCKS5) y **no podía recibir** SSH
+entrante por Tailscale.
+
+**Es falso.** Los peers **sí alcanzan** la IP `100.x` de un nodo userspace:
+
+```
+# desde el HP (nodo normal):
+ping 100.65.223.70            -> 0% packet loss
+nc -zv 100.65.223.70 8022     -> succeeded
+ssh -p 8022 u0_a344@100.65.223.70 whoami  -> u0_a344   ✅
+```
+
+**Consecuencia:** se puede construir una **malla real de operadores** donde un
+teléfono con Termux (userspace) es un nodo más: recibe SSH en el puerto 8022
+(el `sshd` de Termux) y también entra a los demás.
+
+**Configuración que lo hace funcionar** (lado que recibe, Termux):
+
+- `sshd` corriendo (puerto **8022** en Termux), con auto-arranque.
+- `~/.ssh/authorized_keys` con las públicas de los otros operadores.
+- Usuario SSH = el usuario de Termux (`u0_aXXXX`), **no** el del equipo Linux.
+- Del lado que conecta: `Host <movil>` con `Port 8022` + `IdentityFile` propio
+  (una clave por operador — H-43) + `IdentitiesOnly yes`.
+
+**Lección:** el modo userspace afecta el **ruteo del tráfico propio** (por eso
+hace falta SOCKS5 para salir), pero **no impide** que los peers alcancen los
+puertos escuchados en el nodo. Un nodo userspace es alcanzable igual.

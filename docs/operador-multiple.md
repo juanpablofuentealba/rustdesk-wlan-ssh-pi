@@ -280,3 +280,55 @@ ssh rai "powershell -NoProfile -EncodedCommand $ENC"
 
 > En una **misma sesión SSH a Windows**, `hostname`/`whoami` pueden fallar por el
 > shell del objetivo (H-55); usar `echo %COMPUTERNAME%` o PowerShell.
+
+---
+
+## Malla completa (todos contra todos)
+
+Cada operador entra a **todos** los demás — se pueda diagnosticar y probar la
+flota de forma cruzada. Verificado 30-oct-2026 con **3 operadores** (HP, MSI,
+móvil Android/Termux).
+
+| Origen → Destino | Resultado |
+|---|---|
+| HP → MSI | ok |
+| HP → móvil (a13) | ok |
+| MSI → HP | ok |
+| MSI → móvil (a13) | ok |
+| móvil → HP / MSI / cliente | ok |
+
+### Reglas de la malla
+
+1. **Una clave por operador** (H-43). Cada `authorized_keys` lleva las públicas
+   de los demás, nunca privadas.
+2. **El nodo que recibe** expone su `sshd`:
+   - Linux (HP/MSI): puerto 22.
+   - **Móvil Termux**: puerto **8022**, usuario = el de Termux (`u0_aXXXX`),
+     `sshd` con auto-arranque. **Un nodo userspace SÍ recibe** (ver H-63).
+3. **En el que conecta**, un `Host` por operador con su `IdentityFile` y
+   `IdentitiesOnly yes`:
+
+   ```sshconfig
+   Host a13 100.x.y.z
+     HostName 100.x.y.z
+     Port 8022
+     User u0_aXXXX
+     IdentityFile ~/.ssh/id_<rol>_operador
+     IdentitiesOnly yes
+   ```
+
+### Ejemplo: entrar al móvil desde el HP
+
+```bash
+ssh -p 8022 u0_aXXXX@100.x.y.z 'whoami'
+```
+
+> Sin `IdentityFile` + `IdentitiesOnly`, SSH puede intentar la clave equivocada
+> y dar `Permission denied` aunque la pública esté autorizada. Es el fallo más
+> común al montar la malla.
+
+### Hallazgo clave
+
+El `tailscaled` en `--tun=userspace-networking` **no impide** las conexiones
+entrantes: los peers alcanzan la IP `100.x` del móvil (ping + puerto 8022 OK).
+Ver **H-63**.
