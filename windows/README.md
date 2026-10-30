@@ -15,6 +15,7 @@ soporte remoto con la misma filosofía: **RustDesk** (visual) + **OpenSSH Server
 | [`inventory.ps1`](inventory.ps1) | Inventario de specs (texto / JSON / Markdown) para la ficha del cliente. |
 | [`rustdesk-password.ps1`](rustdesk-password.ps1) | Verifica/fija la contraseña permanente de RustDesk (unattended). |
 | [`diagnostico.ps1`](diagnostico.ps1) | **Diagnóstico de hardware**: apagones (Id 41), temperaturas, SMART, RAM, batería. |
+| [`tests-windows.ps1`](tests-windows.ps1) | **Pruebas de humo** del kit (sintaxis, parámetros, seguridad); no toca el sistema. Equivale a `tests.sh` en Linux. |
 
 ## Uso rápido
 
@@ -36,6 +37,9 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 
 # 5. Contraseña permanente de RustDesk (H-15)
 .\rustdesk-password.ps1 -Set -Password 'MiClaveSegura'
+
+# 6. Pruebas de humo del kit (no cambia nada)
+.\tests-windows.ps1
 ```
 
 ### Parámetros de `setup-remote-target.ps1`

@@ -36,21 +36,35 @@ Fedora, con kit aparte para Windows 10/11.
 - **`make-kit.sh`** — empaqueta el kit para pendrive o tarball.
 - **`tests.sh`** — pruebas de humo antes de un cliente nuevo (653 en entorno
   Linux completo; las dependencias ausentes se omiten, no fallan).
+- **`wol-despertar.sh`** — despierta (Wake-on-LAN) un equipo apagado usando
+  al operador como relé dentro de su LAN (H-64).
+- **`energia-remota.sh`** — apaga/reinicia un equipo remoto por SSH, con la
+  clave `sudo` por STDIN (nunca en `ps`).
 - **`windows/`** — kit para Windows 10/11: `setup-remote-target.ps1`,
   `inventory.ps1`, `rustdesk-password.ps1`, `diagnostico.ps1`
   (H-45..H-47, H-51..H-62).
-- **`docs/hallazgos.md`** — H-01..H-63: problemas reales encontrados y su
-  solución, con evidencia.
+- **`docs/hallazgos.md`** — H-01..H-65: problemas reales encontrados y su
+  solución, con evidencia (incluye **H-64** WoL remoto con el operador como
+  relé y **H-65** Tailscale en Android vía `proot`+userspace).
 - **Documentación estratificada**: `docs/guia-desde-cero.md` (principiantes),
   `docs/referencia.md` (técnico), `docs/acceso-primero.md` (fijar el acceso
   antes de todo, H-53), `docs/tailscale.md`, `docs/onboarding-cliente.md`,
-  `docs/agente-operador.md`, `docs/operador-multiple.md`, `docs/vpn-remoto.md`,
-  `PASOS-EN-ORDEN.txt`, `LEEME-PRIMERO.txt`, `PROMPT-AGENTE.txt`.
+  `docs/agente-operador.md`, `docs/operador-multiple.md`,
+  `docs/android-operador.md`, `docs/wol-y-energia-remota.md`,
+  `docs/vpn-remoto.md`, `PASOS-EN-ORDEN.txt`, `LEEME-PRIMERO.txt`,
+  `PROMPT-AGENTE.txt`.
 - **Casos reales documentados**: `docs/caso-real-msi.md`,
   `docs/caso-real-apagon-solo.md`, `docs/caso-real-rai-omen.md`.
 - **`SECURITY.md`** — política de seguridad y cómo reportar vulnerabilidades.
+- **`windows/tests-windows.ps1`** — pruebas de humo del kit Windows
+  (sintaxis, parámetros, reglas de seguridad); no toca el sistema.
 - **CI** (`.github/workflows/ci.yml`): shellcheck 0.10.0 fijo, `tests.sh`,
-  `bash -n` y detección de secretos (claves privadas y auth keys).
+  `bash -n`, detección de secretos (claves privadas y auth keys),
+  **PSScriptAnalyzer** sobre `windows/` y **`tests-windows.ps1`** en runner
+  `windows-latest`.
+- **`docs/hallazgos.md`**: índice agrupado por categoría, con **top 10** para
+  nuevos lectores.
+- **`CHANGELOG.md`** y etiqueta **`v1.0.0`**.
 
 ### Notas de diseño
 
@@ -74,5 +88,9 @@ Fedora, con kit aparte para Windows 10/11.
   (`docs/caso-real-apagon-solo.md`, `docs/caso-real-rai-omen.md`).
 - Malla de **3 operadores** (HP, MSI y móvil Android/Termux) todos-contra-todos
   (`docs/operador-multiple.md`, H-63).
+- Despertar un equipo **apagado** (WoL con el operador como relé) y apagado/
+  reinicio remoto por SSH (`docs/wol-y-energia-remota.md`, H-64).
+- Tailscale en Android **sin** los binarios de Termux, vía `proot`+userspace
+  (`docs/android-operador.md`, H-65).
 
 [1.0.0]: https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/releases/tag/v1.0.0

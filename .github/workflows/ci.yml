@@ -62,6 +62,51 @@ jobs:
             bash -n "$f" && echo "✔ $f" || exit 1
           done
 
+  powershell-lint:
+    name: PSScriptAnalyzer (windows/)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+
+      - name: Analizar los scripts del kit Windows
+        shell: pwsh
+        run: |
+          # Severidad Error y Warning: no rompemos por mera información/estilo.
+          # Se excluyen reglas de estilo y el uso de Write-Host (intencional
+          # en herramientas de consola para el operador).
+          $excl = @(
+            'PSAvoidUsingWriteHost',
+            'PSUseShouldProcessForStateChangingFunctions',
+            'PSReviewUnusedParameter'
+          )
+          $results = Invoke-ScriptAnalyzer `
+            -Path .\windows `
+            -Recurse `
+            -Severity Error,Warning `
+            -ExcludeRule $excl
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Error ("PSScriptAnalyzer encontró {0} problema(s)" -f $results.Count)
+            exit 1
+          }
+          Write-Host "✔ PSScriptAnalyzer sin hallazgos (Error/Warning)"
+
+  windows-tests:
+    name: tests-windows.ps1
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pruebas de humo del kit Windows
+        shell: pwsh
+        run: .\windows\tests-windows.ps1
+
   secrets:
     name: sin secretos
     runs-on: ubuntu-latest

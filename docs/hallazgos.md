@@ -9,6 +9,126 @@ Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarl
 
 ---
 
+## Índice
+
+**64 hallazgos** (H-01..H-65; no existe H-25). Agrupados por tema, para ir
+directo a lo que te interesa.
+
+### ⭐ Top 10 para quien llega nuevo
+
+Lo que más veces ahorra tiempo en campo, en orden de impacto:
+
+| # | Hallazgo | Por qué importa |
+|---|---|---|
+| 1 | [H-53](#h-53--con-un-cliente-que-no-sabe-rustdesk-fija-la-contraseña-permanente-antes-de-todo) | Fijar el acceso **antes** de todo: el cliente no sabe RustDesk |
+| 2 | [H-14](#h-14--el-rpmdeb-estándar-no-trae-libdrmtap-en-wayland-sin-usuario-falla-la-captura) | Sin `libdrmtap.so` no hay unattended en Wayland |
+| 3 | [H-15](#h-15--sin-contraseña-permanente-unattended-es-imposible-y-el-campo-puede-engañar) | Sin contraseña permanente, unattended es imposible |
+| 4 | [H-29](#h-29--un-portátil-suspende-y-se-pierde-el-acceso-remoto) | Portátil que suspende = acceso perdido |
+| 5 | [H-27](#h-27--reinicio-remoto-bloqueado-por-sudo--polkit) | Reinicio remoto con NOPASSWD **acotado** |
+| 6 | [H-54](#h-54--el-pc-se-apaga-solo-suele-ser-modern-standby-s0-no-un-apagón) | "Se apaga solo" casi siempre es Modern Standby |
+| 7 | [H-60](#h-60--tailscale-en-termux-android-13-la-app-no-comparte-su-tun-y-los-binarios-mueren-con-sigsys) | Operador de bolsillo: Tailscale en Termux |
+| 8 | [H-23](#h-23--enviar-sintaxis-bash-a-un-objetivo-con-fish-da-falsos-fallos) | Mandar bash a un objetivo fish da falsos fallos |
+| 9 | [H-42](#h-42--migrar-el-sistema-de-disco-regenera-el-machine-id-y-cambia-el-id-de-rustdesk) | Cambiar de disco regenera el ID de RustDesk |
+| 10 | [H-30](#h-30--la-auth-key-no-sale-del-equipo-se-genera-en-la-web) | La auth key se genera en la web, no en el equipo |
+
+### Por categoría
+
+**Wayland / captura de pantalla (RustDesk unattended)**
+
+[H-02](#h-02--el-servicio-rustdesk-arranca-solo-pero-depende-de-la-sesión-gráfica) ·
+[H-03](#h-03--allow-logon-screen-password-existe-pero-wayland-login-screen-no-está-soportado) ·
+[H-04](#h-04--la-captura-drm-vuelve-sola-al-iniciar-sesión) ·
+[H-14](#h-14--el-rpmdeb-estándar-no-trae-libdrmtap-en-wayland-sin-usuario-falla-la-captura) ·
+[H-15](#h-15--sin-contraseña-permanente-unattended-es-imposible-y-el-campo-puede-engañar) ·
+[H-16](#h-16--con-solo-el-greeter-el-log-de-captura-no-está-donde-el-kit-lo-busca) ·
+[H-18](#h-18--el-server-se-ancla-a-la-sesión-gráfica-de-seat0-incluido-el-greeter) ·
+[H-19](#h-19--os-error-104-tras-conectar-audioportapapeles-en-bucle) ·
+[H-24](#h-24--fedora-instalaba-el-rpm-sin-capturador-drm) ·
+[H-36](#h-36--en-arch-el-deb-inyectado-dejaba-rustdesk-sin-menú-sin-bandeja-y-sin-aviso-de-libs) ·
+[H-37](#h-37--el-desatendido-en-wayland-depende-del-portal-xdg--pipewire-sin-chequeo)
+
+**RustDesk (general)**
+
+[H-17](#h-17--rustdesk-150-no-tiene-cli-de-conexión-es-gui-pura) ·
+[H-42](#h-42--migrar-el-sistema-de-disco-regenera-el-machine-id-y-cambia-el-id-de-rustdesk) ·
+[H-46](#h-46--rustdesk-passwordps1--set-clave-no-pasa-la-clave-confusión-switchparámetro) ·
+[H-53](#h-53--con-un-cliente-que-no-sabe-rustdesk-fija-la-contraseña-permanente-antes-de-todo)
+
+**Energía / suspensión / encendido (Linux y Windows)**
+
+[H-29](#h-29--un-portátil-suspende-y-se-pierde-el-acceso-remoto) ·
+[H-54](#h-54--el-pc-se-apaga-solo-suele-ser-modern-standby-s0-no-un-apagón) ·
+[H-58](#h-58--cómo-verificar-de-verdad-si-un-equipo-tiene-overclock-xtu) ·
+[H-59](#h-59--se-apaga-solo-no-confundir-tiene-xtu-con-está-overclockeado) ·
+[H-62](#h-62--fast-startup-vuelve-a-activarse-solo-powercfg-h-off-no-persiste-tras-un-arranque) ·
+[H-64](#h-64--tailscale-no-despierta-equipos-apagados-wol-no-viaja-por-vpn-el-operador-como-relé)
+
+**Tailscale y red**
+
+[H-01](#h-01--tailscale-sobrevive-el-reinicio) ·
+[H-05](#h-05--tailscale-usa-conexión-directa-no-relay-entre-los-dos-equipos) ·
+[H-09](#h-09--magicdns-funciona-aunque-tailscale-avise-resolved-nm-wired-incorrectly) ·
+[H-26](#h-26--la-auth-key-de-tailscale-dónde-está-y-dónde-la-gente-la-busca) ·
+[H-28](#h-28--local-ip-addr-queda-obsoleto-al-cambiar-de-red) ·
+[H-30](#h-30--la-auth-key-no-sale-del-equipo-se-genera-en-la-web) ·
+[H-60](#h-60--tailscale-en-termux-android-13-la-app-no-comparte-su-tun-y-los-binarios-mueren-con-sigsys) ·
+[H-61](#h-61--android-13-bloquea-faccessat2-por-seccomp-los-binarios-go-modernos-mueren-con-sigsys) ·
+[H-63](#h-63--los-nodos-tailscale-en-userspace-networking-sí-reciben-conexiones-entrantes) ·
+[H-65](#h-65--alternativa-a-los-binarios-de-tailscale-en-termux-proot--userspace)
+
+**SSH, shells y automatización**
+
+[H-07](#h-07--hostname--i-no-existe-en-cachyos) ·
+[H-08](#h-08--strings--grep--q-con-set--o-pipefail-da-falso-negativo) ·
+[H-10](#h-10--fedora-44-imagen-base-no-trae-el-binario-hostname) ·
+[H-22](#h-22--fallos-silenciosos-instalar-sin-red-y-tailscale-up-sin-salida) ·
+[H-23](#h-23--enviar-sintaxis-bash-a-un-objetivo-con-fish-da-falsos-fallos) ·
+[H-35](#h-35--printf-sin-escapar-mostraba-mal-el-consejo-de---key-stdin) ·
+[H-40](#h-40--el-portapapeles-por-ssh-fallaba-en-un-guest-con-fish-y-con-wayland-sin-env) ·
+[H-41](#h-41--ls-como-alias-de-eza-contamina-variables-en-scripts-fish) ·
+[H-48](#h-48--rustdesk-passwordsh-install-rompía-la-verificación-remota-por-comillas-anidadas-h-23-otra-vez) ·
+[H-55](#h-55--por-ssh-a-windows-usar-powershell--encodedcommand-base64-evita-el-infierno-de-comillas)
+
+**Seguridad y sudo**
+
+[H-27](#h-27--reinicio-remoto-bloqueado-por-sudo--polkit) ·
+[H-33](#h-33--inyección-en-etcsudoersd-vía---user-reboot-remotosh) ·
+[H-43](#h-43--compartir-la-clave-ssh-entre-operador-y-cliente-mala-práctica) ·
+[H-49](#h-49--pam_faillock-convierte-los-reintentos-de-contraseña-de-sudo-en-un-auto-bloqueo-trampa-para-agentes)
+
+**Multi-distro (Arch / Debian / Fedora)**
+
+[H-11](#h-11--en-fedora-44-con-kde-la-última-sesión-no-es-la-gráfica) ·
+[H-12](#h-12--imágenes-base-mínimas-sin-systemctlfirewall-cmd-sin-firewall-era-falso) ·
+[H-21](#h-21--paru-era-un-punto-único-de-falla-en-arch-y-no-hace-falta) ·
+[H-31](#h-31--fedora-44-instalar-apps-kde6-choca-con-kmime-transición-kde5kde6) ·
+[H-32](#h-32--el-deb-inyectado-en-archfedora-puede-romperse-en-silencio) ·
+[H-44](#h-44--migrar-el-sistema-de-disco-deja-libvirt-sin-poder-arrancar-status243credentials)
+
+**Kit Windows**
+
+[H-45](#h-45--el-kit-de-windows-se-escribió-incompleto-inventoryps1-llamaba-a-una-función-inexistente) ·
+[H-46](#h-46--rustdesk-passwordps1--set-clave-no-pasa-la-clave-confusión-switchparámetro) ·
+[H-47](#h-47--2null-no-silencia-el-stderr-de-un-exe-nativo-en-powershell) ·
+[H-50](#h-50--los-scripts-powershell-del-kit-windows-tenían-errores-que-solo-se-ven-ejecutándolos) ·
+[H-51](#h-51--los-ps1-necesitan-bom-utf-8-o-windows-powershell-51-los-rompe) ·
+[H-52](#h-52--github-raw-cachea-y-puede-servir-una-versión-vieja-del-script) ·
+[H-54](#h-54--el-pc-se-apaga-solo-suele-ser-modern-standby-s0-no-un-apagón) ·
+[H-55](#h-55--por-ssh-a-windows-usar-powershell--encodedcommand-base64-evita-el-infierno-de-comillas) ·
+[H-56](#h-56--no-actualizar-driversfirmware-en-equipos-con-overclock-o-exploits) ·
+[H-57](#h-57--instalar-openssh-en-windows-sin-depender-de-windows-update)
+
+**Otros / herramientas**
+
+[H-06](#h-06--sshd-sobrevive-el-reinicio-si-está-enabled) ·
+[H-13](#h-13--portapapeles-spice-en-wayland-depende-de-la-vía-no-de-la-dirección) ·
+[H-20](#h-20--inventorysh-clasificaba-las-vms-como-desconocido) ·
+[H-34](#h-34----authkey-avisaba-tarde-authkey_por_argv-muerta) ·
+[H-38](#h-38--el-inventario-falla-con-locale--inglés-otros-agentes-compiten-por-la-captura) ·
+[H-39](#h-39--rustdesk-passwordsh-fallaba-con-error-confuso-al-no-poder-usar-sudo)
+
+---
+
 ## H-01 — Tailscale sobrevive el reinicio
 
 **Verificado:** ✅
@@ -199,52 +319,6 @@ grep -q "patrón" <<<"$data" && echo "encontrado"
 ```
 
 ---
-
-## Resumen de implicaciones para el flujo con clientes
-
-| Situación tras un reinicio | Comportamiento verificado |
-|---|---|
-| Equipo objetivo reinicia | Tailscale y sshd vuelven solos ✅ |
-| Nadie inicia sesión | RustDesk corre pero **sin escritorio** (login screen) ⚠️ |
-| Login screen en **Wayland** | **No controlable** por RustDesk (`Wayland login screen is not supported`) |
-| Alguien inicia sesión | Captura DRM y control vuelven solos ✅ |
-
-**Comprobación rápida del tipo de login screen:**
-
-```fish
-# En el equipo objetivo:
-ps -eo cmd= | grep -E 'plasmalogin|sddm|gdm|lightdm'
-pgrep -a Xorg && echo 'login screen X11 → allow-logon-screen-password aplica' \
-              || echo 'login screen Wayland → allow-logon-screen-password NO aplica'
-```
-
-**Recomendación para equipos remotos que reinician solos:**
-
-- Si el cliente puede iniciar sesión (o dejar la sesión abierta), todo funciona.
-- **No** confíes en controlar la pantalla de login por RustDesk en Wayland.
-- Evita "autologin" del sistema salvo que el riesgo de seguridad esté asumido.
-- El acceso **SSH por Tailscale sí funciona** aunque no haya sesión gráfica:
-  puedes administrar el equipo por terminal en cualquier caso.
-
----
-
-## Cómo reproducir estas pruebas
-
-```fish
-# 1. Estado previo
-ssh objetivo 'tailscale ip -4; systemctl is-enabled tailscaled sshd rustdesk'
-
-# 2. Reiniciar el objetivo
-ssh objetivo 'sudo reboot'
-
-# 3. Esperar y verificar reconexión (desde el operador)
-ssh objetivo 'uptime -p'                    # debe responder
-ssh objetivo 'tailscale status | head -3'
-ssh objetivo 'systemctl is-active tailscaled sshd rustdesk'
-
-# 4. Comprobar captura DRM (solo si hay sesión iniciada)
-ssh objetivo 'grep -iE "drm: consumer cache|UInput" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log | tail -3'
-```
 
 ## H-09 — MagicDNS funciona aunque Tailscale avise `resolved-NM wired incorrectly`
 
@@ -2841,3 +2915,51 @@ Ver `docs/android-operador.md`.
 **Lección:** cuando una app móvil choca con una restricción del sistema,
 un **contenedor Linux sin root** la esquiva por completo — misma familia de
 solución que arregló el acceso, no el binario.
+
+---
+
+## Resumen de implicaciones para el flujo con clientes
+
+| Situación tras un reinicio | Comportamiento verificado |
+|---|---|
+| Equipo objetivo reinicia | Tailscale y sshd vuelven solos ✅ |
+| Nadie inicia sesión | RustDesk corre pero **sin escritorio** (login screen) ⚠️ |
+| Login screen en **Wayland** | **No controlable** por RustDesk (`Wayland login screen is not supported`) |
+| Alguien inicia sesión | Captura DRM y control vuelven solos ✅ |
+
+**Comprobación rápida del tipo de login screen:**
+
+```fish
+# En el equipo objetivo:
+ps -eo cmd= | grep -E 'plasmalogin|sddm|gdm|lightdm'
+pgrep -a Xorg && echo 'login screen X11 → allow-logon-screen-password aplica' \
+              || echo 'login screen Wayland → allow-logon-screen-password NO aplica'
+```
+
+**Recomendación para equipos remotos que reinician solos:**
+
+- Si el cliente puede iniciar sesión (o dejar la sesión abierta), todo funciona.
+- **No** confíes en controlar la pantalla de login por RustDesk en Wayland.
+- Evita "autologin" del sistema salvo que el riesgo de seguridad esté asumido.
+- El acceso **SSH por Tailscale sí funciona** aunque no haya sesión gráfica:
+  puedes administrar el equipo por terminal en cualquier caso.
+
+---
+
+## Cómo reproducir estas pruebas
+
+```fish
+# 1. Estado previo
+ssh objetivo 'tailscale ip -4; systemctl is-enabled tailscaled sshd rustdesk'
+
+# 2. Reiniciar el objetivo
+ssh objetivo 'sudo reboot'
+
+# 3. Esperar y verificar reconexión (desde el operador)
+ssh objetivo 'uptime -p'                    # debe responder
+ssh objetivo 'tailscale status | head -3'
+ssh objetivo 'systemctl is-active tailscaled sshd rustdesk'
+
+# 4. Comprobar captura DRM (solo si hay sesión iniciada)
+ssh objetivo 'grep -iE "drm: consumer cache|UInput" ~/.local/share/logs/RustDesk/server/rustdesk_rCURRENT.log | tail -3'
+```

@@ -124,7 +124,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`inventory.sh`](inventory.sh) | Ficha de specs del equipo (texto/JSON/Markdown) |
 | [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**667**) |
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
-| [`windows/`](windows/) | **Kit para Windows 10/11**: `setup-remote-target.ps1`, `inventory.ps1`, `rustdesk-password.ps1` · [H-45..H-47](docs/hallazgos.md) |
+| [`windows/`](windows/) | **Kit para Windows 10/11**: `setup-remote-target.ps1`, `inventory.ps1`, `rustdesk-password.ps1`, `diagnostico.ps1` y `tests-windows.ps1` · [H-45..H-47](docs/hallazgos.md), [H-51..H-62](docs/hallazgos.md) |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
 | [`docs/agente-operador.md`](docs/agente-operador.md) | Agente IA como **operador** remoto: flujos y reglas para mantener clientes |
 | [`docs/operador-multiple.md`](docs/operador-multiple.md) | **Varios operadores** (flota con 2+ PCs operadores, incluido un **operador móvil Android/Termux**): identidad SSH propia por operador, operación cruzada, **malla todos-contra-todos** y `flota.sh` con dos bloques |
@@ -143,7 +143,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-65: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | **Índice + top 10** y H-01..H-65: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/acceso-primero.md`](docs/acceso-primero.md) | **Con un cliente que no sabe RustDesk**: fija el acceso ANTES de todo · [H-53](docs/hallazgos.md) |
