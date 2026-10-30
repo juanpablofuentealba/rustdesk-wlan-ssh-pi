@@ -1528,6 +1528,16 @@ t "acceso-primero tiene checklist" \
   bash -c 'grep -q "Contraseña PERMANENTE fijada" docs/acceso-primero.md'
 tdoc "el README enlaza docs/acceso-primero.md" \
   bash -c 'grep -q "acceso-primero.md" README.md'
+t "H-54 documentado (modern standby vs apagon)" \
+  bash -c 'grep -q "H-54" docs/hallazgos.md && grep -qi "Modern Standby" docs/hallazgos.md'
+t "H-54 menciona sleepstudy y 506/507" \
+  bash -c 'grep -q "sleepstudy" docs/hallazgos.md && grep -q "506/507" docs/hallazgos.md'
+t "H-54 explica Id 41 vs 1074/506" \
+  bash -c 'grep -q "Kernel-Power 41" docs/hallazgos.md'
+t "H-55 documentado (EncodedCommand)" \
+  bash -c 'grep -q "H-55" docs/hallazgos.md && grep -q "EncodedCommand" docs/hallazgos.md'
+t "el README de Windows documenta EncodedCommand" \
+  bash -c 'grep -q "EncodedCommand" windows/README.md'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \

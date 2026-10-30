@@ -2360,3 +2360,71 @@ operador** por la pantalla compartida, no pedírselo al cliente.
 depender de él**. Si haces primero Tailscale/SSH/drivers y algo se cae (o el
 equipo se suspende, ver modern standby más abajo), quedas fuera sin poder
 volver. Orden correcto: **acceso → anotar → Tailscale/SSH → lo demás.**
+
+---
+
+## H-54 — "El PC se apaga solo" suele ser **Modern Standby (S0)**, no un apagón
+
+**Verificado:** ✅ (HP Omen 16-wd0xxx, Windows 11, 29-oct-2026)
+
+Cliente reporta que su laptop **"se apaga sola"**. La intuición dice hardware
+(fuente, térmico, batería). El diagnóstico real:
+
+1. **No hay `Kernel-Power 41` reciente** (solo uno en septiembre). Si el equipo
+   se apagara de verdad, habría un 41 cada vez.
+2. Los eventos recientes son **`Kernel-Power 506/507`** = "entrando/saliendo
+   del **modo de espera moderno** (S0)", con motivos `Idle Timeout`,
+   `Input Keyboard`, `Lid`.
+3. `powercfg /a` muestra que **solo existe S0** (S1/S2/S3 deshabilitados por el
+   firmware), así que TODO pasa por Modern Standby.
+4. **`powercfg /sleepstudy`** reveló **297 transiciones** de energía, muchas en
+   bucle: `Transition To Sleep` ↔ `PDC Task Client: Maintenance Scheduler`,
+   `Lid`, `AC/DC Display Burst Suppressed`.
+5. El único BSOD real fue **`0x0000009F DRIVER_POWER_STATE_FAILURE`** → un
+   **driver cuelga el sistema al suspender**.
+
+**Traducción:** el equipo **NO se apaga: se SUSPENDE**. La pantalla en negro
+parace "apagado" para el usuario. Cuando la suspensión falla → corte seco (41).
+
+**Arreglo (software, sin abrir el equipo):**
+
+```powershell
+powercfg /h off                       # desactiva inicio rápido + hibernación (arregla muchos 0x9F)
+powercfg /change standby-timeout-ac 0 # en AC no suspender por inactividad
+powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0  # tapa AC = nada
+powercfg /setactive SCHEME_CURRENT
+```
+
++ actualizar drivers (chipset/energía/GPU) y BIOS. `powercfg /h on` revierte.
+
+**Lección:** ante "se apaga solo", **primero** mirar SI hay `Id 41` de verdad y
+si los eventos son `506/507` (suspensión). "Se apaga" puede significar "se
+duerme y no despierta". Distinguir apagón (hardware) de suspensión (drivers)
+antes de tocar nada físico.
+
+---
+
+## H-55 — Por SSH a Windows: usar `powershell -EncodedCommand` (base64) evita el infierno de comillas
+
+**Verificado:** ✅ (mismo caso, 29-oct-2026)
+
+`ssh usuario@windows 'powershell -Command "..."'` **falla constantemente**: el
+shell por defecto es **CMD**, las comillas se comen, y los comandos con
+`$_`, `{}` o `-eq 'X'` revientan con errores crípticos (`Debe proporcionar una
+expresión de valor después del operador '-eq'`). El **formato de texto de
+PowerShell** además devuelve `#< CLIXML` por stderr.
+
+**Solución fiable:** codificar el script en **UTF-16LE + base64** y usar
+`-EncodedCommand`:
+
+```bash
+enc() { printf '%s' "$1" | iconv -t UTF-16LE | base64 -w0; }
+PS='Get-PnpDevice | Where-Object { $_.Status -ne "OK" } | Select Status,Class,FriendlyName'
+ssh winserver "powershell -NoProfile -EncodedCommand $(enc "$PS")"
+```
+
+También sirve enviar el script por **STDIN** a `powershell -NoProfile -Command -`.
+
+**Lección:** igual que con fish (H-23) y con CMD, **el shell del objetivo es
+parte del problema**. Para Windows por SSH, `-EncodedCommand` es el patrón
+robusto para comandos no triviales.
