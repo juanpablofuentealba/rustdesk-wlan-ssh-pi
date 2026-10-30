@@ -1566,6 +1566,34 @@ t "H-59 documentado (no confundir XTU con OC)" \
 tdoc "el caso real menciona la verificacion de XTU" \
   bash -c 'grep -q "H-58" docs/caso-real-apagon-solo.md'
 
+# --- H-64/H-65: WoL remoto y operador Android (proot) ---
+t "H-64 documentado (Tailscale no despierta equipos apagados)" \
+  bash -c 'grep -q "H-64" docs/hallazgos.md'
+t "H-64 explica que el magic packet es capa 2" \
+  bash -c 'grep -q "capa 2" docs/hallazgos.md'
+t "H-65 documentado (proot + userspace como alternativa)" \
+  bash -c 'grep -q "H-65" docs/hallazgos.md'
+t "H-60/H-61/H-63 de la otra sesion siguen" \
+  bash -c 'grep -q "H-60" docs/hallazgos.md && grep -q "H-61" docs/hallazgos.md && grep -q "H-63" docs/hallazgos.md'
+tdoc "existe docs/wol-y-energia-remota.md" \
+  test -f docs/wol-y-energia-remota.md
+tdoc "existe docs/android-operador.md" \
+  test -f docs/android-operador.md
+tdoc "la guia de WoL explica el operador como rele" \
+  bash -c 'grep -qi "rele\|relé" docs/wol-y-energia-remota.md'
+tdoc "la guia de android menciona proot-distro" \
+  bash -c 'grep -q "proot-distro" docs/android-operador.md'
+t "wol-despertar.sh existe" test -f wol-despertar.sh
+t "energia-remota.sh existe" test -f energia-remota.sh
+t "wol-despertar.sh valida la MAC" \
+  bash -c 'grep -q "MAC inv" wol-despertar.sh'
+t "wol-despertar.sh usa userspace-safe (python3)" \
+  bash -c 'grep -q "python3" wol-despertar.sh'
+t "energia-remota.sh NO mete la clave en argv" \
+  bash -c '! grep -vE "^#" energia-remota.sh | grep -q "echo .*PASS\|echo .*sudo -S"'
+t "energia-remota.sh lee la clave de un archivo" \
+  bash -c 'grep -q "ENERGIA_SUDO_FILE\|operador-secrets" energia-remota.sh'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"

@@ -2763,3 +2763,81 @@ teléfono con Termux (userspace) es un nodo más: recibe SSH en el puerto 8022
 **Lección:** el modo userspace afecta el **ruteo del tráfico propio** (por eso
 hace falta SOCKS5 para salir), pero **no impide** que los peers alcancen los
 puertos escuchados en el nodo. Un nodo userspace es alcanzable igual.
+
+---
+
+## H-64 — Tailscale no despierta equipos apagados (WoL no viaja por VPN; el operador como relé)
+
+**Verificado:** ✅ (prueba real apagando/despertando un equipo, 30-oct-2026)
+
+Un error frecuente es intentar "despertar por Tailscale" un equipo apagado:
+
+```bash
+wakeonlan <IP-de-Tailscale-del-equipo-apagado>   # ❌ no funciona
+```
+
+**Por qué:** el magic packet de Wake-on-LAN es un **broadcast Ethernet (capa
+2)**; Tailscale transporta **IP (capa 3)** y no reenvía broadcast de capa 2.
+Además, un equipo apagado no tiene a nadie escuchando en la tailnet.
+
+**La solución — el operador como relé:**
+
+```
+móvil --Tailscale--> operador (encendido) --magic packet LAN--> equipo apagado
+```
+
+Tailscale sigue sin despertar nada: lo hace el **operador dentro de su LAN**.
+El móvil u otro operador le pide al operador (por SSH/Tailscale) que mande el
+magic packet. Script: `wol-despertar.sh`; guía: `docs/wol-y-energia-remota.md`.
+
+**Segundo tropiezo (el que más marea):** el WoL "no funcionaba" aunque la NIC
+estaba en `Wake-on: g` y la BIOS bien. La causa real era **mandar el paquete
+antes de que el equipo terminara de apagarse**. Hay que confirmar el apagado
+(ping 100% loss + ARP `FAILED`) y **esperar ~40 s** antes del magic packet.
+
+**Lección:** no confundir "no llega el paquete" con "está mal configurado".
+Primero confirmar que el destino está **realmente apagado**; después, enviar.
+Y para apagar/reiniciar el destino remoto, `energia-remota.sh` (clave sudo por
+STDIN, nunca en `ps`).
+
+---
+
+## H-65 — Alternativa a los binarios de Tailscale en Termux: proot + userspace
+
+**Verificado:** ✅ (Android 13/16 + Termux, 30-oct-2026)
+
+Complementa a [H-60](#h-60--tailscale-en-termux-android-13-la-app-no-comparte-su-tun-y-los-binarios-mueren-con-sigsys)
+y [H-61](#h-61--android-13-bloquea-faccessat2-por-seccomp-los-binarios-go-modernos-mueren-con-sigsys):
+cuando los binarios de Tailscale para Termux mueren por `SIGSYS` (seccomp), hay
+una vía alternativa **sin lidiar con seccomp ni binarios Android**:
+
+**Un contenedor proot con Ubuntu** y `tailscaled` en **modo userspace**:
+
+```bash
+pkg install -y proot-distro
+proot-distro install ubuntu
+proot-distro login ubuntu
+# dentro de Ubuntu:
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
+tailscale up --hostname=movil-operador
+```
+
+- `--tun=userspace-networking` usa una pila de red en espacio de usuario
+  (netstack) → **no requiere root ni la VPN del sistema**.
+- Expone un **proxy SOCKS5** en `localhost:1055`: para SSH a un cliente,
+  `ssh -o ProxyCommand='nc -X 5 -x localhost:1055 %h %p' user@host`.
+- El nodo **reporta `linux`** (es el Ubuntu del proot). Sin `--hostname`,
+  aparece como `localhost-0` en la tailnet.
+- El proot **no tiene IP propia** (comparte la del Android), pero Tailscale
+  userspace funciona igual porque usa su propio netstack.
+
+**Ventaja sobre los binarios nativos de Termux:** no hay que pelear con
+`seccomp`/`faccessat2`; se usa el `tailscaled` oficial de Linux. **Costo:** un
+contenedor más pesado y el `ProxyCommand` para el tráfico.
+
+Ver `docs/android-operador.md`.
+
+**Lección:** cuando una app móvil choca con una restricción del sistema,
+un **contenedor Linux sin root** la esquiva por completo — misma familia de
+solución que arregló el acceso, no el binario.
