@@ -2270,3 +2270,93 @@ curl -sL -o /tmp/pwsh.tar.gz \
 mkdir -p ~/.local/opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C ~/.local/opt/pwsh
 chmod +x ~/.local/opt/pwsh/pwsh
 ```
+
+---
+
+## H-51 — Los `.ps1` necesitan BOM UTF-8 o Windows PowerShell 5.1 los rompe
+
+**Verificado:** ✅ (cliente Windows real, 29-oct-2026)
+
+Al correr `setup-remote-target.ps1` en el Windows 11 de un cliente, falló con:
+
+```
+En setup.ps1: 101 Carácter: 1
++ }
++ ~
+Token '}' inesperado en la expresión o la instrucción.
+```
+
+**Causa:** los `.ps1` tienen caracteres no-ASCII (`—`, `á`, `é`, `═`) pero **no
+tenían BOM UTF-8**. **Windows PowerShell 5.1** (el que trae Windows) lee los
+archivos **sin BOM como ANSI/Windows-1252** → malinterpreta los bytes y el
+parser revienta con un error **engañoso** (un `}` en una línea que no tiene
+nada que ver con el problema real).
+
+**Por qué no se cazó antes:** `pwsh` 7.x (Linux) **lee UTF-8 sin BOM por
+defecto**, así que la validación de sintaxis daba OK. El fallo es **específico
+de Windows PowerShell 5.1**. Además, PSScriptAnalyzer **sí lo advertía**
+(`PSUseBOMForUnicodeEncodedFile`) y no se le hizo caso.
+
+**Solución:** añadir **BOM UTF-8 (`EF BB BF`)** a todos los `.ps1`, y un test
+que lo exija.
+
+**Lección:** validar PowerShell con `pwsh` en Linux **no es suficiente**: hay
+que probarlo en **Windows PowerShell 5.1** (o, como mínimo, hacer caso a
+PSScriptAnalyzer sobre el BOM). Igual que con fish (H-23): la plataforma real
+del objetivo es parte de la prueba.
+
+---
+
+## H-52 — GitHub raw cachea y puede servir una versión vieja del script
+
+**Verificado:** ✅ (29-oct-2026)
+
+Tras corregir el BOM (H-51) y mergear a `main`, el `curl` a
+`raw.githubusercontent.com/.../main/windows/setup-remote-target.ps1` seguía
+devolviendo el archivo **sin BOM** durante unos minutos. Consultando por
+**SHA del commit** ya salía con BOM. Era **caché del CDN** de GitHub raw.
+
+**Implicación:** si actualizas un script que se distribuye por URL raw y lo
+pruebas enseguida, puedes estar probando la versión **vieja** y no entender por
+qué sigue fallando.
+
+**Solución / consejo:**
+
+- Usar la URL **por SHA** (`.../<commit-sha>/ruta`) para pruebas reproducibles.
+- O esperar unos minutos a que el CDN se refresque.
+- El repositorio (`git`) siempre tiene la versión correcta; el problema es solo
+  del **servidor raw con caché**.
+
+**Lección:** al distribuir por `raw.githubusercontent.com`, **el contenido
+puede ir con retraso**. Para "traer el script y ejecutarlo" (patrón
+`irm | iex`) conviene verificar la versión o usar tags/SHA.
+
+---
+
+## H-53 — Con un cliente que no sabe RustDesk, fija la contraseña permanente ANTES de todo
+
+**Verificado:** ✅ (cliente Windows real, 29-oct-2026)
+
+Situación real: conexión a un cliente Windows por RustDesk (redes distintas,
+relay público). El cliente **no sabía usar RustDesk** ni darte bien ID/contraseña.
+A mitad del trabajo **se cayó la conexión** (probablemente el equipo entró en
+suspensión) y **se perdió el acceso**: el cliente no sabía reconectar ni pasar
+los datos correctamente.
+
+**Causa raíz (de método):** se trabajó con la **contraseña temporal / aceptación
+de un solo uso**, sin dejar el acceso garantizado. Cualquier caída (suspensión,
+reinicio, cierre de la app) deja al operador **fuera**.
+
+**Solución / regla:**
+
+1. **Lo PRIMERO** al conectar con un cliente: fijar la **contraseña permanente**
+de RustDesk (⚙ Ajustes → Seguridad → Contraseña permanente). **Hacerlo el
+operador** por la pantalla compartida, no pedírselo al cliente.
+2. **Anotar** ID + contraseña en la ficha del cliente (`~/operador/clientes/`).
+3. **Después** de tener el acceso garantizado, instalar **Tailscale + SSH**.
+4. Ver el runbook completo en [`docs/acceso-primero.md`](acceso-primero.md).
+
+**Lección:** con un cliente que "no sabe", **el acceso es lo primero y no puede
+depender de él**. Si haces primero Tailscale/SSH/drivers y algo se cae (o el
+equipo se suspende, ver modern standby más abajo), quedas fuera sin poder
+volver. Orden correcto: **acceso → anotar → Tailscale/SSH → lo demás.**
