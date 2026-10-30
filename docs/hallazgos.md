@@ -2428,3 +2428,69 @@ También sirve enviar el script por **STDIN** a `powershell -NoProfile -Command 
 **Lección:** igual que con fish (H-23) y con CMD, **el shell del objetivo es
 parte del problema**. Para Windows por SSH, `-EncodedCommand` es el patrón
 robusto para comandos no triviales.
+
+---
+
+## H-56 — NO actualizar drivers/firmware en equipos con overclock o exploits
+
+**Verificado:** ✅ (cliente real, 29-oct-2026)
+
+Al atender un HP Omen con "se apaga solo", el análisis mostró **7 actualizaciones
+pendientes** (incluido **firmware/BIOS de HP**, driver Intel de vídeo, NVIDIA).
+Parecía la solución obvia. **PERO:** el dueño usa **hacks, flags, exploits y
+tiene el sistema overclockeado** (`XTU3SERVICE` corriendo, XTU Component
+"Degraded").
+
+Actualizar en ese contexto es **peligroso**:
+
+- **Firmware/BIOS** puede **resetear el overclock** o aplicar valores que el OC
+  había desestabilizado → más cuelgues.
+- Drivers nuevos pueden **romper exploits/flags** o disparar anticheats.
+- Puede **inestabilizar** un sistema afinado a mano.
+
+**Decisión:** **no** actualizar nada de software; aplicar **solo** los ajustes de
+energía (seguros y reversibles). Dejar constancia en la ficha del cliente.
+
+**Lección:** antes de actualizar drivers/firmware en un cliente, **averiguar si
+el equipo está personalizado** (OC, hacks, exploits, mods). En ese caso, la
+actualización "de rutina" puede ser un problema, no una solución. **El
+overclock inestable causa cuelgues/`0x9F` que parecen fallo de hardware**, y
+arreglarlo es tema del dueño, no del técnico.
+
+---
+
+## H-57 — Instalar OpenSSH en Windows sin depender de Windows Update
+
+**Verificado:** ✅ (mismo cliente, 29-oct-2026)
+
+`Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0` **se cuelga o
+falla** ("Error en la llamada a procedimiento remoto") porque depende de
+**Windows Update**, que a veces está roto o colgado. Además, tras un reinicio,
+el `sshd` puede **no quedar corriendo**.
+
+**Método fiable:** instalar el OpenSSH **directo de Microsoft (GitHub)**, sin
+Windows Update:
+
+```powershell
+irm "https://github.com/PowerShell/Win32-OpenSSH/releases/latest/download/OpenSSH-Win64.zip" -OutFile $env:TEMP\OpenSSH.zip
+Expand-Archive $env:TEMP\OpenSSH.zip -DestinationPath C:\OpenSSH -Force
+cd C:\OpenSSH\OpenSSH-Win64
+powershell -ExecutionPolicy Bypass -File .\install-sshd.ps1
+Set-Service sshd -StartupType Automatic
+Start-Service sshd
+New-NetFirewallRule -Name sshd -DisplayName "OpenSSH Server" -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
+```
+
+**Autorizar la clave del operador (usuario admin):**
+
+```powershell
+Add-Content C:\ProgramData\ssh\administrators_authorized_keys "ssh-ed25519 AAAA... operador"
+icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant "Administradores:F"
+```
+
+OJO: en Windows en español el grupo es **`Administradores`** (no
+`Administrators`) → usar el **SID** `*S-1-5-32-544` para evitar problemas de idioma.
+
+**Lección:** en Windows, los componentes de "Características opcionales"
+dependen de Windows Update y **se cuelgan**. Para herramientas críticas como
+SSH, instalar el **paquete oficial directo** evita el problema.

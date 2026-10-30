@@ -1538,6 +1538,22 @@ t "H-55 documentado (EncodedCommand)" \
   bash -c 'grep -q "H-55" docs/hallazgos.md && grep -q "EncodedCommand" docs/hallazgos.md'
 t "el README de Windows documenta EncodedCommand" \
   bash -c 'grep -q "EncodedCommand" windows/README.md'
+t "H-56 documentado (no actualizar con overclock/exploits)" \
+  bash -c 'grep -q "H-56" docs/hallazgos.md && grep -qi "overclock" docs/hallazgos.md'
+t "H-56 menciona exploits/flags" \
+  bash -c 'grep -qi "exploit" docs/hallazgos.md'
+t "H-57 documentado (OpenSSH sin Windows Update)" \
+  bash -c 'grep -q "H-57" docs/hallazgos.md'
+t "H-57 usa Win32-OpenSSH directo" \
+  bash -c 'grep -q "Win32-OpenSSH" docs/hallazgos.md'
+t "H-57 explica el grupo Administradores en espanol" \
+  bash -c 'grep -q "Administradores" docs/hallazgos.md'
+tdoc "existe docs/caso-real-apagon-solo.md" \
+  test -f docs/caso-real-apagon-solo.md
+tdoc "el README enlaza el caso real de apagon" \
+  bash -c 'grep -q "caso-real-apagon-solo.md" README.md'
+tdoc "el caso real enlaza H-51..H-57" \
+  bash -c 'grep -q "H-53" docs/caso-real-apagon-solo.md && grep -q "H-57" docs/caso-real-apagon-solo.md'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
