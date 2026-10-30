@@ -1,5 +1,11 @@
 # INSTALAR — PC de cliente desde cero
 
+> **Atajo (recomendado si el cliente ya tiene SO):** una sola línea con
+> [`onboarding.sh`](onboarding.sh) — baja el kit, verifica, instala y emite la
+> ficha. Ver [README → Onboarding](README.md#-onboarding-en-una-línea-recomendado)
+> y [docs/onboarding-cliente.md](docs/onboarding-cliente.md). Este runbook es
+> para el caso completo (PC virgen / instalación del SO).
+
 > **Este es el runbook completo.** Va desde el PC virgen (sin sistema operativo)
 > hasta dejarlo administrable de forma remota por Tailscale.
 >

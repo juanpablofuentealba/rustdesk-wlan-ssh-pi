@@ -15,6 +15,9 @@
 #   install-rustdesk-unattended-fedora.sh  (Fedora/RHEL)
 #   .rd-setpass-root.sh    ← auxiliar de rustdesk-password.sh
 #   verify-offlan.sh       ← prueba el acceso desde fuera de la LAN
+#   operadores/            ← claves públicas de la flota (--operador-hosts)
+#   wol-despertar.sh       ← despertar un cliente apagado (WoL, con relé)
+#   energia-remota.sh      ← apagar/reiniciar un cliente remoto
 #   reboot-remoto.sh       ← reinicio remoto unattended (NOPASSWD acotado, H-27)
 #   laptop-no-suspend.sh   ← evita que un portátil suspenda y pierda el acceso (H-29)
 #   unir-tailscale.sh       ← unir a la tailnet pidiendo/pegando la auth key
@@ -52,6 +55,7 @@ ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 
 FILES=(
+  onboarding.sh
   instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
@@ -63,6 +67,8 @@ FILES=(
   laptop-no-suspend.sh
   unir-tailscale.sh
   update.sh
+  wol-despertar.sh
+  energia-remota.sh
   make-kit.sh
   tests.sh
 )
@@ -84,9 +90,16 @@ if [[ -d "$SCRIPT_DIR/windows" ]]; then
   cp -a "$SCRIPT_DIR/windows" "$DEST/windows"
 fi
 
+# --- claves públicas de los operadores (operadores/*.pub) ---
+# Necesarias para el onboarding por curl (--operador-hosts) y útiles en campo:
+# el kit lleva la lista de operadores autorizables.
+if [[ -d "$SCRIPT_DIR/operadores" ]]; then
+  cp -a "$SCRIPT_DIR/operadores" "$DEST/operadores"
+fi
+
 # --- runbook: INSTALAR.md (detalle) + PASOS-EN-ORDEN.txt (checklist) ---
 # Fuente única de verdad: los del repo. Si no existen, se avisa.
-for doc in INSTALAR.md PASOS-EN-ORDEN.txt REPO.txt PROMPT-AGENTE.txt; do
+for doc in INSTALAR.md PASOS-EN-ORDEN.txt REPO.txt PROMPT-AGENTE.txt AGENTS.md README.md; do
   if [[ -f "$SCRIPT_DIR/$doc" ]]; then
     cp -a "$SCRIPT_DIR/$doc" "$DEST/$doc"
   else

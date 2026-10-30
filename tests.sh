@@ -1612,6 +1612,44 @@ t "H-67 no pisa IDs de otras sesiones" \
 t "H-66 de la otra sesion (SSH caido) sigue intacto" \
   bash -c 'tr "\n" " " < docs/hallazgos.md | grep -q "tailscale ping. OK"'
 
+# --- onboarding.sh: instalador de una linea ---
+t "existe onboarding.sh" test -f onboarding.sh
+t "onboarding.sh es ejecutable" test -x onboarding.sh
+t "onboarding.sh pasa bash -n" bash -c 'bash -n onboarding.sh'
+t "onboarding.sh valida el nombre del cliente" \
+  bash -c 'grep -q "solo admite a-z" onboarding.sh'
+t "onboarding.sh exige --rdpass" \
+  bash -c 'grep -q "falta --rdpass" onboarding.sh'
+t "onboarding.sh avisa del historial con la authkey" \
+  bash -c 'grep -q -e "--authkey-stdin" onboarding.sh && grep -q "historial" onboarding.sh'
+t "onboarding.sh verifica MANIFEST del kit" \
+  bash -c 'grep -q "MANIFEST.sha256" onboarding.sh'
+t "onboarding.sh soporta modo offline (--local)" \
+  bash -c 'grep -q "\-\-local" onboarding.sh'
+t "onboarding.sh resuelve claves de operadores/" \
+  bash -c 'grep -q "operadores/\$host.pub\|operadores/" onboarding.sh'
+t "onboarding.sh imprime la ficha del cliente" \
+  bash -c 'grep -q "FICHA DEL CLIENTE" onboarding.sh'
+t "onboarding.sh usa cliente-<nombre> como hostname tailnet" \
+  bash -c 'grep -q "cliente-\$NOMBRE" onboarding.sh'
+t "onboarding.sh pasa --tailnet-host a instalar-todo.sh" \
+  bash -c 'grep -q "tailnet-host" onboarding.sh'
+t "onboarding.sh reproduce el flujo en dry-run (offline)" \
+  bash -c './onboarding.sh --local . --nombre prueba-ci --rdpass Test123 --skip-tailscale --dry-run --no-ficha >/dev/null 2>&1'
+t "onboarding.sh rechaza nombre invalido (exit != 0)" \
+  bash -c '! ./onboarding.sh --local . --nombre "Mal Nombre" --rdpass x --skip-tailscale --dry-run --no-ficha >/dev/null 2>&1'
+t "existe operadores/README.md" test -f operadores/README.md
+t "operadores/ solo publica .pub (H-43)" \
+  bash -c '! ls operadores/ | grep -qvE "(\.pub|\.md)$"'
+t "hay al menos una clave de operador publicada" \
+  bash -c 'ls operadores/*.pub >/dev/null 2>&1'
+t "make-kit.sh incluye onboarding.sh" \
+  bash -c 'grep -q "^  onboarding.sh$" make-kit.sh'
+t "instalar-todo.sh acepta --tailnet-host" \
+  bash -c 'grep -q "\-\-tailnet-host" instalar-todo.sh'
+t "setup-remote-target.sh usa TS_HOSTNAME al unir a la tailnet" \
+  bash -c 'grep -q "TS_HOSTNAME:-\$(hostname" setup-remote-target.sh'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"

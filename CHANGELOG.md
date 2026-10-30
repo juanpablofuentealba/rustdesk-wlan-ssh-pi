@@ -4,6 +4,35 @@ Todos los cambios relevantes de este kit se documentan acá.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.1.0] — 2026-10-30
+
+**Onboarding en una línea**: dar de alta un cliente nuevo sin clonar nada.
+
+### Añadido
+
+- **`onboarding.sh`** — instalador de **una línea**: baja y verifica el kit
+  (MANIFEST), autoriza las claves de los operadores desde `operadores/*.pub`,
+  corre `instalar-todo.sh` y **emite la ficha** (ID/contraseña/IP tailnet).
+  Soporta `--operador-hosts`, `--tailnet-host`, `--local` (offline),
+  `--authkey-stdin`, `--skip-tailscale`, `--tailscale-luego`, `--dry-run`.
+- **`operadores/`** — claves **públicas** de la flota, una por operador
+  (`id_<host>.pub` → `operadores/<host>.pub`). El onboarding las resuelve por
+  nombre; las privadas nunca van al repo (H-43).
+- **`docs/onboarding-cliente.md`** — guía del flujo completo operador → cliente
+  → verificación.
+- **`nuevo-cliente.sh`** (en el operador, fuera del repo) — genera ficha, kit
+  con `operador.pub` y MANIFEST verificado, y **la línea de onboarding** con la
+  contraseña ya generada.
+- **`--tailnet-host`** en `instalar-todo.sh` y `setup-remote-target.sh`: fija el
+  nombre del equipo en la tailnet (`cliente-<nombre>` por defecto).
+
+### Cambiado
+
+- **`make-kit.sh`** ahora incluye `onboarding.sh`, `operadores/`,
+  `wol-despertar.sh`, `energia-remota.sh`, `AGENTS.md` y `README.md`.
+- **H-67**: `trusted_devices` sin `unlock_pin` hace que RustDesk pida la
+  contraseña personal (no confundir con la de acceso remoto).
+
 ## [1.0.0] — 2026-10-30
 
 Primera versión estable del kit: **administración remota de punta a punta**

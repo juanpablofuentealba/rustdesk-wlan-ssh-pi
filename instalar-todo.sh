@@ -30,6 +30,8 @@
 #   --rdpass  "..."             Contraseña permanente de RustDesk (obligatoria)
 #   --key "ssh-ed25519 ..."     Clave pública del operador (o usa operador.pub)
 #   --sudopass "..."            Contraseña de sudo, si sudo la pide
+#   --tailnet-host "nombre"     Nombre en la tailnet (ej: cliente-juan). Sin esto
+#                               se usa el hostname del equipo.
 #   --tailscale-luego           Instala Tailscale SIN unir; te guia para unir despues
 #                               (util si todavia no tenes la auth key: no bloquea)
 #   --skip-tailscale            No tocar Tailscale (instalar solo para LAN)
@@ -56,6 +58,7 @@ AUTHKEY=""
 RDPASS=""
 OPKEY=""
 SUDOPASS=""
+TAILNET_HOST=""
 SKIP_TS=0
 TS_LUEGO=0
 DRY_RUN=0
@@ -80,6 +83,7 @@ while [[ $# -gt 0 ]]; do
     --rdpass)         RDPASS="${2:-}"; shift 2 ;;
     --key)            OPKEY="${2:-}"; shift 2 ;;
     --sudopass)       SUDOPASS="${2:-}"; shift 2 ;;
+    --tailnet-host)   TAILNET_HOST="${2:-}"; shift 2 ;;
     --skip-tailscale) SKIP_TS=1; shift ;;
     --tailscale-luego) TS_LUEGO=1; AUTHKEY="__PENDIENTE__"; shift ;;
     --dry-run)        DRY_RUN=1; shift ;;
@@ -262,6 +266,7 @@ fi
 
 ARGS_ALL=(--all --yes)
 [[ -n "$OPKEY" ]] && ARGS_ALL+=(--key "$OPKEY")
+[[ -n "$TAILNET_HOST" ]] && ARGS_ALL+=(--tailnet-host "$TAILNET_HOST")
 # La auth key NO va por argv del hijo: se pasa por variable de entorno, así no
 # aparece en 'ps' durante toda la instalación (que es larga). El hijo la lee
 # de KIT_AUTHKEY en vez de --authkey.

@@ -50,7 +50,33 @@ Detalle: [`docs/tailscale.md`](docs/tailscale.md#generar-la-auth-key-paso-a-paso
 
 ---
 
-## Inicio rápido
+## 🚀 Onboarding en UNA línea (recomendado)
+
+Para un cliente nuevo, sin clonar nada:
+
+```bash
+# En el PC del cliente (con sudo). La auth key se pide por STDIN (no queda en el historial)
+curl -fsSL https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh \
+  | sudo bash -s -- --nombre cliente-juan --rdpass 'ClaveLarga2026' \
+      --operador-hosts 'hp-operador msi-operador' --authkey-stdin
+```
+
+`onboarding.sh` **baja y verifica** el kit (MANIFEST), autoriza las claves de
+los operadores desde [`operadores/`](operadores/) y llama a `instalar-todo.sh`.
+Al terminar **imprime una ficha** lista para pegarle al operador (ID de
+RustDesk, contraseña, IP de Tailscale, hostname).
+
+Opciones útiles: `--skip-tailscale` (solo LAN), `--tailscale-luego`,
+`--tailnet-host nombre`, `--local DIR` (offline), `--dry-run`.
+
+> **¿Sos el operador y querés preparar todo antes de ir?** Usá
+> `nuevo-cliente.sh` (ver [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md)),
+> que genera la ficha, empaqueta el kit con tu clave y te imprime **la línea
+> exacta** de arriba con la contraseña ya generada.
+
+---
+
+## Inicio rápido (manual)
 
 ### En el PC objetivo (cliente)
 

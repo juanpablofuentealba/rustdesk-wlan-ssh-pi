@@ -75,6 +75,8 @@ DO_CHECK=0
 SSH_PORT=22
 KEY=""
 TS_AUTHKEY=""
+# Hostname en la tailnet (--tailnet-host); vacío = usar $(hostname).
+TS_HOSTNAME="${TARGET_HOSTNAME:-}"
 DRY_RUN=0
 ASSUME_YES=0
 
@@ -133,6 +135,9 @@ while [[ $# -gt 0 ]]; do
       shift ;;
     # --authkey-stdin: leer la key por STDIN (no queda en el historial).
     --authkey-stdin) IFS= read -rs TS_AUTHKEY || true; shift ;;
+    # --tailnet-host: hostname con el que el equipo aparece en la tailnet.
+    # Sin esto se usa $(hostname); con clientes conviene 'cliente-<nombre>'.
+    --tailnet-host) TS_HOSTNAME="${2:-}"; shift 2 ;;
     --key)       KEY="${2:-}"; shift 2 ;;
     --port)      SSH_PORT="${2:-22}"; shift 2 ;;
     --check)     DO_CHECK=1; shift ;;
@@ -1492,7 +1497,7 @@ setup_tailscale() {
   esac
 
   if [[ $DRY_RUN -eq 1 ]]; then
-    info "(dry-run) ejecutaría: tailscale up --auth-key=tskey-auth-*** --hostname=${TARGET_HOSTNAME:-$HOSTNAME}"
+    info "(dry-run) ejecutaría: tailscale up --auth-key=tskey-auth-*** --hostname=${TS_HOSTNAME:-${TARGET_HOSTNAME:-$HOSTNAME}}"
     ok "(dry-run) el equipo se uniría a la tailnet"
     return 0
   fi
@@ -1501,7 +1506,7 @@ setup_tailscale() {
   local up_log
   up_log="$(mktemp)"
   if tailscale up --auth-key="$TS_AUTHKEY" \
-       --hostname="$(hostname 2>/dev/null || echo cliente)" \
+       --hostname="${TS_HOSTNAME:-$(hostname 2>/dev/null || echo cliente)}" \
        --accept-dns=false >"$up_log" 2>&1; then
     ok "Equipo unido"
   else

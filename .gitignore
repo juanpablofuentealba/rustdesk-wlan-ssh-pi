@@ -6,6 +6,8 @@
 *.key
 *.pem
 id_*
+# OJO: operadores/*.pub SÍ se publican (claves públicas de la flota).
+# Aquí solo se bloquean las claves de id_* (privadas/públicas personales).
 
 # Config local
 ssh_config.local
