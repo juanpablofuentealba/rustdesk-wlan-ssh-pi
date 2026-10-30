@@ -1,290 +1,162 @@
-# Onboarding de un cliente nuevo (flujo verificado)
+# Onboarding de un cliente nuevo (de cero a operativo)
 
-Cómo preparar una computadora de un cliente para administrarla remotamente,
-**sin contaminar tu red personal** y dejando al cliente el control.
+Guía del **operador** para dar de alta un cliente y dejarlo administrable
+remotamente, sin tocar nada a mano en su equipo.
 
-> **Toda la información técnica de este documento fue validada contra la
-> documentación oficial de Tailscale** (`tailscale.com/docs/features/access-control/auth-keys`,
-> validada 30 jun 2026) y contra los binarios instalados (`tailscale 1.104.2`).
-> Ver la sección [Fuentes verificadas](#fuentes-verificadas).
-
----
-
-## 1. Los dos modelos (elige antes de empezar)
-
-| | **Modelo A — tu cuenta** | **Modelo B — cuenta del cliente** ⭐ |
-|---|---|---|
-| Quién crea Tailscale | Tú | El cliente |
-| El equipo aparece como | Tuyo | Del cliente |
-| Control del acceso | Tú | El cliente |
-| Revocar | Tú debes recordar quitarlo | El cliente lo hace solo |
-| Apto para clientes reales | ⚠️ No recomendado | ✅ Sí |
-| Apto para tus propios PCs | ✅ Sí | — |
-
-**Regla:** si el equipo **no es tuyo**, usa **Modelo B**. Punto.
+> Dos herramientas, una para cada lado:
+> - **`nuevo-cliente.sh`** — en **tu PC operador**: prepara ficha, kit y la
+>   línea de instalación.
+> - **`onboarding.sh`** — en **el PC del cliente**: instala todo en una línea.
 
 ---
 
-## 2. Flujo completo (Modelo B)
+## Resumen del flujo
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ FASE 0 — CON EL CLIENTE (antes de tocar el PC)               │
-│                                                              │
-│ El cliente:                                                  │
-│  1. Crea su cuenta Tailscale (gratis, 1 min)                 │
-│     → https://login.tailscale.com/start                      │
-│  2. Genera una AUTH KEY en su panel:                         │
-│     → https://login.tailscale.com/admin/settings/keys        │
-│       (Settings → pestaña Keys → "Generate auth key...")     │
-│     → https://console.tailscale.com/admin/settings/keys      │
-│       (alias: lleva a la misma consola)                      │
-│     · Description: kit-pendrive-cliente                      │
-│     · Reusable:  NO   (para un solo equipo)                  │
-│     · Ephemeral: NO   (el equipo es permanente)              │
-│     · Expiry:    1 día (suficiente para el trabajo)          │
-│     · Solo se muestra UNA VEZ: copiarla al generarla         │
-│  3. Te pasa la key (string que empieza con `tskey-auth...`)  │
-│  4. Te da el PRIMER acceso por RustDesk                      │
-└──────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│ FASE 1 — PRIMER ACCESO                                       │
-│                                                              │
-│ Requisito: el PC del cliente ya debe tener RustDesk          │
-│ corriendo (el cliente lo instala, o vas presencialmente).    │
-│                                                              │
-│ El cliente te da: ID + contraseña de RustDesk                │
-└──────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│ FASE 2 — TÚ, POR RUSTDESK (en el PC del cliente)             │
-│                                                              │
-│  1. (Si aplica) instalar el SO                                │
-│  2. Instalar RustDesk con unattended                          │
-│  3. Instalar Tailscale y unirlo con la auth key:              │
-│       sudo pacman -S --needed tailscale                       │
-│       sudo systemctl enable --now tailscaled                  │
-│       sudo tailscale up --auth-key=tskey-auth-XXXX            │
-│  4. Instalar sshd + TU clave pública                          │
-│  5. Verificar                                                │
-└──────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│ FASE 3 — VERIFICACIÓN Y ENTREGA                              │
-│                                                              │
-│ Tú:    ssh usuario@100.x.y.z   (IP Tailscale del cliente)    │
-│ Cliente conserva el control: puede revocar cuando quiera     │
-└──────────────────────────────────────────────────────────────┘
+[operador]  ~/operador/nuevo-cliente.sh juan
+                │
+                ├─ crea clientes/juan/ficha.txt
+                ├─ empaqueta clientes/juan/kit-juan/  (+ operador.pub + MANIFEST)
+                └─ imprime la línea de onboarding (con contraseña ya generada)
+                        │
+                        ▼
+[cliente]  curl …/onboarding.sh | sudo bash -s -- --nombre juan --rdpass '…' …
+                │
+                ├─ baja el kit del repo y verifica integridad
+                ├─ autoriza las claves de operadores (operadores/*.pub)
+                ├─ instala RustDesk unattended + sshd + firewall + Tailscale
+                ├─ fija la contraseña permanente de RustDesk
+                └─ imprime la FICHA (ID, contraseña, IP tailnet)
+                        │
+                        ▼
+[operador]  ~/operador/conectar.sh cliente-juan
+            ~/operador/ayudar.sh   cliente-juan
+            ~/operador/flota.sh
 ```
 
 ---
 
-## 3. Por qué `--auth-key` y no el login normal
+## 1. En el operador: preparar el alta
 
-`tailscale up` sin argumentos abre un enlace donde **alguien debe loguearse con
-un navegador**. Si lo hicieras tú:
+```fish
+~/operador/nuevo-cliente.sh juan
+```
 
-- Abrirías sesión con **la cuenta del cliente desde tu navegador** → tu PC queda
-  con su sesión iniciada. **Malo.**
-- O tendrías que pedirle su contraseña. **Peor.**
+Qué produce:
 
-Con `--auth-key`:
-
-| Ventaja | Detalle |
+| Salida | Para qué |
 |---|---|
-| No compartes contraseñas | El cliente solo genera y te pasa una key |
-| Queda registro | El dispositivo se registra con esa key |
-| Expira | La key caduca (1-90 días según configures) |
-| Se revoca solo | Las keys *one-off* se revocan automáticamente al usarse |
+| `clientes/juan/ficha.txt` | datos del cliente (se completa al instalar) |
+| `clientes/juan/kit-juan/` | kit completo + `operador.pub` + `MANIFEST.sha256` verificado |
+| línea `curl … \| sudo bash` | **copiar y pegar** en el cliente (contraseña incluida) |
 
-**Comando verificado** (documentación oficial):
-```fish
-sudo tailscale up --auth-key=tskey-abcdef1432341818
-```
-
-> ⚠️ Las keys de Tailscale son **case-sensitive** (distinguen mayúsculas).
-
----
-
-## 4. Datos verificados sobre auth keys
-
-| Concepto | Valor | Fuente |
-|---|---|---|
-| Tipos | **One-off** (un uso) / **Reusable** (varios) | doc oficial |
-| Expiración | **1 a 90 días**; por defecto 90 | doc oficial |
-| Node key | Expira a los **180 días** por defecto | doc oficial |
-| Al expirar la auth key | El equipo **sigue autorizado** hasta que expire su node key | doc oficial |
-| Ephemeral | Elimina el equipo automáticamente al desconectarse | doc oficial |
-| Pre-approved | Autoriza sin aprobación manual (si tienes device approval) | doc oficial |
-| Tagged | Aplica un tag al equipo desde la key | doc oficial |
-| Revocar | Solo tus propias keys, desde el panel → Keys | doc oficial |
-| One-off | Se revoca **automáticamente** tras usarse | doc oficial |
-
-### Recomendación para un cliente
-
-```
-Reusable:  NO     → una key por equipo, más seguro
-Ephemeral: NO     → el equipo es permanente
-Expiry:    1 día  → suficiente; caduca si no lo usas
-Pre-approved: opcional (solo si usas device approval)
-Tagged: opcional  → útil si gestionas muchos equipos
-```
-
----
-
-## 5. Checklist operativa
-
-### Antes de empezar (pídele al cliente)
-
-- [ ] Cuenta Tailscale creada (suya)
-- [ ] Auth key generada: `tskey-auth-...`
-      (panel → Settings → **Keys** → Generate auth key;
-      ver [`tailscale.md`](tailscale.md#generar-la-auth-key-paso-a-paso-en-la-web))
-- [ ] RustDesk instalado en su PC, con ID y contraseña
-- [ ] Confirmado: el equipo es **suyo** (Modelo B)
-
-### Durante (por RustDesk)
+Además imprime la **alternativa por pendrive** (si el cliente no tiene internet):
 
 ```fish
-# 1. Tailscale
-sudo pacman -S --needed tailscale
-sudo systemctl enable --now tailscaled
-sudo tailscale up --auth-key=tskey-auth-XXXX
-
-# 2. Verificar Tailscale
-tailscale status
-tailscale ip -4                  # anota la IP 100.x.y.z
-
-# 3. SSH
-sudo pacman -S --needed openssh
-sudo systemctl enable --now sshd
-# abrir firewall (el paso que se olvida)
-sudo ufw allow 22/tcp
-
-# 4. Tu clave pública
-mkdir -p ~/.ssh; and chmod 700 ~/.ssh
-echo "TU_CLAVE_PUBLICA" >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-
-# 5. Verificar
-hostname; uname -r; ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+'
+cp -r clientes/juan/kit-juan /run/media/$USER/PENDRIVE/
+# en el cliente:
+cd ~/kit-juan && chmod +x *.sh
+sudo ./instalar-todo.sh --key "$(cat operador.pub)" --rdpass '…' --tailscale-luego
 ```
 
-> Los pasos 3 y 4 los automatiza `setup-remote-target.sh --ssh --key ...`
-> (ver [README](../README.md)).
-
-### Después (desde tu PC)
-
-- [ ] `ssh usuario@100.x.y.z` funciona
-- [ ] **Acceso fuera de la LAN** verificado: `./verify-offlan.sh <hostname>`
-      (7 OK · 0 fallos). Ojo: si operador y objetivo tienen la misma IP pública
-      es la misma casa y la prueba no vale.
-- [ ] **Reinicio unattended** verificado: `./reboot-remoto.sh --host ... --all`
-      → vuelve con `boot_id` nuevo y los 4 servicios `active` (ver H-27)
-- [ ] Documentado: cliente, IP Tailscale, qué se instaló (ficha: `inventory.sh`)
-- [ ] Informado al cliente: **cómo revocar tu acceso**
+> **Claves:** `nuevo-cliente.sh` usa tu clave pública del operador
+> (`~/.ssh/id_hp_operador.pub` o `id_msi_operador.pub`). Cada operador tiene su
+> **propia** identidad — nunca se comparte la misma clave entre equipos (H-43).
 
 ---
 
-## 6. Cómo revoca el cliente tu acceso
+## 2. En el cliente: instalar
 
-El cliente tiene **el control total**. Para cortarte el acceso:
+### 2.1 Crear la auth key de Tailscale (si querés acceso fuera de la LAN)
 
-**Opción 1 — Deshabilitar el equipo** (corta todo acceso de red):
+Se crea en la **web**, no en el equipo:
+
+`https://login.tailscale.com/admin/settings/keys` → **Generate auth key…**
+
+- Para un solo equipo: *Reusable* NO, *Pre-approved* SÍ.
+- Se muestra **una sola vez**: copiala.
+
+### 2.2 Correr el onboarding
+
+```bash
+# La auth key por STDIN: no queda en el historial ni en 'ps'
+curl -fsSL https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh \
+  | sudo bash -s -- --nombre juan --rdpass 'ClaveLarga2026' \
+      --operador-hosts 'hp-operador msi-operador' --authkey-stdin
 ```
-Panel Tailscale → Machines → [el equipo] → Disable
-```
 
-**Opción 2 — Quitar tu clave SSH** (mantiene la red, corta tu shell):
-```fish
-# En el PC del cliente:
-nano ~/.ssh/authorized_keys    # borra tu línea → guardar
-```
+`onboarding.sh`:
 
-**Opción 3 — Borrar el dispositivo** (permanente):
-```
-Panel Tailscale → Machines → [el equipo] → Delete
-```
+1. **Baja el kit** del ref indicado (`--ref`, por defecto `main`) y **verifica**
+   el `MANIFEST.sha256`.
+2. **Resuelve las claves** de los operadores desde
+   [`operadores/<host>.pub`](../operadores/) y las pasa a `instalar-todo.sh`.
+3. Corre `instalar-todo.sh` con `--tailnet-host cliente-<nombre>` (para
+   reconocer la flota de un vistazo).
+4. **Imprime la ficha** con ID de RustDesk, contraseña, IP de Tailscale y distro.
 
-> **Importante para el cliente:** revocar una **auth key** *no* desautoriza
-> equipos que ya la usaron. Para eso debe **borrar el equipo** en Machines.
-> (Dato verificado en la doc oficial.)
+### Casos especiales
 
----
-
-## 7. Qué NO hacer
-
-| ❌ No hagas esto | Por qué |
+| Situación | Flags |
 |---|---|
-| Unir el PC del cliente a **tu** cuenta | Contamina tu red, problema legal |
-| Compartir tu sesión de navegador con su cuenta | Tu PC queda con su sesión |
-| Pedir/guardar su contraseña | Innecesario con auth keys |
-| Usar una key **Reusable** para todo | Si se filtra, riesgo grande (aviso oficial) |
-| Dejar el acceso sin que el cliente lo sepa | Ético y legal |
-| Poner `PasswordAuthentication no` sin probar antes | Te quedas fuera del equipo |
+| No tengo la auth key ahora | `--tailscale-luego` (instala TS sin unir; unir después con `unir-tailscale.sh`) |
+| Solo LAN, sin Tailscale | `--skip-tailscale` |
+| El cliente no tiene internet | `--local ~/kit-juan` (kit ya descargado) |
+| Nombre en tailnet distinto | `--tailnet-host otro-nombre` |
+| Simulacro | `--dry-run` |
+| Sin confirmaciones | `--yes` |
+
+> **Nunca** pongas la auth key ni la contraseña en la línea de comandos de un
+> equipo ajeno si podés evitarlo: quedan en el historial. La auth key siempre
+> por `--authkey-stdin`.
 
 ---
 
-## 8. Alternativa: compartir dispositivo (Modelo C)
+## 3. Verificar desde el operador
 
-Si el cliente **ya tiene** su equipo en Tailscale, puede **compartirlo** contigo
-sin darte su cuenta:
-
-> Tailscale soporta *link-based node sharing*: compartir una máquina con un
-> usuario de **otra** tailnet. El receptor accede **solo** a esa máquina, no a
-> toda la red. (Fuente: `tailscale.com/docs/features/sharing`, validada 5 ene 2026.)
-
-```
-Cliente: Panel → Machines → [equipo] → Share → te manda el enlace
-Tú:      aceptas con TU cuenta → ves solo ese equipo
-```
-
-**Ventaja:** el equipo sigue siendo suyo, tú no necesitas crear nada en su PC.
-**Cuándo usarlo:** cuando el cliente ya está en Tailscale y prefiere no darte
-una auth key.
-
----
-
-## 9. Documentación del trabajo (plantilla)
-
-Lleva registro de cada cliente. Plantilla:
-
-```markdown
-## Cliente: <nombre>
-Fecha: <fecha>
-
-- Modelo: B (cuenta del cliente) / C (sharing)
-- Equipo: <marca-modelo>
-- SO instalado: <distro> <versión>
-- Hostname: <nombre>
-- IP Tailscale: 100.x.y.z
-- ID RustDesk: <id>
-- Acceso SSH: usuario@100.x.y.z con clave ed25519
-- Auth key usada: (registrada en el panel del cliente)
-- Cambios en el router: no
-- Revocación: el cliente puede deshabilitar el equipo en su panel
-- Notas: ...
-```
-
----
-
-## Fuentes verificadas
-
-| Dato | Fuente | Fecha validación |
-|---|---|---|
-| Auth keys (tipos, expiración 1-90 días, comandos) | `tailscale.com/docs/features/access-control/auth-keys` | 30 jun 2026 |
-| Node key expira 180 días | misma | 30 jun 2026 |
-| Revocar key ≠ desautorizar equipo | misma | 30 jun 2026 |
-| Compartir máquinas entre tailnets | `tailscale.com/docs/features/sharing` | 5 ene 2026 |
-| Prefijos reales de key | binario `tailscale` 1.104.2 | local |
-| Flags `--auth-key`, `--hostname` | `tailscale up --help` | local |
-
-Cuando cambie la versión de Tailscale, **vuelve a verificar** los comandos:
 ```fish
-tailscale version
-tailscale up --help
+~/operador/conectar.sh cliente-juan   # tailnet + SSH + datos
+~/operador/ayudar.sh   cliente-juan   # diagnóstico completo (disco, RAM, logs)
+~/operador/flota.sh                   # estado de toda la flota
 ```
+
+También:
+
+```bash
+./verify-offlan.sh cliente-juan       # acceso desde fuera de la LAN (7 comprobaciones)
+./reboot-remoto.sh --host jp@cliente-juan --all   # reinicio unattended
+```
+
+---
+
+## 4. Añadir un operador a la flota
+
+Publicá tu clave **pública** (nunca la privada):
+
+```bash
+cp ~/.ssh/id_<operador>.pub operadores/<host>.pub
+git add operadores/<host>.pub && git commit -m "operadores: alta <host>"
+```
+
+A partir de ahí, cualquier onboarding con
+`--operador-hosts '<host>'` la autoriza automáticamente. Ver
+[`operadores/README.md`](../operadores/README.md) y
+[`docs/operador-multiple.md`](operador-multiple.md).
+
+---
+
+## Preguntas frecuentes
+
+**¿Y si el cliente es Windows?** Este flujo es Linux. Para Windows hay
+[`windows/`](../windows/) (`setup-remote-target.ps1` + `inventory.ps1`).
+
+**¿RustDesk pide una contraseña que no es la de acceso remoto?** Es
+`trusted_devices` sin `unlock_pin` → ver **H-67** en
+[`hallazgos.md`](hallazgos.md).
+
+**¿El equipo se "apaga solo" y se pierde el acceso?** Puede ser la suspensión
+por inactividad/tapa; el onboarding ya corre `laptop-no-suspend.sh` en portátiles
+(H-29). En Windows es otra cosa (Modern Standby, H-54).
+
+**¿Cómo sé qué versión del kit corrió ese cliente?** El kit trae
+`.kit-version` (`kit_version=…`, con el commit de git).
