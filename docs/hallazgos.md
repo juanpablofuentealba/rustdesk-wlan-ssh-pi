@@ -2584,3 +2584,146 @@ chip **-H** de portátil.
 con datos**. La afirmación del usuario ("está overclockeado") puede referirse a
 que **usa** la herramienta, no a que el OC esté **aplicado**. Escribir en la
 ficha lo **verificado**, no lo supuesto.
+
+---
+
+## H-60 — Tailscale en Termux (Android 13): la app NO comparte su `tun` y los binarios mueren con `SIGSYS`
+
+**Verificado:** ✅ (Android 13 / ZTE Blade A54, Termux, 30-oct-2026)
+
+**Síntoma:** la app **Tailscale de Android** muestra el equipo unido a la tailnet
+(`<telefono>`, `100.x.y.z`), pero **Termux no ve nada de la tailnet**:
+
+```
+$ getent hosts <telefono>.<tailnet>.ts.net   # NO resuelve
+$ ping 100.100.100.100                           # sin respuesta (MagicDNS)
+$ curl http://100.100.100.100                    # vacío
+```
+
+Además, activar **"Exit node"** en la app **tumba el WiFi**: Android enruta todo
+por el nodo de salida y, si ese nodo no reenvía bien, el sistema marca "WiFi sin
+internet" y lo desconecta.
+
+**Causa (dos capas):**
+
+1. **Aislamiento de red por app.** El `tun` de la VPN de Android **no se hereda**
+   a Termux. Aunque la app esté conectada, el proceso Termux sale por `wlan0`
+   directo. Quitar "Use Tailscale DNS" **no** arregla esto: el DNS era solo la
+   mitad del problema.
+2. **`tailscaled`/`tailscale` no arrancan.** Los binarios oficiales (compilados
+   con **Go 1.27**) invocan **`faccessat2` (syscall 439)**, que **Android bloquea
+   por seccomp**:
+
+   ```
+   SIGSYS: bad system call
+   PC=0x23690 ... syscall.faccessat2(...)
+   ```
+
+   Ni `LD_PRELOAD` sin `termux-exec` ni `GODEBUG=linuxfaccessat2=0` lo evitan.
+
+**Solución (userspace + `proot`):**
+
+```bash
+# binarios estáticos oficiales (no están en pkg)
+curl -LO https://pkgs.tailscale.com/stable/tailscale_1.104.4_arm64.tgz
+tar xzf tailscale_1.104.4_arm64.tgz
+
+# tailscaled en userspace (no necesita el tun del kernel)
+proot -0 tailscale_1.104.4_arm64/tailscaled \
+  --tun=userspace-networking \
+  --socket=$HOME/tailscale/ts.sock --state=$HOME/tailscale/ts.state \
+  --socks5-server=localhost:1055 &
+
+# el CLI también debe correr bajo proot (evita SIGSYS)
+proot -0 tailscale_1.104.4_arm64/tailscale --socket=$HOME/tailscale/ts.sock \
+  up --auth-key 'tskey-auth-...' --hostname <host>-termux \
+  --accept-dns=false --accept-routes=false
+```
+
+Como no hay `tun`, las apps usan el **SOCKS5** local. Para SSH, en
+`~/.ssh/config`:
+
+```sshconfig
+Host <peer> 100.x.y.z
+  ProxyCommand nc -X 5 -x localhost:1055 %h %p
+```
+
+**Notas:**
+
+- **Usar un hostname distinto** al de la app (`<host>-termux`): si no, Tailscale
+  crea **nodos duplicados** con el mismo nombre.
+- **`--accept-dns=false`** es obligatorio para no pelear con el DNS de Android
+  (evita tumbar el WiFi).
+- **Exit node: NO** usarlo desde el teléfono (rompe la conectividad).
+- `proot -0` simula root; es lo que destraba las syscalls bloqueadas.
+
+**Lección:** en Android, la app Tailscale y Termux **son dos mundos separados**.
+Para que Termux use la tailnet hay que correr `tailscaled` **dentro** de Termux
+(userspace) y **bajo `proot`** (por `faccessat2`/seccomp). Ver también **H-61**.
+
+---
+
+## H-61 — Android 13 bloquea `faccessat2` por seccomp: los binarios Go modernos mueren con `SIGSYS`
+
+**Verificado:** ✅ (Android 13, 30-oct-2026)
+
+**Síntoma:** cualquier binario Go reciente (Go ≥ 1.21) falla al arrancar con:
+
+```
+SIGSYS: bad system call
+PC=0x23690 m=0 sigcode=1
+goroutine 1 ... syscall.Syscall6(0x1b7, ...)
+```
+
+`0x1b7` = **439** = **`faccessat2`** en arm64.
+
+**Causa:** Android restringe la syscall `faccessat2` con **seccomp**. El runtime
+de Go la usa en `syscall.Faccessat` al inicializar. El proceso recibe `SIGSYS` y
+muere antes de imprimir nada útil.
+
+**Lo que NO funciona:**
+
+- `LD_PRELOAD` desactivado / `termux-exec` quitado.
+- `GODEBUG=linuxfaccessat2=0`.
+- Compilar con `CGO_ENABLED=0` (sigue siendo el runtime el que la llama).
+
+**Solución:** correr el binario bajo **`proot`** (`pkg install proot`), que
+intercepta y **traduce** las syscalls bloqueadas:
+
+```bash
+proot -0 ./binario-go --version    # funciona
+```
+
+**Lección:** en Android, un binario Go que falle con `SIGSYS` **no está roto**:
+es `faccessat2`. Probarlo bajo `proot` antes de descartarlo.
+
+---
+
+## H-62 — `Fast Startup` vuelve a activarse solo: `powercfg /h off` no persiste tras un arranque
+
+**Verificado:** ✅ (cliente `rai`, HP Omen, 30-oct-2026)
+
+**Síntoma:** en la sesión del 29-oct se aplicó `powercfg /h off` para matar el
+`Fast Startup` (causa clásica del `0x9F`, ver H-54). **Al día siguiente**, el
+registro mostraba otra vez:
+
+```
+Fast Startup (HiberbootEnabled): 1     ← ACTIVADO de nuevo
+```
+
+**Contexto:** el equipo tiene **Modern Standby (S0)** y `powercfg /h off`
+deshabilita hibernación + inicio rápido. Pero hay software del fabricante
+(HP) o del dueño (**XTU**) que **re-habilita** la hibernación, y con ella el
+`Fast Startup`. En un equipo con `0x9F` + XTU inconsistente (H-59), eso devuelve
+la causa raíz.
+
+**Comprobación (solo lectura):**
+
+```powershell
+(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' `
+  -Name HiberbootEnabled).HiberbootEnabled   # 1 = activado (malo aquí)
+```
+
+**Lección:** los ajustes de energía pueden **no persistir** en equipos con
+software de tuning (XTU, suite del fabricante). **Verificar tras cada reinicio**,
+no confiar en el "ya lo apliqué". Ver H-54/H-56/H-58/H-59.

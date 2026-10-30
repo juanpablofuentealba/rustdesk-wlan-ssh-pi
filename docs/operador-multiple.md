@@ -148,3 +148,135 @@ set -l OPERADORES hp-operador msi-operador
 - [ ] Crear su `~/operador/` (kit + scripts + `AGENTS.md` propio, **no** copia).
 - [ ] (Si tiene `sshd`) `systemctl enable --now sshd` para poder ser operado.
 - [ ] Probar bidireccional: `<nuevo> → <existente>` y `<existente> → <nuevo>`.
+
+---
+
+## Operador móvil (Android/Termux)
+
+Un teléfono puede ser operador más si en él corre **Termux** con Tailscale en
+modo userspace (**H-60/H-61**). Es útil como operador de bolsillo: SSH a los
+clientes sin depender del portátil/escritorio.
+
+### Alta de un operador móvil
+
+1. **Tailscale en Termux** (userspace + `proot`, ver H-60). Poner un hostname
+   propio, distinto al de la app Android:
+
+   ```
+   <host>-termux        (ej. mi-telefono-termux)
+   ```
+
+2. **Clave propia** (jamás la de otro operador — H-43):
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/id_<rol>_operador -C "<rol>-operador@<host>"
+   ```
+
+3. **SSH por SOCKS5** (no hay `tun` en userspace), en `~/.ssh/config`:
+
+   ```sshconfig
+   Host <peer> 100.x.y.z
+     ProxyCommand nc -X 5 -x localhost:1055 %h %p
+   ```
+
+4. **Autorizar su pública** en los demás operadores y en los clientes.
+
+### Autorizar una clave — POSEE versión **fish**
+
+Mandando la orden a un operador con **fish** (CachyOS), la sintaxis debe ser
+fish, no bash (**H-23**). Cualquiera de estas sirve:
+
+```fish
+printf '%s\n' 'ssh-ed25519 AAAA... comentario' >> ~/.ssh/authorized_keys
+```
+
+```fish
+cat >> ~/.ssh/authorized_keys << 'EOF'
+ssh-ed25519 AAAA... comentario
+
+---
+
+## Operador móvil (Android/Termux)
+
+Un teléfono puede ser operador más si en él corre **Termux** con Tailscale en
+modo userspace (**H-60/H-61**). Es útil como operador de bolsillo: SSH a los
+clientes sin depender del portátil/escritorio.
+
+### Alta de un operador móvil
+
+1. **Tailscale en Termux** (userspace + `proot`, ver H-60). Poner un hostname
+   propio, distinto al de la app Android:
+
+   ```
+   <host>-termux        (ej. mi-telefono-termux)
+   ```
+
+2. **Clave propia** (jamás la de otro operador — H-43):
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/id_<rol>_operador -C "<rol>-operador@<host>"
+   ```
+
+3. **SSH por SOCKS5** (no hay `tun` en userspace), en `~/.ssh/config`:
+
+   ```sshconfig
+   Host <peer> 100.x.y.z
+     ProxyCommand nc -X 5 -x localhost:1055 %h %p
+   ```
+
+4. **Autorizar su pública** en los demás operadores y en los clientes.
+
+### Autorizar una clave — versión **fish**
+
+Mandando la orden a un operador con **fish** (CachyOS), la sintaxis debe ser
+fish, no bash (**H-23**). Cualquiera de estas sirve:
+
+```fish
+printf '%s\n' 'ssh-ed25519 AAAA... comentario' >> ~/.ssh/authorized_keys
+```
+
+```fish
+cat >> ~/.ssh/authorized_keys << 'EOF'
+ssh-ed25519 AAAA... comentario
+EOF
+```
+
+> En bash también funciona `echo ... >>`, pero **no mandes bash a un objetivo
+> fish**: es el error clásico de H-23.
+
+### En Windows (cliente admin): `administrators_authorized_keys`
+
+Si el usuario SSH es **administrador** de Windows, el `authorized_keys` normal
+**se ignora**: hay que escribir en
+`C:\ProgramData\ssh\administrators_authorized_keys` y arreglar permisos
+(**H-57**):
+
+```powershell
+$f = 'C:\ProgramData\ssh\administrators_authorized_keys'
+Add-Content -Path $f -Value '<clave-publica>' -Encoding ascii
+icacls $f /inheritance:r /grant '*S-1-5-32-544:F' /grant 'SYSTEM:F'
+```
+
+> Usar el **SID** `*S-1-5-32-544`, no el nombre del grupo (en español es
+> `Administradores`, no `Administrators`).
+
+### Entrar a Windows pasando por un operador (jump)
+
+Si tu clave aún no está en el cliente Windows, podés **saltar por un operador
+que sí tenga acceso** (usa `ProxyJump`):
+
+```bash
+ssh -J jp@hp-operador qquet@rai 'whoami'
+```
+
+Y para mandar PowerShell sin el infierno de comillas, codificar en UTF-16LE +
+base64 (**H-55**):
+
+```bash
+PS='Get-Service sshd'
+ENC=$(printf '%s' "$PS" | iconv -t UTF-16LE | base64 -w0)
+ssh rai "powershell -NoProfile -EncodedCommand $ENC"
+```
+
+> En una **misma sesión SSH a Windows**, `hostname`/`whoami` pueden fallar por el
+> shell del objetivo (H-55); usar `echo %COMPUTERNAME%` o PowerShell.
