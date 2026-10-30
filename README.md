@@ -115,12 +115,14 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`unir-tailscale.sh`](unir-tailscale.sh) | Unir a la tailnet pidiendo/pegando la auth key · [H-30](docs/hallazgos.md) |
 | [`laptop-no-suspend.sh`](laptop-no-suspend.sh) | **Portátiles**: evita que suspenda y se pierda el acceso · [H-29](docs/hallazgos.md) |
 | [`reboot-remoto.sh`](reboot-remoto.sh) | Reinicio remoto unattended (NOPASSWD acotado) · [H-27](docs/hallazgos.md) |
+| [`wol-despertar.sh`](wol-despertar.sh) | **Enciende** un equipo apagado por Wake-on-LAN (el operador como relé) · [H-60](docs/hallazgos.md) |
+| [`energia-remota.sh`](energia-remota.sh) | **Apaga/reinicia** un equipo remoto sin exponer la clave sudo (STDIN) · [H-27](docs/hallazgos.md) |
 | [`update.sh`](update.sh) | **Mantenimiento**: actualiza el sistema + RustDesk + Tailscale (Arch/Debian/Fedora) |
 | [`rustdesk-password.sh`](rustdesk-password.sh) | Fija la contraseña permanente de RustDesk · [H-15](docs/hallazgos.md) |
 | [`install-rustdesk-unattended-fedora.sh`](install-rustdesk-unattended-fedora.sh) | RustDesk con DRM en Fedora/RHEL (desde el `.deb`) · [H-14](docs/hallazgos.md) |
 | [`verify-offlan.sh`](verify-offlan.sh) | Prueba el acceso desde fuera de la LAN |
 | [`inventory.sh`](inventory.sh) | Ficha de specs del equipo (texto/JSON/Markdown) |
-| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**653**) |
+| [`tests.sh`](tests.sh) | Pruebas antes de un cliente nuevo (**667**) |
 | [`make-kit.sh`](make-kit.sh) | Empaqueta el kit para un pendrive/tarball |
 | [`windows/`](windows/) | **Kit para Windows 10/11**: `setup-remote-target.ps1`, `inventory.ps1`, `rustdesk-password.ps1` · [H-45..H-47](docs/hallazgos.md) |
 | [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt) | Prompt para agentes IA, fase de **instalación** (OpenCode/Claude/pi) |
@@ -129,6 +131,8 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`docs/caso-real-msi.md`](docs/caso-real-msi.md) | **Caso real**: instalación y mantención de punta a punta en un cliente de trabajo |
 | [`docs/caso-real-apagon-solo.md`](docs/caso-real-apagon-solo.md) | **Caso real Windows**: "se apaga solo" = Modern Standby; overclock y SSH ([H-51..H-62](docs/hallazgos.md)) |
 | [`docs/caso-real-rai-omen.md`](docs/caso-real-rai-omen.md) | **Caso real**: HP Omen Windows "se apaga solo", seguimiento a 1 día y acceso de operador móvil ([H-54..H-62](docs/hallazgos.md)) |
+| [`docs/wol-y-energia-remota.md`](docs/wol-y-energia-remota.md) | **Encendido/apagado remoto**: WoL con el operador como relé, y energía sin exponer la clave · [H-64](docs/hallazgos.md) |
+| [`docs/android-operador.md`](docs/android-operador.md) | **Operador móvil (Android)**: Tailscale por proot+userspace cuando la app no sirve · [H-65](docs/hallazgos.md) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen |
 | [`REPO.txt`](REPO.txt) | Este repositorio: URL, uso rápido, índice |
@@ -139,7 +143,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 |---|---|
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
-| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-63: problemas reales y sus soluciones |
+| [`docs/hallazgos.md`](docs/hallazgos.md) | H-01..H-65: problemas reales y sus soluciones |
 | [`docs/tailscale.md`](docs/tailscale.md) | Tailscale: acceso sin abrir puertos |
 | [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md) | Cómo dar de alta un cliente (modelo B) |
 | [`docs/acceso-primero.md`](docs/acceso-primero.md) | **Con un cliente que no sabe RustDesk**: fija el acceso ANTES de todo · [H-53](docs/hallazgos.md) |
