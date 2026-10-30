@@ -1503,12 +1503,31 @@ t "H-46 explica que [switch] es un flag, no un dato" \
   bash -c 'grep -q "es un ..flag." docs/hallazgos.md'
 t "H-47 explica 2>&1 | Out-Null" \
   bash -c 'grep -q "2>&1 | Out-Null" docs/hallazgos.md'
+
 tdoc "el README raiz lista el kit de Windows" \
   bash -c 'grep -q "windows/" README.md'
 tdoc "el README lista hallazgos hasta H-47" \
   bash -c 'grep -qE "H-01\.\.H-[0-9]+" README.md'
 t "make-kit.sh copia la carpeta windows" \
   bash -c 'grep -q "\$SCRIPT_DIR/windows" make-kit.sh'
+
+sect "H-51/H-52/H-53 + acceso-primero"
+t "H-51 documentado (BOM UTF-8)" \
+  bash -c 'grep -q "H-51" docs/hallazgos.md && grep -q "BOM UTF-8" docs/hallazgos.md'
+t "H-51 menciona Windows PowerShell 5.1" \
+  bash -c 'grep -q "PowerShell 5.1" docs/hallazgos.md'
+t "H-52 documentado (cache de GitHub raw)" \
+  bash -c 'grep -q "H-52" docs/hallazgos.md'
+t "H-53 documentado (acceso primero)" \
+  bash -c 'grep -q "H-53" docs/hallazgos.md'
+t "existe docs/acceso-primero.md" \
+  test -f docs/acceso-primero.md
+t "acceso-primero explica el orden correcto" \
+  bash -c 'grep -qi "LO PRIMERO" docs/acceso-primero.md'
+t "acceso-primero tiene checklist" \
+  bash -c 'grep -q "Contraseña PERMANENTE fijada" docs/acceso-primero.md'
+tdoc "el README enlaza docs/acceso-primero.md" \
+  bash -c 'grep -q "acceso-primero.md" README.md'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
