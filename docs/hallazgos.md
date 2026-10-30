@@ -2494,3 +2494,93 @@ OJO: en Windows en español el grupo es **`Administradores`** (no
 **Lección:** en Windows, los componentes de "Características opcionales"
 dependen de Windows Update y **se cuelgan**. Para herramientas críticas como
 SSH, instalar el **paquete oficial directo** evita el problema.
+
+---
+
+## H-58 — Cómo verificar de verdad si un equipo tiene overclock (XTU)
+
+**Verificado:** ✅ (HP Omen i5-13420H, 29-oct-2026)
+
+Antes de decidir si actualizar software (H-56), hay que saber si el equipo está
+**realmente** overclockeado. "Tiene XTU instalado" **no** significa "tiene
+overclock activo".
+
+### Pistas parciales (no concluyentes)
+
+- Servicio `XTU3SERVICE` en ejecución y proceso `XtuService`.
+- `Win32_Processor.MaxClockSpeed` = frecuencia **base** (no indica OC).
+- `powercfg` muestra límites de CPU (`PROCTHROTTLEMAX`), pero son del plan de
+  energía, no del OC.
+
+### La prueba concluyente: el **log de XTU**
+
+XTU escribe logs en
+`C:\ProgramData\Intel\Intel Extreme Tuning Utility\Logs\XtuCore.*.log`.
+Los últimos son la fuente de verdad:
+
+```powershell
+$log = Get-ChildItem "C:\ProgramData\Intel\Intel Extreme Tuning Utility\Logs\XtuCore.*.log" |
+       Sort-Object LastWriteTime -Desc | Select-Object -First 1
+$log.FullName; Get-Content $log.FullName | Select-Object -Last 20
+```
+
+Señales de **OC no aplicado / plataforma sin soporte**:
+
+```
+Processor Family is: RaptorLake
+Processor model is: H
+ERR] Attempted to read OCMB fieldId NN on an invalid platform
+ERR] Max proposed AC ratio resolved to <= 0.
+WARN] Application Persistence - Proposed setting changes failed validation;
+      settings will not be re-applied.
+```
+
+Señales de **XTU operativo**:
+
+```
+IMP] Initializing MSR Tuning
+IMP] MSR Tuning Initialized
+IMP] Initializing OC Mailbox Tuning
+IMP] OC Mailbox Tuning Initialized
+```
+
+### Qué significa cada resultado
+
+| Log | Interpretación |
+|---|---|
+| `OCMB ... invalid platform` + `ratio resolved to <= 0` | **No hay OC de CPU**: la plataforma (p.ej. chip **-H** de laptop) lo bloquea por firmware |
+| Cambios aplicados sin error | **Sí hay OC/configuración aplicada** → cuidado al actualizar (H-56) |
+| Componente `Intel(R) XTU Component Device` en **Degraded** | XTU en **estado inconsistente** (revisar antes de culpar al hardware) |
+
+**Lección:** para saber si un equipo está overclockeado, **leer el log de XTU**,
+no deducirlo de que la app esté instalada. Un chip de portátil (`-H`, `-U`)
+**no admite OC de CPU** (el firmware lo bloquea), aunque XTU esté abierto e
+intentándolo; en ese caso el verdadero riesgo no es el OC sino el **undervolt /
+TDP** que XTU sí puede tocar.
+
+---
+
+## H-59 — "Se apaga solo": no confundir "tiene XTU" con "está overclockeado"
+
+**Verificado:** ✅ (mismo caso, 29-oct-2026)
+
+En el caso real (H-54), la primera conclusión fue "el equipo está
+overclockeado → actualizar es peligroso". Al verificar (H-58) resultó que **el
+OC de CPU no estaba aplicado**: XTU llevaba **desde mayo-2023** instalado e
+intentando aplicar ajustes en cada arranque, **fallando** siempre por ser un
+chip **-H** de portátil.
+
+**Consecuencia práctica:**
+
+- La decisión de **no actualizar firmware/drivers** (H-56) **sigue siendo
+  correcta**, pero por un motivo algo distinto: no por "OC activo", sino por
+  **XTU en estado inconsistente** tocando TDP/voltaje.
+- Si el equipo siguiera colgándose, la prueba lógica es **desactivar
+  `XTU3SERVICE`** (reversible) y ver si se estabiliza — no tocar el OC (que no
+  existe).
+- Y antes de culpar al hardware: **anotar la evidencia**, no la intuición.
+
+**Lección:** una hipótesis plausible ("tiene overclock") hay que **verificarla
+con datos**. La afirmación del usuario ("está overclockeado") puede referirse a
+que **usa** la herramienta, no a que el OC esté **aplicado**. Escribir en la
+ficha lo **verificado**, no lo supuesto.
