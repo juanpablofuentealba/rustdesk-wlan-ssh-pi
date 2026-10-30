@@ -70,6 +70,25 @@ $s = irm https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh
 > **"Se apaga solo":** varios eventos **Id 41** = apagón **brusco** (hardware:
 térmico o energía). **Id 1074** = apagado **planeado** (software/actualización).
 
+## Trabajar por SSH en Windows (tip de quoting)
+
+Al entrar por SSH a un Windows, el shell por defecto es **CMD**, y el
+"quoting" de comandos complejos por SSH es un infierno (las comillas se comen).
+El método **fiable** es enviar el comando a PowerShell en **base64**
+(`-EncodedCommand`), que evita todo el problema:
+
+```bash
+# en el operador (Linux):
+enc() { printf '%s' "$1" | iconv -t UTF-16LE | base64 -w0; }
+PS='Get-PnpDevice | Where-Object { $_.Status -ne "OK" } | Select Status,Class,FriendlyName'
+ssh rai "powershell -NoProfile -EncodedCommand $(enc "$PS")"
+```
+
+Otra opción: enviar el script por **STDIN** a `powershell -NoProfile -Command -`.
+
+> Un comando de una sola línea simple (`hostname`, `whoami`) sí funciona directo:
+> `ssh rai 'hostname'`.
+
 ## Notas y diferencias con Linux
 
 - **La auth key de Tailscale se genera en la web**, no en el equipo (igual que
