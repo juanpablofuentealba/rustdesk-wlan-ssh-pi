@@ -124,6 +124,16 @@ No se reinició nada ni se tomó el control por RustDesk. Se acordó **avisar y
 esperar una ventana** para reparar el SSH con el equipo libre:
 
 1. Entrar por **RustDesk** (que sí funciona).
-2. En una consola de Windows: `Get-Service sshd`, revisar
-   `C:\ProgramData\ssh\administrators_authorized_keys` y `powercfg /a`.
-3. Restaurar la clave, comprobar `nc -z rai 22` y luego `ssh`.
+2. En una consola de Windows: `Get-Service sshd`, el puerto 22
+   (`Get-NetTCPConnection -LocalPort 22`), las reglas de firewall, la clave en
+   `C:\ProgramData\ssh\administrators_authorized_keys` y `powercfg /a`
+   (Fast Startup).
+3. Restaurar la clave (y/o la regla de firewall), comprobar `nc -z rai 22` y
+   luego `ssh`.
+
+**¿Y Windows Defender?** Fue la primera sospecha, pero **no encaja** como causa
+principal: el error era **`Permission denied`**, que es `sshd` rechazando la
+clave, **no** un bloqueo de red (eso daría **timeout** o **reset**). Defender o
+el firewall solo serían culpables si vieras timeouts/resets, si faltara la
+regla del 22 o si cambiara el perfil de red (casa → otra red). Aun así queda en
+el checklist: ver **H-66**, sección *¿Y si es Windows Defender?*.

@@ -30,7 +30,7 @@ Lo que más veces ahorra tiempo en campo, en orden de impacto:
 | 8 | [H-23](#h-23--enviar-sintaxis-bash-a-un-objetivo-con-fish-da-falsos-fallos) | Mandar bash a un objetivo fish da falsos fallos |
 | 9 | [H-42](#h-42--migrar-el-sistema-de-disco-regenera-el-machine-id-y-cambia-el-id-de-rustdesk) | Cambiar de disco regenera el ID de RustDesk |
 | 10 | [H-30](#h-30--la-auth-key-no-sale-del-equipo-se-genera-en-la-web) | La auth key se genera en la web, no en el equipo |
-| ⭐ | [H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando) | "SSH caído" con el equipo vivo: `tailscale ping` OK **no** significa `sshd` OK |
+| ⭐ | [H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando) | "SSH caído" con el equipo vivo: `tailscale ping` OK **no** significa `sshd` OK. Incluye **¿y si es Defender?** (`Permission denied` ≠ firewall) |
 
 ### Por categoría
 
@@ -2972,18 +2972,71 @@ Y por **RustDesk sí se entra**: el equipo está operativo y con sesión activa
 > `tailscale ping` **NO** sustituye a probar el puerto 22 ni el login. Es la
 > prueba **más débil** de todas y es la que más engaña.
 
-### Qué hacer (sin romper nada)
+### ¿Y si es Windows Defender / el firewall?
+
+Es la primera sospecha de mucha gente, pero **el mensaje de error ya te dice
+si aplica o no**. Distinguirlos evita perder tiempo:
+
+| Lo que ves | Quién responde | ¿Es Defender/firewall? |
+|---|---|---|
+| `Connection timed out` | **nadie** (paquetes descartados) | ✅ **posible** firewall/NAT/red |
+| `Connection reset by peer` | algo **corta** la conexión | ✅ **posible** firewall/IDS, o `sshd` limitando |
+| `Permission denied (publickey,...)` | **`sshd`** | ❌ **no**: llegaste a SSH y te rechazó |
+| `Host key verification failed` | cliente SSH (tu `known_hosts`) | ❌ no: es tu lado |
+
+> **Clave:** `Permission denied` demuestra que el **puerto 22 está abierto y
+> `sshd` atiende**. Si fuera el firewall de Defender bloqueando, verías
+> **timeout** o **reset**, nunca "permission denied". Por eso, en el caso
+> `rai`, Defender **no** era la causa principal (era la clave/usuario, H-57).
+
+Donde Defender **sí** puede meter la pata:
+
+- **Reglas de firewall** que se restablecen tras una actualización o reinicio y
+  dejan de permitir el 22 (o solo para el perfil de red antiguo, si cambió de
+  red: casa → oficina → 4G = perfil nuevo → regla no aplica).
+- **Poner en cuarentena** scripts del kit o archivos bajados (falsos positivos).
+- **Cortar conexiones repetidas** (protección de red) → `Connection reset`.
+
+### Checklist cuando esté libre (por RustDesk, consola de Windows)
+
+Revisar **en orden**; el primer punto que falle es la causa:
+
+```powershell
+# 1. Servicio
+Get-Service sshd, ssh-agent | Select Name,Status,StartType
+
+# 2. ¿Escucha de verdad en el 22?
+Get-NetTCPConnection -LocalPort 22 -State Listen -EA SilentlyContinue |
+  Select LocalAddress,LocalPort,OwningProcess
+
+# 3. Reglas de firewall para SSH
+Get-NetFirewallRule -Enabled True -Direction Inbound |
+  Where-Object DisplayName -match 'SSH|OpenSSH' |
+  Select DisplayName,Action,Enabled,Profile
+
+# 4. La clave del operador (usuario admin → H-57)
+Get-Content C:\ProgramData\ssh\administrators_authorized_keys -EA SilentlyContinue
+
+# 5. Defender: ¿bloqueó o puso algo en cuarentena?
+Get-MpThreatDetection | Select -Last 5 InitialDetectionTime,Resources
+Get-MpComputerStatus | Select RealTimeProtectionEnabled,AntivirusEnabled
+```
+
+**Interpretación:**
+
+- `sshd` **Stopped** o **sin LISTEN en 22** → es el **servicio**, no Defender.
+- 22 escuchando, firewall OK, pero la **clave no está** en
+  `administrators_authorized_keys` → **H-57** (lo más habitual).
+- Hay **detecciones** de Defender o la regla del 22 está **bloqueada/ausente**
+  → ahora sí, es Defender/firewall.
 
 1. **No intervenir si RustDesk muestra a alguien usándolo.** Nunca tomar el
    control, reiniciar servicios ni el equipo mientras hay una persona
    trabajando: se coordina primero (**"avisar y esperar ventana"**).
-2. Cuando esté libre, **entrar por RustDesk** (que sí funciona) y, en una
-   consola de Windows, revisar en orden:
-   `Get-Service sshd`, la existencia de la clave en
-   `C:\ProgramData\ssh\administrators_authorized_keys`, y `powercfg /a`
-   (Fast Startup).
-3. Restaurar la clave y volver a comprobar `nc -z rai 22` → `ssh` antes de dar
-   el caso por cerrado.
+2. Cuando esté libre, **entrar por RustDesk** (que sí funciona) y correr el
+   **checklist de arriba** (sshd + puerto 22 + firewall + clave + Defender).
+3. Restaurar la clave (y/o la regla del firewall) y volver a comprobar
+   `nc -z rai 22` → `ssh` antes de dar el caso por cerrado.
 
 **Lección:** "el equipo está en la tailnet" y "está vivo" **no** implican "puedo
 trabajar por SSH". Son capas distintas. Y si el usuario está usando el equipo,
