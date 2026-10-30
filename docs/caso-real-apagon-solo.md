@@ -51,6 +51,27 @@ problema. Se decidió **no tocar** y aplicar solo los ajustes de energía.
 > Posible causa de fondo: **overclock inestable** → las transiciones de energía
 > fallan → cuelgue seco (`0x9F`). Eso es **tema del dueño**, no del técnico.
 
+## La verificación que cambió la conclusión
+
+Antes de cerrar, se **verificó de verdad** si había overclock leyendo el log de
+XTU ([H-58](../docs/hallazgos.md)):
+
+```
+Processor model is: H
+ERR] Attempted to read OCMB fieldId NN on an invalid platform
+ERR] Max proposed AC ratio resolved to <= 0.
+WARN] Application Persistence - Proposed setting changes failed validation
+```
+
+**Resultado:** el **OC de CPU NO estaba aplicado** (chip `-H` de portátil →
+bloqueado por firmware). XTU llevaba **desde mayo-2023** instalado e intentándolo
+en cada arranque, fallando siempre ([H-59](../docs/hallazgos.md)).
+
+**Conclusión corregida:** no es un "overclock" clásico, sino **XTU en estado
+inconsistente** (componente `Degraded`) tocando TDP/voltaje. La decisión de no
+actualizar **sigue siendo correcta**, y si vuelve a colgarse la prueba lógica es
+**desactivar `XTU3SERVICE`** (reversible).
+
 ---
 
 ## Resultado

@@ -1555,6 +1555,17 @@ tdoc "el README enlaza el caso real de apagon" \
 tdoc "el caso real enlaza H-51..H-57" \
   bash -c 'grep -q "H-53" docs/caso-real-apagon-solo.md && grep -q "H-57" docs/caso-real-apagon-solo.md'
 
+t "H-58 documentado (verificar overclock con log XTU)" \
+  bash -c 'grep -q "H-58" docs/hallazgos.md && grep -q "XtuCore" docs/hallazgos.md'
+t "H-58 explica OCMB invalid platform" \
+  bash -c 'grep -q "invalid platform" docs/hallazgos.md'
+t "H-58 dice que chip -H no admite OC" \
+  bash -c 'grep -qE "chip .?-H|RaptorLake" docs/hallazgos.md'
+t "H-59 documentado (no confundir XTU con OC)" \
+  bash -c 'grep -q "H-59" docs/hallazgos.md'
+tdoc "el caso real menciona la verificacion de XTU" \
+  bash -c 'grep -q "H-58" docs/caso-real-apagon-solo.md'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"
