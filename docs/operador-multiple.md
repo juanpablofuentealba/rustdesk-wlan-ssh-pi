@@ -163,7 +163,7 @@ clientes sin depender del portátil/escritorio.
    propio, distinto al de la app Android:
 
    ```
-   <host>-termux        (ej. zte-blade-a54-termux)
+   <host>-termux        (ej. mi-telefono-termux)
    ```
 
 2. **Clave propia** (jamás la de otro operador — H-43):
@@ -208,7 +208,7 @@ clientes sin depender del portátil/escritorio.
    propio, distinto al de la app Android:
 
    ```
-   <host>-termux        (ej. zte-blade-a54-termux)
+   <host>-termux        (ej. mi-telefono-termux)
    ```
 
 2. **Clave propia** (jamás la de otro operador — H-43):

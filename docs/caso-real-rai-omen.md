@@ -79,7 +79,7 @@ reinicio (H-62).
 ## Acceso como operador (H-43)
 
 - El **HP** (`hp-operador`) tiene su clave propia autorizada en el Omen.
-- Un nuevo **operador móvil Android/Termux** (`zte-blade-a54-termux`, ver H-60)
+- Un nuevo **operador móvil Android/Termux** (`<telefono>-termux`, ver H-60)
   se autorizó **directamente** en `rai` vía
   `C:\ProgramData\ssh\administrators_authorized_keys` (el usuario es admin —
   **H-57**, y este fue el fallo típico: el archivo `.ssh\authorized_keys` normal

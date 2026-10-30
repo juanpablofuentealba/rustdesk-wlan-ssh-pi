@@ -2592,10 +2592,10 @@ ficha lo **verificado**, no lo supuesto.
 **Verificado:** ✅ (Android 13 / ZTE Blade A54, Termux, 30-oct-2026)
 
 **Síntoma:** la app **Tailscale de Android** muestra el equipo unido a la tailnet
-(`zte-blade-a54`, `100.75.15.119`), pero **Termux no ve nada de la tailnet**:
+(`<telefono>`, `100.x.y.z`), pero **Termux no ve nada de la tailnet**:
 
 ```
-$ getent hosts zte-blade-a54.tailc15fd9.ts.net   # NO resuelve
+$ getent hosts <telefono>.<tailnet>.ts.net   # NO resuelve
 $ ping 100.100.100.100                           # sin respuesta (MagicDNS)
 $ curl http://100.100.100.100                    # vacío
 ```
