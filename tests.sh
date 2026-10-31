@@ -109,9 +109,9 @@ t "detecta familia arch"    bash -c 'bash -c "id=arch; idlike=; case \" \$id \$i
 t "script define detect_distro"   bash -c 'grep -q "^detect_distro()" lib/sr-t-distro.sh'
 t "script define pkg_install"     bash -c 'grep -q "^pkg_install()" lib/sr-t-distro.sh'
 t "script define pkg_installed"   bash -c 'grep -q "^pkg_installed()" lib/sr-t-distro.sh'
-t "rama debian usa apt-get"       bash -c 'grep -q "apt-get install" setup-remote-target.sh'
-t "rama fedora usa dnf"           bash -c 'grep -q "dnf install" setup-remote-target.sh'
-t "rama arch usa pacman"          bash -c 'grep -q "pacman -S" setup-remote-target.sh'
+t "rama debian usa apt-get"       bash -c 'grep -q "apt-get install" lib/sr-t-deps.sh'
+t "rama fedora usa dnf"           bash -c 'grep -q "dnf install" lib/sr-t-deps.sh'
+t "rama arch usa pacman"          bash -c 'grep -q "pacman -S" lib/sr-t-deps.sh'
 # Fedora 41+: 'dnf' es symlink a dnf5 y `dnf --version` responde "dnf5 ...".
 # NO hace falta cambiar los comandos (install -y sigue funcionando igual).
 t "diagnostico informa version del gestor" \
@@ -139,22 +139,22 @@ t "check define run_check"            bash -c 'grep -q "^run_check()" lib/sr-t-c
 t "setup carga sr-t-check.sh"         bash -c 'grep -q "lib/sr-t-check.sh" setup-remote-target.sh'
 # Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
 t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
-t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
+t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" lib/sr-t-core.sh'
 t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" lib/sr-t-ssh.sh'
 t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" lib/sr-t-rustdesk.sh'
 # Regresiones detectadas en prueba real (VM Mint 22.3, reporte de opencode):
 t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
 # detect_firewall debe leer ENABLED de ufw.conf, no solo systemctl is-active
-t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
-t "detect_firewall consulta ufw.conf (respaldo)" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
-t "detect_firewall lee ENABLED (no solo systemctl)" bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "ENABLED=yes"'
+t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" lib/sr-t-core.sh'
+t "detect_firewall consulta ufw.conf (respaldo)" bash -c 'grep -q "/etc/ufw/ufw.conf" lib/sr-t-core.sh'
+t "detect_firewall lee ENABLED (no solo systemctl)" bash -c 'awk "/^detect_firewall\(\)/,/^}/" lib/sr-t-core.sh | grep -q "ENABLED=yes"'
 t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" lib/sr-t-ssh.sh'
 # Imágenes base mínimas (fedora:44) sin systemctl/firewall-cmd/ufw: NO se
 # puede afirmar "sin firewall"; debe decirlo como no verificable.
 t "detect_firewall devuelve sin-herramientas" \
-  bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "printf .sin-herramientas."'
+  bash -c 'awk "/^detect_firewall\(\)/,/^}/" lib/sr-t-core.sh | grep -q "printf .sin-herramientas."'
 t "distingue sin-herramientas de none" \
-  bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "pkg_installed firewalld"'
+  bash -c 'awk "/^detect_firewall\(\)/,/^}/" lib/sr-t-core.sh | grep -q "pkg_installed firewalld"'
 t "--check maneja sin-herramientas (no afirma seguro)" \
   bash -c 'grep -q "sin-herramientas)" lib/sr-t-check.sh'
 t "--check dice no verificable sin loginctl" \
@@ -819,7 +819,7 @@ t "onboarding usa login.tailscale.com (no solo console)" \
 
 t "H-24 Fedora con capturador DRM (no el .rpm estándar)"
 t "la función del .deb es portable (no _arch)" \
-  bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
+  bash -c 'grep -q "^install_rustdesk_unattended_deb()" lib/sr-t-deps.sh'
 t "Fedora intenta PRIMERO el .deb con DRM" \
   bash -c 'sed -n "/^    fedora)$/,/^      ;;$/p" lib/sr-t-rustdesk.sh | grep -q "install_rustdesk_unattended_deb"'
 t "Fedora avisa si cae al .rpm estándar (sin DRM)" \
@@ -865,11 +865,11 @@ t "make-kit usa find para listar el contenido" \
 
 sect "H-25 paru en el repo (no compilar desde AUR)"
 t "ensure_aur intenta el repo binario PRIMERO" \
-  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "pacman -S --needed --noconfirm paru"'
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" lib/sr-t-deps.sh | grep -q "pacman -S --needed --noconfirm paru"'
 t "ensure_aur cae al AUR solo si no está en el repo" \
-  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "paru-bin"'
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" lib/sr-t-deps.sh | grep -q "paru-bin"'
 t "ensure_aur avisa que instaló sin compilar" \
-  bash -c 'grep -q "instalado desde el repositorio (sin compilar)" setup-remote-target.sh'
+  bash -c 'grep -q "instalado desde el repositorio (sin compilar)" lib/sr-t-deps.sh'
 t "referencia documenta los requisitos del objetivo" \
   bash -c 'grep -q "Requisitos del PC objetivo" docs/referencia.md'
 t "referencia dice que paru NO hace falta a mano" \
@@ -883,19 +883,19 @@ t "PASOS avisa que CachyOS virgen no tiene paru" \
 
 sect "PC virgen: instalación de RustDesk sin ayudante de AUR"
 t "existe la vía .deb sin AUR" \
-  bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
+  bash -c 'grep -q "^install_rustdesk_unattended_deb()" lib/sr-t-deps.sh'
 t "la vía .deb verifica el sha256" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "sha256"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" lib/sr-t-deps.sh | grep -q "sha256"'
 t "la vía .deb comprueba la red antes" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "github.com"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" lib/sr-t-deps.sh | grep -q "github.com"'
 t "la vía .deb instala libdrmtap" \
-  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" setup-remote-target.sh | grep -q "libdrmtap"'
+  bash -c 'sed -n "/^install_rustdesk_unattended_deb()/,/^}/p" lib/sr-t-deps.sh | grep -q "libdrmtap"'
 t "arch prueba 3 vías en cascada" \
-  bash -c 'grep -q "^install_rustdesk_arch_unattended()" setup-remote-target.sh'
+  bash -c 'grep -q "^install_rustdesk_arch_unattended()" lib/sr-t-deps.sh'
 t "la cascada usa el .deb si el AUR falla" \
-  bash -c 'sed -n "/^install_rustdesk_arch_unattended()/,/^}/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb"'
+  bash -c 'sed -n "/^install_rustdesk_arch_unattended()/,/^}/p" lib/sr-t-deps.sh | grep -q "install_rustdesk_unattended_deb"'
 t "avisa si falta red antes de instalar RustDesk" \
-  bash -c 'grep -q "SIN CONEXIÓN a aur.archlinux.org" setup-remote-target.sh'
+  bash -c 'grep -q "SIN CONEXIÓN a aur.archlinux.org" lib/sr-t-deps.sh'
 t "tailscale avisa si falta red" \
   bash -c 'grep -q "SIN CONEXIÓN a internet: no puedo instalar Tailscale" lib/sr-t-tailscale.sh'
 t "tailscale espera a que tailscaled arranque" \
@@ -911,17 +911,17 @@ t "--check informa si hay AUR helper" \
 t "--check comprueba internet" \
   bash -c 'grep -q "internet: github.com alcanzable" lib/sr-t-check.sh'
 t "existe ensure_aur (instala paru si falta)" \
-  bash -c 'grep -q "^ensure_aur()" setup-remote-target.sh'
+  bash -c 'grep -q "^ensure_aur()" lib/sr-t-deps.sh'
 t "ensure_aur usa paru-bin (precompilado, sin build largo)" \
-  bash -c 'grep -q "paru-bin" setup-remote-target.sh'
+  bash -c 'grep -q "paru-bin" lib/sr-t-deps.sh'
 t "ensure_aur instala git+base-devel" \
-  bash -c 'grep -q "git base-devel" setup-remote-target.sh'
+  bash -c 'grep -q "git base-devel" lib/sr-t-deps.sh'
 t "ensure_aur respeta --dry-run" \
-  bash -c 'sed -n "/^ensure_aur()/,/^}/p" setup-remote-target.sh | grep -q "DRY_RUN"'
+  bash -c 'sed -n "/^ensure_aur()/,/^}/p" lib/sr-t-deps.sh | grep -q "DRY_RUN"'
 t "setup_rustdesk usa ensure_aur, no detect_aur" \
-  bash -c 'grep -q "aur=\"\$(ensure_aur)\"" setup-remote-target.sh'
+  bash -c 'grep -q "aur=\"\$(ensure_aur)\"" lib/sr-t-deps.sh'
 t "el error final da los pasos manuales completos" \
-  bash -c 'grep -q "makepkg -si" setup-remote-target.sh'
+  bash -c 'grep -q "makepkg -si" lib/sr-t-deps.sh'
 t "--help documenta el flujo --all con authkey" \
   bash -c './setup-remote-target.sh --help 2>&1 | grep -q "authkey"'
 t "--help menciona la contraseña permanente" \
@@ -1251,28 +1251,28 @@ exit \$?
 EOF
 bash "$W/run.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "setup-remote-target llama a check_drmtap_deps tras inyectar el .deb" \
-  bash -c 'grep -q "check_drmtap_deps ||" setup-remote-target.sh'
+  bash -c 'grep -q "check_drmtap_deps ||" lib/sr-t-deps.sh'
 sect "Arch: RustDesk completo (.desktop, iconos, bandeja, deps del binario)"
 t "la vía .deb copia los .desktop (si no, no aparece en el menú)" \
-  bash -c 'grep -q "usr/share/applications" setup-remote-target.sh'
+  bash -c 'grep -q "usr/share/applications" lib/sr-t-deps.sh'
 t "la vía .deb copia los iconos" \
-  bash -c 'grep -q "usr/share/icons" setup-remote-target.sh'
+  bash -c 'grep -q "usr/share/icons" lib/sr-t-deps.sh'
 t "existe maybe_install_appindicator" \
-  bash -c 'grep -q "^maybe_install_appindicator()" setup-remote-target.sh'
+  bash -c 'grep -q "^maybe_install_appindicator()" lib/sr-t-deps.sh'
 t "cubre las 3 familias para el appindicator" \
-  bash -c 'grep -A4 "case \"\$DISTRO_FAMILY\" in" setup-remote-target.sh | grep -q "libayatana-appindicator3-1" && grep -q "libayatana-appindicator-gtk3" setup-remote-target.sh'
+  bash -c 'grep -A4 "case \"\$DISTRO_FAMILY\" in" lib/sr-t-deps.sh | grep -q "libayatana-appindicator3-1" && grep -q "libayatana-appindicator-gtk3" lib/sr-t-deps.sh'
 t "el appindicator es OPCIONAL (no aborta)" \
-  bash -c 'grep -B6 "^maybe_install_appindicator()" setup-remote-target.sh | grep -qi "OPCIONAL"'
+  bash -c 'grep -B6 "^maybe_install_appindicator()" lib/sr-t-deps.sh | grep -qi "OPCIONAL"'
 t "existe check_rustdesk_bin_deps" \
-  bash -c 'grep -q "^check_rustdesk_bin_deps()" setup-remote-target.sh'
+  bash -c 'grep -q "^check_rustdesk_bin_deps()" lib/sr-t-deps.sh'
 t "check_rustdesk_bin_deps ignora libcuda/libnvidia (no son error)" \
-  bash -c 'grep -q "grep -v .libcuda\\|libnvidia" setup-remote-target.sh'
+  bash -c 'grep -q "grep -v .libcuda\\|libnvidia" lib/sr-t-deps.sh'
 t "el .deb llama a check_rustdesk_bin_deps" \
-  bash -c 'grep -q "check_rustdesk_bin_deps ||" setup-remote-target.sh'
+  bash -c 'grep -q "check_rustdesk_bin_deps ||" lib/sr-t-deps.sh'
 t "check_rustdesk_bin_deps PASA con libs resueltas" \
-  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => /usr/lib/libgtk-3.so.0\"" "\"libcuda.so.1 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" lib/sr-t-deps.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => /usr/lib/libgtk-3.so.0\"" "\"libcuda.so.1 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "check_rustdesk_bin_deps FALLA si falta una lib real" \
-  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" setup-remote-target.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/bin"; : > "$W/bin/rustdesk"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; sed -n "/^check_rustdesk_bin_deps() {/,/^}/p" lib/sr-t-deps.sh; } > "$W/fn.sh"; printf "ldd(){ echo %s; }\ncheck_rustdesk_bin_deps\nexit \$?\n" "\"libgtk-3.so.0 => not found\"" >> "$W/fn.sh"; sed -i "s#/usr/share/rustdesk/rustdesk#$W/bin/rustdesk#g;s#/usr/bin/rustdesk#$W/bin/nope#g" "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
 
 # check_wayland_capture_stack(): en Wayland, si el DRM falla RustDesk cae al
 # portal XDG (ScreenCast) + PipeWire. Si falta cualquiera, el desatendido no
@@ -1280,19 +1280,19 @@ t "check_rustdesk_bin_deps FALLA si falta una lib real" \
 # de portales simulado (no solo grep de cadenas).
 sect "Pila de captura Wayland: portal XDG + PipeWire"
 t "existe check_wayland_capture_stack" \
-  bash -c 'grep -q "^check_wayland_capture_stack()" setup-remote-target.sh'
+  bash -c 'grep -q "^check_wayland_capture_stack()" lib/sr-t-deps.sh'
 t "el diagnóstico llama a check_wayland_capture_stack" \
   bash -c 'grep -q "check_wayland_capture_stack ||" lib/sr-t-check.sh'
 t "check_wayland_capture_stack PASA con portal kde + pipewire" \
-  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" lib/sr-t-deps.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "check_wayland_capture_stack FALLA sin backend del portal" \
-  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/gtk.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/gtk.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" lib/sr-t-deps.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
 t "check_wayland_capture_stack FALLA sin pipewire" \
-  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "runuser(){ return 1; }\ncommand(){ return 1; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
+  bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" lib/sr-t-deps.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "runuser(){ return 1; }\ncommand(){ return 1; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -ne 0'
 t "reconoce los 3 backends (kde/gnome/wlr)" \
-  bash -c 'grep -qE "for b in kde gnome wlr" setup-remote-target.sh'
+  bash -c 'grep -qE "for b in kde gnome wlr" lib/sr-t-deps.sh'
 t "el mensaje sugiere el backend xdg-desktop-portal-kde" \
-  bash -c 'grep -q "pkg_install_hint xdg-desktop-portal-kde" setup-remote-target.sh'
+  bash -c 'grep -q "pkg_install_hint xdg-desktop-portal-kde" lib/sr-t-deps.sh'
 t "existe pkg_install_hint (mensajes de arreglo por familia)" \
   bash -c 'grep -q "^pkg_install_hint()" lib/sr-t-distro.sh'
 t "pkg_install_hint da pacman en Arch" \
@@ -1335,9 +1335,9 @@ t "reinicia el servicio rustdesk tras actualizar" \
 t "RD_SHA256 es un hash sha256 válido (64 hex)" \
   bash -c 'grep -qE "RD_SHA256=\"[0-9a-f]{64}\"" update.sh'
 t "RD_VERSION del update.sh == la de setup-remote-target.sh" \
-  bash -c 'test "$(grep -oE "RD_VERSION=\"?[0-9.]+" update.sh | grep -oE "[0-9.]+")" = "$(grep -oE "RD_VERSION:-[0-9.]+" setup-remote-target.sh | grep -oE "[0-9.]+")"'
+  bash -c 'test "$(grep -oE "RD_VERSION=\"?[0-9.]+" update.sh | grep -oE "[0-9.]+")" = "$(grep -oE "RD_VERSION:-[0-9.]+" lib/sr-t-deps.sh | grep -oE "[0-9.]+")"'
 t "RD_SHA256 del update.sh == la de setup-remote-target.sh" \
-  bash -c 'test "$(grep -oE "RD_SHA256=\"[0-9a-f]{64}\"" update.sh | grep -oE "[0-9a-f]{64}")" = "$(grep -oE "sha_ok=\"[0-9a-f]{64}\"" setup-remote-target.sh | grep -oE "[0-9a-f]{64}")"'
+  bash -c 'test "$(grep -oE "RD_SHA256=\"[0-9a-f]{64}\"" update.sh | grep -oE "[0-9a-f]{64}")" = "$(grep -oE "sha_ok=\"[0-9a-f]{64}\"" lib/sr-t-deps.sh | grep -oE "[0-9a-f]{64}")"'
 
 tdoc "el README documenta update.sh" \
   bash -c 'grep -q "update.sh" README.md'
@@ -1762,6 +1762,26 @@ t "#27: setup-remote-target.sh sourcea lib/sr-t-ssh.sh" \
   bash -c 'grep -q "source .*lib/sr-t-ssh.sh" setup-remote-target.sh'
 t "#27: make-kit.sh incluye lib/sr-t-ssh.sh en el kit" \
   bash -c 'grep -q "^  lib/sr-t-ssh.sh$" make-kit.sh'
+
+# --- issue #27 (sub-tarea 7/7): helpers base + dependencias/AUR ---
+t "#27: existe lib/sr-t-core.sh (helpers base)" \
+  bash -c 'test -f lib/sr-t-core.sh'
+t "#27: lib/sr-t-core.sh define run/confirm/need_root/detect_firewall/ufw_verify/resolve_target_user" \
+  bash -c 'for f in run confirm need_root detect_firewall ufw_verify resolve_target_user; do grep -q "^$f()" lib/sr-t-core.sh || exit 1; done'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-core.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-core.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-core.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-core.sh$" make-kit.sh'
+t "#27: existe lib/sr-t-deps.sh (dependencias/AUR)" \
+  bash -c 'test -f lib/sr-t-deps.sh'
+t "#27: lib/sr-t-deps.sh define detect_aur/ensure_aur + .deb/cascada" \
+  bash -c 'for f in detect_aur ensure_aur check_drmtap_deps check_wayland_capture_stack maybe_install_appindicator check_rustdesk_bin_deps install_rustdesk_arch_unattended install_rustdesk_unattended_deb; do grep -q "^$f()" lib/sr-t-deps.sh || exit 1; done'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-deps.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-deps.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-deps.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-deps.sh$" make-kit.sh'
+t "#27: setup-remote-target.sh quedo como orquestador (sin helpers inline)" \
+  bash -c '! grep -qE "^(run|confirm|need_root|detect_firewall|ufw_verify|resolve_target_user|detect_aur|ensure_aur)\\(\\)" setup-remote-target.sh'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
