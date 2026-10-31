@@ -68,7 +68,9 @@ SSH_PORT=22
 KEY=""
 TS_AUTHKEY=""
 # Hostname en la tailnet (--tailnet-host); vacío = usar $(hostname).
-TS_HOSTNAME="${TARGET_HOSTNAME:-}"
+# Se EXPORTA: la usan los módulos sourceados (lib/sr-t-tailscale.sh);
+# el analizador no ve ese uso en este archivo (aviso SC2034).
+export TS_HOSTNAME="${TARGET_HOSTNAME:-}"
 DRY_RUN=0
 ASSUME_YES=0
 
