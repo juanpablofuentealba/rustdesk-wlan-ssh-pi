@@ -59,6 +59,8 @@ FILES=(
   lib/sudo.sh
   lib/sr-t-ui.sh
   lib/sr-t-distro.sh
+  lib/sr-t-core.sh
+  lib/sr-t-deps.sh
   lib/sr-t-check.sh
   lib/sr-t-rustdesk.sh
   lib/sr-t-ssh.sh
