@@ -372,12 +372,19 @@ chk_root() {
     FAILED=$((FAILED+1))
   fi
 }
-chk() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else err "$1"; FAILED=$((FAILED+1)); fi; }
+# chk: recibe una descripción y el nombre de una función de chequeo (sin eval).
+# La función devuelve 0 si pasa. Los chequeos internos viven en chk_impl_*.
+chk() {
+  if "$2" >/dev/null 2>&1; then ok "$1"; else err "$1"; FAILED=$((FAILED+1)); fi
+}
+chk_impl_rustdesk() { systemctl is-active --quiet rustdesk; }
+chk_impl_sshd()     { systemctl is-active --quiet sshd || systemctl is-active --quiet ssh; }
+chk_impl_uinput()   { test -e /dev/uinput; }
 
-chk "rustdesk.service activo"        'systemctl is-active --quiet rustdesk'
-chk "sshd activo"                    'systemctl is-active --quiet sshd || systemctl is-active --quiet ssh'
+chk "rustdesk.service activo"        chk_impl_rustdesk
+chk "sshd activo"                    chk_impl_sshd
 chk_root "contraseña permanente escrita"
-chk "uinput disponible"              'test -e /dev/uinput'
+chk "uinput disponible"              chk_impl_uinput
 
 # captura DRM: buscar en las ubicaciones posibles (varía según el usuario de sesión)
 DRM_LOG=""
