@@ -28,6 +28,11 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Helper ÚNICO de sudo (lib/sudo.sh, issue #28 / H-68).
+# shellcheck source=lib/sudo.sh
+source "$SCRIPT_DIR/lib/sudo.sh"
+
 VERSION="${RD_VERSION:-1.5.0}"
 DEB_URL="https://github.com/rustdesk/rustdesk/releases/download/${VERSION}/rustdesk-unattended-wayland-${VERSION}-x86_64.deb"
 EXPECTED_SHA="${RD_SHA256:-9eed5e9f4b47af8ed41585c399cb2c0d2870e801c99645330dea1063ad844e09}"
@@ -49,11 +54,18 @@ err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
 
 SUDO_PASS="${SUDO_PASS:-}"
 run_root() { # ejecuta el script de instalación como root (local o remoto)
+  # El script llega por STDIN y debe llegar COMPLETO a bash. Mezclar la clave
+  # de sudo en ese mismo stdin es el patrón de H-68 (`sudo -S` puede llevarse
+  # más de una línea). Por eso:
+  #   local  -> sudo_run usa SUDO_ASKPASS y deja stdin libre para el script.
+  #   remoto -> primero dejamos el script en un archivo del destino y luego
+  #             corremos con la clave por el stdin de SSH (ya sin script).
   if [[ -n "$TARGET" ]]; then
+    ssh -o BatchMode=yes "$TARGET" 'cat > /tmp/rd-unatt-install.sh'
     printf '%s\n' "$SUDO_PASS" | ssh -o BatchMode=yes "$TARGET" \
-      "sudo -S -p '' bash -s -- '$1'"
+      "sudo -S -p '' bash /tmp/rd-unatt-install.sh '$1'; rc=\$?; rm -f /tmp/rd-unatt-install.sh; exit \$rc"
   else
-    printf '%s\n' "$SUDO_PASS" | sudo -S -p '' bash -s -- "$1"
+    sudo_run bash -s -- "$1"
   fi
 }
 

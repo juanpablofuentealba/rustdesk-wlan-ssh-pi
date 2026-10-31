@@ -52,7 +52,7 @@ curl -s https://api.ipify.org; echo     # IP pública del notebook
 ```bash
 ./verify-offlan.sh <hostname-o-IP-tailscale>
 # ./verify-offlan.sh msi-operador
-# ./verify-offlan.sh 100.68.201.71
+# ./verify-offlan.sh 100.101.102.103
 ```
 
 | # | Comprueba | Qué mira |

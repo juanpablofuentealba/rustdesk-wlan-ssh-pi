@@ -64,21 +64,16 @@ TS_LUEGO=0
 DRY_RUN=0
 ASSUME_YES=0
 
-# sudow: corre sudo dando la clave por SUDO_ASKPASS (no por stdin). Ver H-68.
+# Helper ÚNICO de sudo (lib/sudo.sh, issue #28 / H-68). Antes este script
+# tenía su propia copia de `sudow`; se centralizó para que H-68 (`sudo -S` se
+# come stdin) no pueda reaparecer por una implementación distinta.
+# shellcheck source=lib/sudo.sh
+source "$SCRIPT_DIR/lib/sudo.sh"
+# `sudow` se mantiene como alias: mapea la clave del flag --sudopass ($SUDOPASS)
+# a SUDO_PASS que entiende el helper, y delega en sudo_run.
 sudow() {
-  export SUDO_PASS="$SUDOPASS"
-  if [[ -n "${SUDOPASS:-}" ]]; then
-    local _ap _q _rc=0
-    _ap="$(mktemp)"
-    _q="$(printf '%s' "$SUDOPASS" | sed "s/'/'\\\\''/g")"
-    printf '#!/bin/sh\nprintf "%%s\\n" '\''%s'\''\n' "$_q" > "$_ap"
-    chmod 700 "$_ap"
-    SUDO_ASKPASS="$_ap" sudo -A "$@" || _rc=$?
-    rm -f "$_ap"
-    return $_rc
-  else
-    sudo -n "$@"
-  fi
+  [[ -n "$SUDOPASS" ]] && export SUDO_PASS="$SUDOPASS"
+  sudo_run "$@"
 }
 
 info() { printf '\033[1;34m●\033[0m %s\n' "$*"; }
@@ -170,7 +165,9 @@ if [[ $EUID -ne 0 && $DRY_RUN -eq 0 ]]; then
   # pasado la contraseña: era un nombre engañoso.
   if [[ -n "$SUDOPASS" ]]; then
     info "elevando con la contraseña de --sudopass..."
-    if printf '%s\n' "$SUDOPASS" | sudo -S -v 2>/dev/null; then
+    # sudo_v refresca las credenciales por SUDO_ASKPASS sin consumir stdin
+    # (el `printf ... | sudo -S -v` anterior era justo el patrón de H-68).
+    if SUDO_PASS="$SUDOPASS" sudo_v 2>/dev/null; then
       # -E preserva el entorno; --sudopass se re-pasa para los hijos
       exec sudo -E bash "$0" "$@"
     else
