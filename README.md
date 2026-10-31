@@ -5,6 +5,9 @@ visual / unattended) + **SSH + Tailscale** para trabajar de verdad dentro de la
 máquina. Probado de punta a punta en **Arch, Debian y Fedora** (Linux) y con un
 **kit para Windows 10/11** en [`windows/`](windows/).
 
+> **¿Poco tiempo?** Empezá por [`docs/resumen.md`](docs/resumen.md) — todo el kit
+> en **una página**.
+>
 > **¿Primera vez?** Leé [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md)
 > (explica sin tecnicismos) y después [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt).
 > Si vas a usar un agente IA, pegale [`PROMPT-AGENTE.txt`](PROMPT-AGENTE.txt)
@@ -168,6 +171,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 
 | Doc | Contenido |
 |---|---|
+| [`docs/resumen.md`](docs/resumen.md) | **Resumen ejecutivo (1 página)**: lo mínimo para operar |
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
 | [`docs/hallazgos.md`](docs/hallazgos.md) | **Índice + top 10** y H-01..H-66: problemas reales y sus soluciones |
