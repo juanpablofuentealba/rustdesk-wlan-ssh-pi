@@ -4,6 +4,25 @@ Todos los cambios relevantes de este kit se documentan acá.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.1.1] — 2026-10-31
+
+**Documentación**: resumen ejecutivo y test fuera de la LAN, en el repo.
+
+### Añadido
+
+- **`docs/resumen.md`** — resumen ejecutivo de **una página**: qué es el kit, las
+  3 piezas, instalación en 3 comandos, checklist previo, scripts clave, distros
+  y mapa de "qué doc abrir". Pensado para no releer ~900 líneas.
+- **`docs/test-fuera-de-lan.md`** — cómo usar bien `verify-offlan.sh`: los **3
+  puntos que importan** (otra red, detección del falso positivo `⚠ ruta LAN` con
+  exit 2, veredicto verde), tabla de fallos típicos y checklist antes de irse.
+
+### Cambiado
+
+- **`README.md`** — aviso *"¿Poco tiempo? → `docs/resumen.md`"* al inicio y dos
+  filas nuevas en la tabla de Documentación.
+- **`docs/resumen.md`** — enlaza `docs/test-fuera-de-lan.md`.
+
 ## [1.1.0] — 2026-10-30
 
 **Onboarding en una línea**: dar de alta un cliente nuevo sin clonar nada.
