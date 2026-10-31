@@ -58,6 +58,7 @@ FILES=(
   onboarding.sh
   lib/sudo.sh
   lib/sr-t-ui.sh
+  lib/sr-t-distro.sh
   instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
