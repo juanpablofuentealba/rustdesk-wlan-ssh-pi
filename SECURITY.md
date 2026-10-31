@@ -45,6 +45,32 @@ Entender el diseño evita reportes que en realidad son comportamiento esperado.
 
 ---
 
+## Exposición de nombres de flota (`operadores/*.pub`)
+
+El repo publica las claves **públicas** de cada equipo operador (p. ej.
+`operadores/hp-operador.pub`). Las **privadas nunca** están en el repo: el
+`.gitignore` las excluye y el CI tiene un job anti-fuga en cada push.
+
+**Qué revela.** Publicar la `.pub` es correcto y necesario para el onboarding
+(el cliente autoriza esa clave sin copiarla a mano). El único dato adicional que
+expone es el **nombre del equipo operador**, visible en el archivo de la clave.
+
+**Riesgo real.** Es **OSINT de baja severidad**, no un compromiso: los nombres
+no permiten derivar la clave privada, ni entrar a la tailnet, ni abrir puertos.
+Solo aportan contexto (cuántos operadores hay, cómo se llaman sus máquinas).
+
+**Decisión.** Se **acepta el riesgo** de forma consciente a cambio de simplicidad:
+mantener los nombres estables evita romper el onboarding y los `.pub` ya
+publicados. Se revisó la alternativa de renombrar y se descartó por ahora.
+
+**Mitigaciones si se quiere endurecer luego.** (1) Nombres **opacos** en los
+archivos (`operadores/op-a1.pub`), mapeados a hosts reales fuera del repo;
+(2) resolución por **URL firmada** (el `.pub` se entrega desde un servicio con
+acceso temporal, no queda versionado). Ambas rompen onboarding, por eso hoy no
+se aplican.
+
+---
+
 ## Versiones soportadas
 
 Las correcciones de seguridad se aplican sobre la **última versión publicada**
