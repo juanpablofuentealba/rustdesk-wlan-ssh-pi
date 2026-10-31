@@ -121,7 +121,7 @@ t "pkg_manager_version cubre las 3 familias" \
 t "pkg_manager_version fuerza LC_ALL=C (salida no traducida)" \
   bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "LC_ALL=C dnf"'
 t "diagnostico imprime la linea Gestor" \
-  bash -c 'grep -q "info \"Gestor: \$(pkg_manager_version)\"" setup-remote-target.sh'
+  bash -c 'grep -q "info \"Gestor: \$(pkg_manager_version)\"" lib/sr-t-check.sh'
 t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" lib/sr-t-rustdesk.sh && grep -q "releases/latest" lib/sr-t-rustdesk.sh'
 t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" lib/sr-t-rustdesk.sh'
 t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" lib/sr-t-rustdesk.sh'
@@ -133,6 +133,10 @@ t "tailscale define setup_tailscale" bash -c 'grep -q "^setup_tailscale()" lib/s
 t "tailscale define setup_laptop"    bash -c 'grep -q "^setup_laptop()" lib/sr-t-tailscale.sh'
 t "setup carga sr-t-tailscale.sh"    bash -c 'grep -q "lib/sr-t-tailscale.sh" setup-remote-target.sh'
 t "tailscale usa la auth key (tskey-)" bash -c 'grep -q "tskey-" lib/sr-t-tailscale.sh'
+# issue #27 sub-tarea 6/7: diagnóstico extraído a lib/sr-t-check.sh
+t "existe lib/sr-t-check.sh"         bash -c 'test -f lib/sr-t-check.sh'
+t "check define run_check"            bash -c 'grep -q "^run_check()" lib/sr-t-check.sh'
+t "setup carga sr-t-check.sh"         bash -c 'grep -q "lib/sr-t-check.sh" setup-remote-target.sh'
 # Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
 t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
@@ -152,9 +156,9 @@ t "detect_firewall devuelve sin-herramientas" \
 t "distingue sin-herramientas de none" \
   bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "pkg_installed firewalld"'
 t "--check maneja sin-herramientas (no afirma seguro)" \
-  bash -c 'grep -q "sin-herramientas)" setup-remote-target.sh'
+  bash -c 'grep -q "sin-herramientas)" lib/sr-t-check.sh'
 t "--check dice no verificable sin loginctl" \
-  bash -c 'grep -q "no verificable (falta loginctl)" setup-remote-target.sh'
+  bash -c 'grep -q "no verificable (falta loginctl)" lib/sr-t-check.sh'
 # Mint 27 "Adrien": documentado (esquema nuevo, sin point releases)
 tdoc "referencia documenta Mint 27 Adrien"    bash -c 'grep -q "Adrien" docs/referencia.md'
 tdoc "referencia explica esquema sin points"  bash -c 'grep -qi "no habrá 27.1\|sin point releases\|abandonó el versionado" docs/referencia.md'
@@ -321,7 +325,7 @@ t "no elige sesion con tail -1 (bug Fedora 44 KDE)" \
 t "graphical_session_type prefiere sesiones con seat" \
   bash -c 'awk "/^graphical_session_type\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "\$4 != \"-\""'
 t "ambos avisos usan graphical_session_type" \
-  bash -c '[[ $(cat setup-remote-target.sh lib/sr-t-rustdesk.sh | grep -c "\$(graphical_session_type)") -ge 2 ]]'
+  bash -c '[[ $(cat lib/sr-t-check.sh lib/sr-t-rustdesk.sh | grep -c "\$(graphical_session_type)") -ge 2 ]]'
 
 sect "Hallazgo H-03 (login screen X11 vs Wayland)"
 if command -v pgrep >/dev/null 2>&1; then
@@ -849,7 +853,7 @@ t "referencia ya no presenta paru como ruta primaria en Arch" \
 
 sect "Calidad de código (shellcheck sin notas accionables)"
 t "setup usa find (no ls) para el log más reciente" \
-  bash -c 'grep -q "find \"\$logdir\" -maxdepth 1 -name" setup-remote-target.sh'
+  bash -c 'grep -q "find \"\$logdir\" -maxdepth 1 -name" lib/sr-t-check.sh'
 t "verify-offlan no usa sed para indentar" \
   bash -c '! grep -qE "echo .PING_OUT. \| sed" verify-offlan.sh'
 t "setup documenta las notas intencionales de shellcheck" \
@@ -901,11 +905,11 @@ t "tailscale up muestra su error real" \
 t "tailscale espera la IP (hasta 15s)" \
   bash -c 'grep -q "seq 1 15" lib/sr-t-tailscale.sh'
 t "--check diagnostica dependencias faltantes" \
-  bash -c 'grep -q "Dependencias que suelen faltar" setup-remote-target.sh'
+  bash -c 'grep -q "Dependencias que suelen faltar" lib/sr-t-check.sh'
 t "--check informa si hay AUR helper" \
-  bash -c 'grep -q "ayudante de AUR:" setup-remote-target.sh'
+  bash -c 'grep -q "ayudante de AUR:" lib/sr-t-check.sh'
 t "--check comprueba internet" \
-  bash -c 'grep -q "internet: github.com alcanzable" setup-remote-target.sh'
+  bash -c 'grep -q "internet: github.com alcanzable" lib/sr-t-check.sh'
 t "existe ensure_aur (instala paru si falta)" \
   bash -c 'grep -q "^ensure_aur()" setup-remote-target.sh'
 t "ensure_aur usa paru-bin (precompilado, sin build largo)" \
@@ -1278,7 +1282,7 @@ sect "Pila de captura Wayland: portal XDG + PipeWire"
 t "existe check_wayland_capture_stack" \
   bash -c 'grep -q "^check_wayland_capture_stack()" setup-remote-target.sh'
 t "el diagnóstico llama a check_wayland_capture_stack" \
-  bash -c 'grep -q "check_wayland_capture_stack ||" setup-remote-target.sh'
+  bash -c 'grep -q "check_wayland_capture_stack ||" lib/sr-t-check.sh'
 t "check_wayland_capture_stack PASA con portal kde + pipewire" \
   bash -c 'W=$(mktemp -d); mkdir -p "$W/portals"; : > "$W/portals/kde.portal"; { echo "warn(){ :; }"; echo "info(){ :; }"; echo "ok(){ :; }"; echo "TARGET_USER=root"; sed -n "/^check_wayland_capture_stack() {/,/^}/p" setup-remote-target.sh | sed "s#/usr/share/xdg-desktop-portal/portals#$W/portals#g"; } > "$W/fn.sh"; printf "pipewire(){ echo pipewire 1.0.0; }\nrunuser(){ shift; shift; \"\$\"\"@\"; }\ncommand(){ return 0; }\ncheck_wayland_capture_stack\nexit \$?\n" >> "$W/fn.sh"; bash "$W/fn.sh"; rc=$?; rm -rf "$W"; test $rc -eq 0'
 t "check_wayland_capture_stack FALLA sin backend del portal" \
@@ -1305,13 +1309,13 @@ t "H-40 documentado (clip-vm fish+wayland)" \
 # contra un cliente (msi con DWAgent activo + locales es_ES).
 sect "H-38: otros agentes de acceso remoto + inventario robusto a locale"
 t "setup-remote-target avisa de otros agentes de acceso remoto" \
-  bash -c 'grep -q "Otros agentes de acceso remoto" setup-remote-target.sh'
+  bash -c 'grep -q "Otros agentes de acceso remoto" lib/sr-t-check.sh'
 t "cubre dwagent, anydesk, teamviewer, etc." \
-  bash -c 'grep -q "dwagent anydesk teamviewer chrome-remote-desktop" setup-remote-target.sh'
+  bash -c 'grep -q "dwagent anydesk teamviewer chrome-remote-desktop" lib/sr-t-check.sh'
 t "detecta procesos sueltos (no solo unidades systemd)" \
-  bash -c 'grep -q "pgrep -x" setup-remote-target.sh'
+  bash -c 'grep -q "pgrep -x" lib/sr-t-check.sh'
 t "avisa de conflicto por la captura (uinput/DRM/portal)" \
-  bash -c 'grep -q "competir con RustDesk por la captura" setup-remote-target.sh'
+  bash -c 'grep -q "competir con RustDesk por la captura" lib/sr-t-check.sh'
 t "inventory.sh fuerza LC_ALL=C (locale del cliente puede no ser inglés)" \
   bash -c 'test "$(grep -c "LC_ALL=C" inventory.sh)" -ge 5'
 t "inventory.sh filtra discos de tamaño 0 (lectores vacíos)" \
