@@ -36,6 +36,9 @@
 #   --skip-tailscale          No instalar Tailscale (solo LAN).
 #   --tailscale-luego         Instalar Tailscale sin unir todavia.
 #   --ref      <git-ref>      Rama/tag/commit del repo (por defecto: main).
+#   --sha256   <hex>          Hash SHA-256 esperado del tarball del kit. Si se
+#                             pasa y no coincide, se aborta SIN ejecutar nada.
+#                             Útil para fijar un ref inmutable (tag o commit).
 #   --local    <dir>          Usar un kit ya descargado en <dir> (modo offline).
 #   --no-ficha                No imprimir la ficha final.
 #   --dry-run / --yes         Se pasan tal cual a instalar-todo.sh.
@@ -53,6 +56,7 @@ OPHOSTS=""
 OPKEY=""
 TAILNET_HOST=""
 LOCALDIR=""
+SHA256_ESPERADO=""
 
 NO_FICHA=0
 PASSTHRU=()
@@ -63,7 +67,7 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
 hdr()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
-usage() { sed -n '2,52p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,47p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -73,6 +77,7 @@ while [[ $# -gt 0 ]]; do
     --tailnet-host)    TAILNET_HOST="${2:-}"; shift 2 ;;
     --key)             OPKEY="${2:-}"; shift 2 ;;
     --ref)             REF="${2:-}"; shift 2 ;;
+    --sha256)          SHA256_ESPERADO="${2:-}"; shift 2 ;;
     --local)           LOCALDIR="${2:-}"; shift 2 ;;
     --no-ficha)        NO_FICHA=1; shift ;;
     --authkey)         PASSTHRU+=(--authkey "${2:-}"); shift 2 ;;
@@ -129,6 +134,21 @@ else
     curl -fsSL "$TARBALL_URL" -o "$WORK/kit.tar.gz" \
       || { err "no pude descargar el kit de $REPO_SLUG@$REF"; exit 1; }
   fi
+  # Verificación del hash del PROPIO tarball, antes de extraer/ejecutar nada.
+  # Es la defensa real contra MITM/ref en movimiento: el ref (rama main) puede
+  # cambiar, pero un hash fijado en un tag/commit no.
+  if [[ -n "$SHA256_ESPERADO" ]]; then
+    command -v sha256sum >/dev/null 2>&1 || { err "falta sha256sum (coreutils)."; exit 1; }
+    HASH_REAL="$(sha256sum "$WORK/kit.tar.gz" | awk '{print $1}')"
+    if [[ "${HASH_REAL,,}" != "${SHA256_ESPERADO,,}" ]]; then
+      err "hash SHA-256 del kit NO coincide — se aborta sin ejecutar nada."
+      err "  esperado: $SHA256_ESPERADO"
+      err "  real    : $HASH_REAL"
+      exit 1
+    fi
+    ok "hash SHA-256 del kit verificado"
+  fi
+
   tar -xzf "$WORK/kit.tar.gz" -C "$WORK" || { err "tarball corrupto"; exit 1; }
   KIT="$(find "$WORK" -maxdepth 2 -name instalar-todo.sh -printf '%h\n' | head -1)"
   [[ -n "$KIT" ]] || { err "el tarball no trae instalar-todo.sh"; exit 1; }

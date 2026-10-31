@@ -1634,6 +1634,12 @@ t "onboarding.sh verifica MANIFEST del kit" \
   bash -c 'grep -q "MANIFEST.sha256" onboarding.sh'
 t "onboarding.sh soporta modo offline (--local)" \
   bash -c 'grep -q "\-\-local" onboarding.sh'
+t "#32: onboarding.sh acepta --sha256 para verificar el tarball" \
+  bash -c 'grep -q "\-\-sha256" onboarding.sh && grep -q "sha256sum" onboarding.sh'
+t "#32: onboarding.sh aborta si el hash no coincide (no ejecuta)" \
+  bash -c 'grep -q "hash SHA-256 del kit NO coincide" onboarding.sh'
+t "#32: README ya no muestra curl-pipe-sudo-bash" \
+  bash -c '! grep -q "onboarding.sh \\" README.md || ! grep -q "| sudo bash" README.md'
 t "onboarding.sh resuelve claves de operadores/" \
   bash -c 'grep -q "operadores/\$host.pub\|operadores/" onboarding.sh'
 t "onboarding.sh imprime la ficha del cliente" \
