@@ -1589,6 +1589,10 @@ t "wol-despertar.sh valida la MAC" \
   bash -c 'grep -q "MAC inv" wol-despertar.sh'
 t "wol-despertar.sh usa userspace-safe (python3)" \
   bash -c 'grep -q "python3" wol-despertar.sh'
+t "issue #31: wol-despertar.sh no usa eval" \
+  bash -c '! grep -qE "^[^#]*eval " wol-despertar.sh'
+t "issue #31: instalar-todo.sh chk() no usa eval" \
+  bash -c '! grep -qE "^[^#]*eval " instalar-todo.sh'
 t "energia-remota.sh NO mete la clave en argv" \
   bash -c '! grep -vE "^#" energia-remota.sh | grep -q "echo .*PASS\|echo .*sudo -S"'
 t "energia-remota.sh lee la clave de un archivo" \

@@ -20,6 +20,11 @@
 #   ./wol-despertar.sh --mac ... --bcast 192.168.1.255
 #   ./wol-despertar.sh --mac ... --wait --check 'ssh host hostname'
 #
+#   --check / WOL_CHECK reciben un COMANDO simple (se ejecuta tal cual, sin
+#   evaluación de shell: no admite pipes, redirecciones, &&, ; ni $() ).
+#   Para algo más complejo, envolvé en un script propio:
+#     --check '/home/jp/mi-check-wol.sh'
+#
 #   Alternativa sin --mac: exportar WOL_MAC o usar --learn-iface <iface> para
 #   aprender la MAC de un equipo Linux encendido vía SSH.
 # ---------------------------------------------------------------------------
@@ -82,9 +87,16 @@ ok "Paquete enviado."
 # Esperar a que el equipo responda
 if [[ "$WAIT" == "1" ]]; then
   [[ -z "$CHECK_CMD" ]] && { err "--wait requiere --check 'comando'"; exit 1; }
+  # Sin eval: se parte el comando en argv y se ejecuta directo. Si el primer
+  # elemento no es un ejecutable válido, se aborta con un error claro.
+  read -ra CHECK_ARGV <<<"$CHECK_CMD"
+  if ! command -v "${CHECK_ARGV[0]}" >/dev/null 2>&1; then
+    err "--check no apunta a un ejecutable válido: '${CHECK_ARGV[0]}'"
+    exit 1
+  fi
   say "Esperando a que el equipo responda (máx. 120s)..."
   for i in $(seq 1 24); do
-    if eval "$CHECK_CMD" >/dev/null 2>&1; then
+    if "${CHECK_ARGV[@]}" >/dev/null 2>&1; then
       ok "Equipo despierto tras ~$((i*5))s"
       exit 0
     fi
