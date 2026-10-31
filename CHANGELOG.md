@@ -4,6 +4,70 @@ Todos los cambios relevantes de este kit se documentan acá.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.2.0] — 2026-10-31
+
+**Refactor estructural + seguridad**: el monolito pasa a módulos, un helper
+único de sudo, y varios ajustes de seguridad. Se resuelven los issues #27–#32.
+
+### Añadido
+
+- **`lib/` (8 módulos)** — `setup-remote-target.sh` se parte en módulos que se
+  cargan con `source`. El archivo pasa de **1.629 → 219 líneas** (orquestador):
+  - `lib/sudo.sh` — helper **único** de sudo (ver abajo).
+  - `lib/sr-t-ui.sh` — colores y `ok/warn/err/info/hdr`.
+  - `lib/sr-t-distro.sh` — detección de distro y `pkg_*`.
+  - `lib/sr-t-core.sh` — helpers base (`run`, `confirm`, `need_root`, firewall).
+  - `lib/sr-t-deps.sh` — dependencias/AUR de RustDesk.
+  - `lib/sr-t-rustdesk.sh` — instalación de RustDesk por familia + DRM.
+  - `lib/sr-t-ssh.sh` — `setup_ssh` (sshd + firewall).
+  - `lib/sr-t-tailscale.sh` — `setup_tailscale` + `setup_laptop`.
+  - `lib/sr-t-check.sh` — `run_check` (diagnóstico `--check`).
+  Al usar `source`, una variable global compartida (`TS_HOSTNAME`) se **exporta**
+  para evitar el aviso SC2034.
+- **`verify-docs-consistency.sh`** — comprueba coherencia **entre** documentos:
+  conteo de tests, versión (README vs. CHANGELOG) y enlaces internos (127
+  revisados). Corrige drift ya existente (README v1.0.0→v1.1.1, AGENTS ~474→~667).
+- **`--sha256 <hex>` en `onboarding.sh`** — verifica el hash del tarball del kit
+  antes de extraer/ejecutar.
+
+### Cambiado
+
+- **Seguridad — helper único de sudo (issue #28).** Antes cada script resolvía
+  la clave a su manera (`sudo -S`, `sudow`/SUDO_ASKPASS, archivos); esa dispersión
+  causó **H-68** (`sudo -S` se comía stdin). Ahora todo pasa por `lib/sudo.sh`
+  con `sudo -A` (askpass), dejando **stdin libre** para datos. Migrados:
+  `instalar-todo.sh`, `rustdesk-password.sh`, `energia-remota.sh`,
+  `install-rustdesk-unattended-fedora.sh`. `sudow` se conserva como alias.
+- **Seguridad — sin `eval` sobre entrada del operador (issue #31).**
+  `wol-despertar.sh` parte `--check` con `read -ra` y lo ejecuta directo (valida
+  el ejecutable); `instalar-todo.sh` pasa a `chk()` con funciones.
+- **Onboarding sin `curl | sudo bash` (issue #32).** La doc
+  (`README.md`, `INSTALAR.md`, `REPO.txt`, `LEEME-PRIMERO.txt`,
+  `docs/onboarding-cliente.md`) pasa a **descargar → verificar → ejecutar**,
+  mencionando siempre `git clone` y `--local <dir>`.
+- **`make-kit.sh`** incluye `lib/` (todos los módulos) en el kit empaquetado.
+- **CI** lint-ea `lib/*.sh` (shellcheck + `bash -n`).
+
+### Documentado
+
+- **`docs/resumen.md`** — resumen ejecutivo de **1 página**.
+- **`docs/test-fuera-de-lan.md`** — cómo usar `verify-offlan.sh` bien (otra red,
+  detección de falso positivo, checklist antes de irse).
+- **`SECURITY.md`** — sección *Exposición de nombres de flota*
+  (`operadores/*.pub`): OSINT de baja severidad, riesgo aceptado y mitigaciones.
+
+### Corregido
+
+- **`verify-docs.sh`** — tras partir el monolito, la comprobación de assets
+  `sciter/suse` apunta a `lib/sr-t-rustdesk.sh`.
+- **IP real → ejemplo ficticio** en `docs/test-fuera-de-lan.md` (lo detectó el
+  test anti-fuga de `tests.sh`).
+
+### Notas
+
+- **Tests:** `./tests.sh` → 755 OK · 0 fallos (2 omitidos).
+- **Cierra:** #27, #28, #29, #30, #31, #32.
+
 ## [1.1.1] — 2026-10-31
 
 **Documentación**: resumen ejecutivo y test fuera de la LAN, en el repo.

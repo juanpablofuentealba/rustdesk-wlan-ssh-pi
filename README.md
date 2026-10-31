@@ -55,48 +55,22 @@ Detalle: [`docs/tailscale.md`](docs/tailscale.md#generar-la-auth-key-paso-a-paso
 
 ## 🚀 Onboarding en UNA línea (recomendado)
 
-> **Por qué NO hacemos `curl ... | sudo bash`.** Ese patrón ejecuta código
-> remoto como root sin que puedas revisarlo: si la rama `main` se compromete o
-> hay un MITM, el ataque corre directo a tu equipo. Acá **descargamos,
-> verificamos y recién después ejecutamos**.
-
-Para un cliente nuevo, sin clonar nada — flujo seguro (descargar → verificar → ejecutar):
+Para un cliente nuevo, sin clonar nada:
 
 ```bash
-# 1. Descargar el script (NO ejecutar todavía)
-curl -fsSL -o /tmp/onboarding.sh \
-  https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh
-
-# 2. Verificar: revisarlo con less y comparar su hash con el publicado
-less /tmp/onboarding.sh
-sha256sum /tmp/onboarding.sh
-
-# 3. Ejecutar (la auth key se pide por STDIN, no queda en el historial)
-#    Fijá el ref (tag o commit) y su hash con --ref/--sha256 para un kit inmutable.
-sudo bash /tmp/onboarding.sh --nombre cliente-juan --rdpass 'ClaveLarga2026' \
-  --operador-hosts 'hp-operador msi-operador' --authkey-stdin \
-  --ref v1.1.1 --sha256 <hex-del-tarball-de-ese-ref>
+# En el PC del cliente (con sudo). La auth key se pide por STDIN (no queda en el historial)
+curl -fsSL https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh \
+  | sudo bash -s -- --nombre cliente-juan --rdpass 'ClaveLarga2026' \
+      --operador-hosts 'hp-operador msi-operador' --authkey-stdin
 ```
 
-`onboarding.sh` **baja y verifica** el kit (sha256 del tarball con `--sha256`
-+ MANIFEST), autoriza las claves de los operadores desde [`operadores/`](operadores/)
-y llama a `instalar-todo.sh`. Al terminar **imprime una ficha** lista para
-pegarle al operador (ID de RustDesk, contraseña, IP de Tailscale, hostname).
-
-**Alternativas sin `curl`** (más simples de auditar o sin red):
-
-```bash
-# Clonar el repo (podés revisar TODO antes de correr nada)
-git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi ~/kit
-cd ~/kit && sudo ./instalar-todo.sh --rdpass 'ClaveLarga2026' --authkey-stdin
-
-# Offline: usá un kit ya descargado
-sudo bash onboarding.sh --local /ruta/al/kit --nombre c --rdpass 'X'
-```
+`onboarding.sh` **baja y verifica** el kit (MANIFEST), autoriza las claves de
+los operadores desde [`operadores/`](operadores/) y llama a `instalar-todo.sh`.
+Al terminar **imprime una ficha** lista para pegarle al operador (ID de
+RustDesk, contraseña, IP de Tailscale, hostname).
 
 Opciones útiles: `--skip-tailscale` (solo LAN), `--tailscale-luego`,
-`--tailnet-host nombre`, `--local DIR` (offline), `--ref ref`, `--sha256 hex`,
-`--dry-run`.
+`--tailnet-host nombre`, `--local DIR` (offline), `--dry-run`.
 
 > **¿Sos el operador y querés preparar todo antes de ir?** Usá
 > `nuevo-cliente.sh` (ver [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md)),
@@ -244,7 +218,8 @@ Diseño completo y cómo **reportar vulnerabilidades**: [`SECURITY.md`](SECURITY
 
 ## Estado y versiones
 
-**v1.1.1** — última versión. Cambios en [`CHANGELOG.md`](CHANGELOG.md).
+**v1.2.0** — refactor estructural (monolito → `lib/`), helper único de sudo y
+ajustes de seguridad. Cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
