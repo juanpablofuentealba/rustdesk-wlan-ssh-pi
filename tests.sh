@@ -126,11 +126,11 @@ t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" lib/sr-t
 t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" lib/sr-t-rustdesk.sh'
 t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" lib/sr-t-rustdesk.sh'
 # No debe quedar 'pacman' fuera de la rama arch (debe usar pkg_install)
-t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" setup-remote-target.sh'
+t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" lib/sr-t-ssh.sh'
 # Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
 t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
-t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
+t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" lib/sr-t-ssh.sh'
 t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" lib/sr-t-rustdesk.sh'
 # Regresiones detectadas en prueba real (VM Mint 22.3, reporte de opencode):
 t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
@@ -138,7 +138,7 @@ t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
 t "detect_firewall lee /etc/ufw/ufw.conf" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
 t "detect_firewall consulta ufw.conf (respaldo)" bash -c 'grep -q "/etc/ufw/ufw.conf" setup-remote-target.sh'
 t "detect_firewall lee ENABLED (no solo systemctl)" bash -c 'awk "/^detect_firewall\(\)/,/^}/" setup-remote-target.sh | grep -q "ENABLED=yes"'
-t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
+t "ufw-inactive activa ufw (--force enable)" bash -c 'grep -q "ufw --force enable" lib/sr-t-ssh.sh'
 # Imágenes base mínimas (fedora:44) sin systemctl/firewall-cmd/ufw: NO se
 # puede afirmar "sin firewall"; debe decirlo como no verificable.
 t "detect_firewall devuelve sin-herramientas" \
@@ -819,9 +819,9 @@ t "Fedora sugiere el instalador especializado como alternativa" \
 
 sect "Hardening y comodidad (reporte GLM)"
 t "ufw usa limit (rate-limit), no solo allow" \
-  bash -c 'grep -q "ufw limit" setup-remote-target.sh'
+  bash -c 'grep -q "ufw limit" lib/sr-t-ssh.sh'
 t "firewalld tiene rate-limit" \
-  bash -c 'grep -q "limit value=\"6/m\"" setup-remote-target.sh'
+  bash -c 'grep -q "limit value=\"6/m\"" lib/sr-t-ssh.sh'
 t "enable-drm-display-wake se APLICA (no solo sugiere)" \
   bash -c 'grep -q "_set_drm_wake" lib/sr-t-rustdesk.sh'
 t "drm-wake valida el TOML tras escribirlo" \
@@ -1742,6 +1742,16 @@ t "#27: setup-remote-target.sh sourcea lib/sr-t-rustdesk.sh" \
   bash -c 'grep -q "source .*lib/sr-t-rustdesk.sh" setup-remote-target.sh'
 t "#27: make-kit.sh incluye lib/sr-t-rustdesk.sh en el kit" \
   bash -c 'grep -q "^  lib/sr-t-rustdesk.sh$" make-kit.sh'
+
+# --- issue #27 (sub-tarea 4/6): modulo SSH (lib/sr-t-ssh.sh) ---
+t "#27: existe lib/sr-t-ssh.sh (modulo SSH)" \
+  bash -c 'test -f lib/sr-t-ssh.sh'
+t "#27: lib/sr-t-ssh.sh define setup_ssh" \
+  bash -c 'grep -q "^setup_ssh()" lib/sr-t-ssh.sh'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-ssh.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-ssh.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-ssh.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-ssh.sh$" make-kit.sh'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
