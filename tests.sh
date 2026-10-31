@@ -122,16 +122,16 @@ t "pkg_manager_version fuerza LC_ALL=C (salida no traducida)" \
   bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "LC_ALL=C dnf"'
 t "diagnostico imprime la linea Gestor" \
   bash -c 'grep -q "info \"Gestor: \$(pkg_manager_version)\"" setup-remote-target.sh'
-t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" setup-remote-target.sh && grep -q "releases/latest" setup-remote-target.sh'
-t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" setup-remote-target.sh'
-t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" setup-remote-target.sh'
+t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" lib/sr-t-rustdesk.sh && grep -q "releases/latest" lib/sr-t-rustdesk.sh'
+t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" lib/sr-t-rustdesk.sh'
+t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" lib/sr-t-rustdesk.sh'
 # No debe quedar 'pacman' fuera de la rama arch (debe usar pkg_install)
 t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" setup-remote-target.sh'
 # Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
 t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
 t "maneja ufw-inactive en setup"         bash -c 'grep -q "ufw --force enable" setup-remote-target.sh'
-t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" setup-remote-target.sh'
+t "avisa Wayland sin parche DRM (deb/rpm)" bash -c 'grep -q "NO incluye el parche DRM" lib/sr-t-rustdesk.sh'
 # Regresiones detectadas en prueba real (VM Mint 22.3, reporte de opencode):
 t "tests.sh define sk() (skip)"        bash -c 'grep -q "^sk()" tests.sh'
 # detect_firewall debe leer ENABLED de ufw.conf, no solo systemctl is-active
@@ -315,7 +315,7 @@ t "no elige sesion con tail -1 (bug Fedora 44 KDE)" \
 t "graphical_session_type prefiere sesiones con seat" \
   bash -c 'awk "/^graphical_session_type\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "\$4 != \"-\""'
 t "ambos avisos usan graphical_session_type" \
-  bash -c '[[ $(grep -c "\$(graphical_session_type)" setup-remote-target.sh) -ge 2 ]]'
+  bash -c '[[ $(cat setup-remote-target.sh lib/sr-t-rustdesk.sh | grep -c "\$(graphical_session_type)") -ge 2 ]]'
 
 sect "Hallazgo H-03 (login screen X11 vs Wayland)"
 if command -v pgrep >/dev/null 2>&1; then
@@ -811,11 +811,11 @@ t "H-24 Fedora con capturador DRM (no el .rpm estándar)"
 t "la función del .deb es portable (no _arch)" \
   bash -c 'grep -q "^install_rustdesk_unattended_deb()" setup-remote-target.sh'
 t "Fedora intenta PRIMERO el .deb con DRM" \
-  bash -c 'sed -n "/^    fedora)$/,/^      ;;$/p" setup-remote-target.sh | grep -q "install_rustdesk_unattended_deb"'
+  bash -c 'sed -n "/^    fedora)$/,/^      ;;$/p" lib/sr-t-rustdesk.sh | grep -q "install_rustdesk_unattended_deb"'
 t "Fedora avisa si cae al .rpm estándar (sin DRM)" \
-  bash -c 'grep -q "se instaló el .rpm estándar: SIN capturador DRM" setup-remote-target.sh'
+  bash -c 'grep -q "se instaló el .rpm estándar: SIN capturador DRM" lib/sr-t-rustdesk.sh'
 t "Fedora sugiere el instalador especializado como alternativa" \
-  bash -c 'grep -q "install-rustdesk-unattended-fedora.sh" setup-remote-target.sh'
+  bash -c 'grep -q "install-rustdesk-unattended-fedora.sh" lib/sr-t-rustdesk.sh'
 
 sect "Hardening y comodidad (reporte GLM)"
 t "ufw usa limit (rate-limit), no solo allow" \
@@ -823,9 +823,9 @@ t "ufw usa limit (rate-limit), no solo allow" \
 t "firewalld tiene rate-limit" \
   bash -c 'grep -q "limit value=\"6/m\"" setup-remote-target.sh'
 t "enable-drm-display-wake se APLICA (no solo sugiere)" \
-  bash -c 'grep -q "_set_drm_wake" setup-remote-target.sh'
+  bash -c 'grep -q "_set_drm_wake" lib/sr-t-rustdesk.sh'
 t "drm-wake valida el TOML tras escribirlo" \
-  bash -c 'sed -n "/_set_drm_wake /,+20p" setup-remote-target.sh | grep -q tomllib'
+  bash -c 'sed -n "/_set_drm_wake /,+20p" lib/sr-t-rustdesk.sh | grep -q tomllib'
 t "verify-offlan autodetecta el peer (sin default 'fedora')" \
   bash -c '! grep -q "PEER=\"\${1:-fedora}\"" verify-offlan.sh && grep -q "autodetect" verify-offlan.sh'
 t "verify-offlan no usa la función 'info' (colisiona con info(1))" \
@@ -1732,6 +1732,16 @@ t "#27: setup-remote-target.sh sourcea lib/sr-t-distro.sh" \
   bash -c 'grep -q "source .*lib/sr-t-distro.sh" setup-remote-target.sh'
 t "#27: make-kit.sh incluye lib/sr-t-distro.sh en el kit" \
   bash -c 'grep -q "^  lib/sr-t-distro.sh$" make-kit.sh'
+
+# --- issue #27 (sub-tarea 3/6): modulo de RustDesk ---
+t "#27: existe lib/sr-t-rustdesk.sh (modulo RustDesk)" \
+  bash -c 'test -f lib/sr-t-rustdesk.sh'
+t "#27: lib/sr-t-rustdesk.sh define setup_rustdesk + instalacion por familia" \
+  bash -c 'for f in rustdesk_asset_url install_rustdesk_deb install_rustdesk_rpm setup_rustdesk; do grep -q "^$f()" lib/sr-t-rustdesk.sh || exit 1; done'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-rustdesk.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-rustdesk.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-rustdesk.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-rustdesk.sh$" make-kit.sh'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
