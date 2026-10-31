@@ -90,6 +90,10 @@ for f in setup-remote-target.sh inventory.sh tests.sh clip-vm.sh \
   t "$f es ejecutable" test -x "$f"
 done
 tdoc "verify-docs.sh es ejecutable" test -x verify-docs.sh
+# issue #30: coherencia ENTRE documentos (tests, versión, enlaces internos)
+tdoc "#30: existe verify-docs-consistency.sh" test -f verify-docs-consistency.sh
+tdoc "#30: verify-docs-consistency.sh es ejecutable" test -x verify-docs-consistency.sh
+tdoc "#30: bash -n verify-docs-consistency.sh" bash -n verify-docs-consistency.sh
 
 sect "Ayuda / usage"
 t "setup --help sale 0"        ./setup-remote-target.sh --help

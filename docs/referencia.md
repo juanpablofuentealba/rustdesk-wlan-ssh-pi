@@ -273,7 +273,7 @@ existir).
 
 > Para el uso **normal** (una persona frente a la VM) el portapapeles de SPICE
 > **ya funciona en ambas direcciones** por la vía Wayland nativa — ver
-> [H-13](docs/hallazgos.md). `clip-vm.sh` no hace falta para eso.
+> [H-13](hallazgos.md). `clip-vm.sh` no hace falta para eso.
 
 ```fish
 ./clip-vm.sh get                       # portapapeles de la VM → host
@@ -295,7 +295,7 @@ Por defecto apunta a `jp@192.168.122.11` (red NAT de libvirt).
 ### `tests.sh` — pruebas antes de un cliente nuevo
 
 > **¿Vas a preparar el PC de un cliente?** Lee
-> [`docs/onboarding-cliente.md`](docs/onboarding-cliente.md): modelos de acceso,
+> [`docs/onboarding-cliente.md`](onboarding-cliente.md): modelos de acceso,
 > auth keys de Tailscale (verificado con la doc oficial) y qué NO hacer.
 
 ```fish
@@ -555,4 +555,4 @@ ssh remoto 'hostname'                         # por túnel, desde cualquier red
 
 ## Licencia
 
-MIT — ver [`LICENSE`](LICENSE).
+MIT — ver [`LICENSE`](../LICENSE).
