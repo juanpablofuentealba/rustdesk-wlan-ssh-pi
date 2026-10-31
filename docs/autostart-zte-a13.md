@@ -151,6 +151,56 @@ Con root (Magisk) se podría:
 
 Sin root, el watchdog al abrir Termux es lo mejor posible.
 
+---
+
+## ¿Y rootearlo? — Investigación (conclusión: NO viable)
+
+Se evaluó rootear el a13 para poder usar un script de arranque real. **Se
+descartó**: el equipo es de los peores casos para rootear y el riesgo de brick
+(el a13 es nodo de la malla) no lo justifica.
+
+### Datos del equipo
+
+| Dato | Valor |
+|------|-------|
+| **SoC** | Unisoc/Spreadtrum **SC9863A** (`sp9863a`) |
+| **Codenames** | `P963F64` / `s9863a1h10` |
+| **Android** | 13 (MyOS 13.0.1 `MyOS13.0.1_A54_WOM_CL`) |
+| **Particiones** | **A/B** (`ro.boot.slot_suffix=_a`, `ro.build.ab_update=true`) |
+| **Bootloader** | 🔴 bloqueado (`ro.boot.flash.locked=1`) |
+| **Verified boot** | `green` (no alterado) |
+| **SELinux** | `enforcing` |
+| **OEM unlock** | `settings get global oem_unlock_supported` → **null** |
+| **`ro.bootloader`** | `unknown` (sin fastboot estándar) |
+
+### Por qué es difícil
+
+1. **Chip Unisoc, no Qualcomm/MediaTek.** No usa `fastboot` estándar; usa
+   **BROM mode** + `spd_dump` (ex ResearchDownload / SPD Flash Tool).
+2. **Bootloader cerrado por ZTE.** `oem_unlock_supported=null` → ni siquiera
+   aparece la opción de desbloqueo OEM. `fastboot flashing unlock` no aplica.
+3. **Verified boot + A/B.** Cualquier partición modificada rompe el arranque;
+   desactivar `avb`/`verity` requiere desbloqueo previo.
+4. **Build de operador (WOM)** sin guía pública.
+5. **BROM exploits** (`spd_dump`) son frágiles, específicos de versión de
+   BootROM y pueden estar parcheados. **Riesgo alto de brick permanente.**
+
+### Métodos evaluados
+
+| Método | Viabilidad | Riesgo |
+|--------|-----------|--------|
+| `fastboot oem unlock` | ❌ No hay fastboot estándar | — |
+| `fastboot flashing unlock` | ❌ `oem_unlock_supported=null` | — |
+| BROM exploit con `spd_dump` | ⚠️ Teórico, sin guía para este build | 🔴 Alto (brick) |
+| Magisk en `boot` parcheado | ❌ Requiere flashear boot → necesita unlock | — |
+| Apps tipo KingRoot | ❌ No funcionan en Android 13 | — |
+
+### Decisión
+
+**No rootear el a13.** Se usa el watchdog al abrir Termux. Si en el futuro se
+necesita autostart real, la vía sensata es **usar un equipo con bootloader
+desbloqueable** (p.ej. Google Pixel) como nodo, no este ZTE.
+
 > **Nota:** el nodo **a16** es de otro fabricante y **sí** arranca solo con
 > Termux:Boot. El **msi-operador** (CachyOS) arranca solo con systemd. Solo el
 > a13 (ZTE) sufre este bloqueo.
