@@ -127,6 +127,12 @@ t "usa .deb en rama debian"       bash -c 'grep -q "install_rustdesk_deb" lib/sr
 t "usa .rpm en rama fedora"       bash -c 'grep -q "install_rustdesk_rpm" lib/sr-t-rustdesk.sh'
 # No debe quedar 'pacman' fuera de la rama arch (debe usar pkg_install)
 t "SSH usa pkg_install (no pacman directo)" bash -c 'grep -q "pkg_install openssh-server\|pkg_install openssh" lib/sr-t-ssh.sh'
+# issue #27 sub-tarea 5/6: Tailscale extraído a lib/sr-t-tailscale.sh
+t "existe lib/sr-t-tailscale.sh"    bash -c 'test -f lib/sr-t-tailscale.sh'
+t "tailscale define setup_tailscale" bash -c 'grep -q "^setup_tailscale()" lib/sr-t-tailscale.sh'
+t "tailscale define setup_laptop"    bash -c 'grep -q "^setup_laptop()" lib/sr-t-tailscale.sh'
+t "setup carga sr-t-tailscale.sh"    bash -c 'grep -q "lib/sr-t-tailscale.sh" setup-remote-target.sh'
+t "tailscale usa la auth key (tskey-)" bash -c 'grep -q "tskey-" lib/sr-t-tailscale.sh'
 # Linux Mint: base Ubuntu/Debian → familia debian; y ufw suele estar inactivo
 t "detecta Linux Mint como debian"       bash -c 'bash -c "id=linuxmint; idlike=\"ubuntu debian\"; case \" \$id \$idlike \" in *\" debian \"*) echo debian;; esac" | grep -q debian'
 t "detecta ufw instalado pero inactivo"  bash -c 'grep -q "ufw-inactive" setup-remote-target.sh'
@@ -581,7 +587,7 @@ t "PROMPT-AGENTE tiene bloque URL EXACTA" \
 t "INSTALAR.md tiene la URL" bash -c "grep -q '$KEYS_URL' INSTALAR.md"
 t "docs/tailscale.md tiene la URL" bash -c "grep -q '$KEYS_URL' docs/tailscale.md"
 t "setup-remote-target la muestra al faltar la key" \
-  bash -c "grep -q '$KEYS_URL' setup-remote-target.sh"
+  bash -c "grep -q '$KEYS_URL' lib/sr-t-tailscale.sh"
 t "unir-tailscale la muestra" \
   bash -c "grep -q '$KEYS_URL' unir-tailscale.sh"
 
@@ -603,7 +609,7 @@ t "instalar-todo tiene --tailscale-luego" \
 t "setup-remote-target tiene --install-tailscale" \
   bash -c 'grep -q -- "--install-tailscale" setup-remote-target.sh'
 t "el mensaje sin authkey explica de dónde sale" \
-  bash -c 'grep -q "NO se genera en este equipo" setup-remote-target.sh'
+  bash -c 'grep -q "NO se genera en este equipo" lib/sr-t-tailscale.sh'
 t "make-kit incluye unir-tailscale.sh" \
   bash -c 'grep -q "unir-tailscale.sh" make-kit.sh'
 t "el kit generado trae unir-tailscale.sh" \
@@ -803,7 +809,7 @@ t "tailscale.md tiene la guía de generación" \
 t "tailscale.md nombra la pestaña Keys" \
   bash -c 'grep -q "pestaña.*Keys" docs/tailscale.md'
 t "setup-remote-target.sh apunta a login.tailscale.com" \
-  bash -c 'grep -q "login.tailscale.com/admin/settings/keys" setup-remote-target.sh'
+  bash -c 'grep -q "login.tailscale.com/admin/settings/keys" lib/sr-t-tailscale.sh'
 t "onboarding usa login.tailscale.com (no solo console)" \
   bash -c 'grep -q "login.tailscale.com/admin/settings/keys" docs/onboarding-cliente.md'
 
@@ -887,13 +893,13 @@ t "la cascada usa el .deb si el AUR falla" \
 t "avisa si falta red antes de instalar RustDesk" \
   bash -c 'grep -q "SIN CONEXIÓN a aur.archlinux.org" setup-remote-target.sh'
 t "tailscale avisa si falta red" \
-  bash -c 'grep -q "SIN CONEXIÓN a internet: no puedo instalar Tailscale" setup-remote-target.sh'
+  bash -c 'grep -q "SIN CONEXIÓN a internet: no puedo instalar Tailscale" lib/sr-t-tailscale.sh'
 t "tailscale espera a que tailscaled arranque" \
-  bash -c 'grep -q "tailscaled NO arrancó" setup-remote-target.sh'
+  bash -c 'grep -q "tailscaled NO arrancó" lib/sr-t-tailscale.sh'
 t "tailscale up muestra su error real" \
-  bash -c 'grep -q "tailscale up FALLÓ" setup-remote-target.sh'
+  bash -c 'grep -q "tailscale up FALLÓ" lib/sr-t-tailscale.sh'
 t "tailscale espera la IP (hasta 15s)" \
-  bash -c 'grep -q "seq 1 15" setup-remote-target.sh'
+  bash -c 'grep -q "seq 1 15" lib/sr-t-tailscale.sh'
 t "--check diagnostica dependencias faltantes" \
   bash -c 'grep -q "Dependencias que suelen faltar" setup-remote-target.sh'
 t "--check informa si hay AUR helper" \
@@ -927,15 +933,15 @@ t "setup acepta --authkey" \
 t "setup valida el prefijo tskey-" \
   bash -c 'grep -q "tskey-" setup-remote-target.sh'
 t "setup hace enable de tailscaled" \
-  bash -c 'grep -q "enable --now tailscaled" setup-remote-target.sh'
+  bash -c 'grep -q "enable --now tailscaled" lib/sr-t-tailscale.sh'
 t "setup --check diagnostica Tailscale" \
   bash -c 'grep -q "Tailscale (acceso fuera de la LAN)" setup-remote-target.sh'
 t "setup --all incluye tailscale" \
   bash -c 'grep -q "DO_RUSTDESK=1; DO_SSH=1; DO_TAILSCALE=1" setup-remote-target.sh'
 t "setup detecta tailscale ya unido (idempotente)" \
-  bash -c 'grep -q "Ya está en la tailnet" setup-remote-target.sh'
+  bash -c 'grep -q "Ya está en la tailnet" lib/sr-t-tailscale.sh'
 t "setup usa --accept-dns=false (no romper DNS local)" \
-  bash -c 'grep -q "accept-dns=false" setup-remote-target.sh'
+  bash -c 'grep -q "accept-dns=false" lib/sr-t-tailscale.sh'
 
 sect "Auth key fuera del historial (seguridad)"
 # La key en argv queda en ~/.bash_history y en 'ps'. Los scripts ofrecen
