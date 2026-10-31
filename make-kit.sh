@@ -57,6 +57,7 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 FILES=(
   onboarding.sh
   lib/sudo.sh
+  lib/sr-t-ui.sh
   instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
