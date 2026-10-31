@@ -1713,6 +1713,16 @@ t "#28: ya NO queda 'sudo -S -v' suelto en instalar-todo.sh (patron de H-68)" \
 t "#28: CI lint-ea lib/*.sh (shellcheck)" \
   bash -c 'grep -q "lib/\*.sh" .github/workflows/ci.yml'
 
+# --- issue #27 (sub-tarea 1/6): modulo de UI/estado (lib/sr-t-ui.sh) ---
+t "#27: existe lib/sr-t-ui.sh (modulo UI/estado)" \
+  bash -c 'test -f lib/sr-t-ui.sh'
+t "#27: lib/sr-t-ui.sh define ok/warn/err/info/hdr" \
+  bash -c 'for f in ok warn err info hdr; do grep -q "^$f()" lib/sr-t-ui.sh || exit 1; done'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-ui.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-ui.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-ui.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-ui.sh$" make-kit.sh'
+
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
   "$G" "$PASS" "$N" "$R" "$FAIL" "$N" "$Y" "$SKIP" "$N"

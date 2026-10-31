@@ -53,18 +53,10 @@
 #
 set -euo pipefail
 
-# ---------- colores ----------
-if [[ -t 1 ]]; then
-  R=$'\e[31m'; G=$'\e[32m'; Y=$'\e[33m'; B=$'\e[36m'; N=$'\e[0m'; BD=$'\e[1m'
-else
-  R=''; G=''; Y=''; B=''; N=''; BD=''
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ok()   { printf '%s✔%s %s\n' "$G" "$N" "$*"; }
-warn() { printf '%s▲%s %s\n' "$Y" "$N" "$*"; }
-err()  { printf '%s✘%s %s\n' "$R" "$N" "$*" >&2; }
-info() { printf '%s●%s %s\n' "$B" "$N" "$*"; }
-hdr()  { printf '\n%s%s== %s ==%s\n' "$BD" "$B" "$*" "$N"; }
+# UI/estado: ver lib/sr-t-ui.sh (issue #27)
+source "$SCRIPT_DIR/lib/sr-t-ui.sh"
 
 # ---------- estado ----------
 DO_RUSTDESK=0
