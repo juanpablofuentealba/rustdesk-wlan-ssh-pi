@@ -25,6 +25,16 @@ set -euo pipefail
 
 SECRET_FILE="${ENERGIA_SUDO_FILE:-$HOME/.config/operador-secrets/sudo}"
 
+# Helper ÚNICO de sudo (lib/sudo.sh, issue #28 / H-68). Aquí la clave viaja al
+# sudo del equipo REMOTO por el stdin de SSH, no al sudo local: por eso no se
+# puede usar `sudo_run` directamente (actuaría en el equipo del operador).
+# Lo que sí se centraliza es la LECTURA de la clave desde archivo. El `sudo -S`
+# remoto es una excepción DOCUMENTADA (ver informe del issue #28): no compite
+# con ningún otro dato en ese stdin, así que H-68 no aplica.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/sudo.sh
+source "$SCRIPT_DIR/lib/sudo.sh"
+
 notify() { command -v notify-send >/dev/null 2>&1 && notify-send -u "${2:-normal}" -i "${3:-system-shutdown}" "$1" "$4" 2>/dev/null || true; }
 
 accion="${1:-}"; shift || true
@@ -41,11 +51,20 @@ if [[ -z "$accion" || -z "$target" ]]; then
   sed -n '15,27p' "$0"; exit 2
 fi
 
-leer_clave() {
-  [[ -r "$SECRET_FILE" ]] || { err "falta $SECRET_FILE (chmod 600)"; exit 1; }
-  head -n1 "$SECRET_FILE"
-}
 err() { printf '\033[1;31m✘\033[0m %s\n' "$*" >&2; }
+
+# leer_clave: emite la clave por stdout (la consume el sudo REMOTO por SSH).
+# Usa la lógica compartida de lib/sudo.sh: SUDO_PASS por entorno, o el archivo
+# indicado en SUDO_PASS_FILE, o el de ENERGIA_SUDO_FILE (compatibilidad).
+leer_clave() {
+  if [[ -n "${SUDO_PASS:-}" ]]; then
+    printf '%s\n' "$SUDO_PASS"
+    return 0
+  fi
+  local f="${SUDO_PASS_FILE:-$SECRET_FILE}"
+  [[ -r "$f" ]] || { err "falta $f (chmod 600)"; exit 1; }
+  head -n1 "$f"
+}
 
 case "$accion" in
   apagar)

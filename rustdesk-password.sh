@@ -37,29 +37,14 @@ PY_BIN="${PY_BIN:-python3}"
 # `info` colisiona con el comando info(1) del sistema y rompe el script con
 # "No menu item ... in node (dir)Top". Usamos `say`.
 # --- helper de sudo con contraseña (H-68) ---------------------------------
-# Da la clave a sudo por SUDO_ASKPASS en vez de por stdin. Motivo: `sudo -S`
-# lee la clave de stdin con buffering y puede comerse datos que también vayan
-# por stdin (p. ej. salt/storage del helper), rompiendo la escritura de la
-# config de RustDesk de forma silenciosa. Con askpass, stdin queda libre.
-#
-# Uso: sudow [env VAR=val ...] <comando...>   (necesita SUDO_PASS definida)
-# Si SUDO_PASS está vacía, usa `sudo -n` (NOPASSWD).
-sudow() {
-  if [[ -n "${SUDO_PASS:-}" ]]; then
-    local _ap
-    _ap="$(mktemp)"
-    local _q
-    _q="$(printf '%s' "$SUDO_PASS" | sed "s/'/'\\\\''/g")"
-    printf '#!/bin/sh\nprintf "%%s\\n" '\''%s'\''\n' "$_q" > "$_ap"
-    chmod 700 "$_ap"
-    local _rc=0
-    SUDO_ASKPASS="$_ap" sudo -A "$@" || _rc=$?
-    rm -f "$_ap"
-    return $_rc
-  else
-    sudo -n "$@"
-  fi
-}
+# El manejo de sudo vive ahora en UN SOLO sitio (lib/sudo.sh, issue #28): así
+# el bug H-68 (`sudo -S` se come stdin) no puede reaparecer por una copia
+# distinta en cada script. Aquí conservamos `sudow` como alias de `sudo_run`
+# para no romper llamadas existentes ni el comportamiento externo.
+# shellcheck source=lib/sudo.sh
+source "$SCRIPT_DIR/lib/sudo.sh"
+# Alias histórico: sudow == sudo_run (clave por SUDO_ASKPASS, stdin libre).
+sudow() { sudo_run "$@"; }
 
 say()  { printf '\033[1;34m●\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
@@ -265,8 +250,12 @@ install_remote() {
     # shellcheck disable=SC2064
     trap "ssh -o BatchMode=yes $(printf '%q' "$target") 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true" EXIT
     if [[ -n "$sudo_pass" ]]; then
-      printf '%s\n%s\n%s\n' "$sudo_pass" "$salt" "$storage" | \
-        ssh -o BatchMode=yes "$target" "sudo -S -p '' bash /tmp/rd-setpass-root.sh --stdin-with-pass" \
+      # remote_sudo_run sube la clave por un askpass (no por el stdin que
+      # llevan salt/storage) => H-68 imposible también en remoto (issue #28).
+      # SUDO_PASS ya está declarada (la exige install_remote), así que el
+      # helper la toma de ahí sin más.
+      printf '%s\n%s\n' "$salt" "$storage" | \
+        remote_sudo_run "$target" "bash /tmp/rd-setpass-root.sh --stdin" \
         || { err "falló la escritura de la config remota (¿contraseña de sudo incorrecta?)"; \
              err "  verificala a mano:  ssh $target 'sudo true'"; \
              ssh -o BatchMode=yes "$target" 'rm -f /tmp/rd-setpass-root.sh' 2>/dev/null || true; return 1; }
@@ -290,8 +279,9 @@ install_remote() {
       sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
     fi
   elif [[ -n "$sudo_pass" ]]; then
-    printf '%s\n' "$sudo_pass" | ssh -o BatchMode=yes "$target" \
-      "sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
+    # remote_sudo_run: clave por askpass, stdin libre (issue #28).
+    remote_sudo_run "$target" \
+      "systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
   else
     ssh -o BatchMode=yes "$target" \
       "sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk"
