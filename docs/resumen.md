@@ -106,6 +106,7 @@ Detecta la familia por `/etc/os-release`.
 
 | Necesito… | Archivo |
 |---|---|
+| Verificar acceso desde OTRA red | `docs/test-fuera-de-lan.md` |
 | Paso a paso desde cero | `INSTALAR.md` |
 | Checklist del pendrive | `PASOS-EN-ORDEN.txt` |
 | Qué hay en el pendrive | `LEEME-PRIMERO.txt` |

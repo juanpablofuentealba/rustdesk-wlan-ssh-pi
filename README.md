@@ -172,6 +172,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | Doc | Contenido |
 |---|---|
 | [`docs/resumen.md`](docs/resumen.md) | **Resumen ejecutivo (1 página)**: lo mínimo para operar |
+| [`docs/test-fuera-de-lan.md`](docs/test-fuera-de-lan.md) | **Verificar el acceso desde otra red** (`verify-offlan.sh`): los 3 puntos y el falso positivo |
 | [`docs/guia-desde-cero.md`](docs/guia-desde-cero.md) | Explicación para principiantes |
 | [`docs/referencia.md`](docs/referencia.md) | **Detalle técnico**: pasos manuales, herramientas, multi-distro |
 | [`docs/hallazgos.md`](docs/hallazgos.md) | **Índice + top 10** y H-01..H-66: problemas reales y sus soluciones |
