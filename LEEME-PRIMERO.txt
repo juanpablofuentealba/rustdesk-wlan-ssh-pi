@@ -49,6 +49,15 @@
      (--all ya incluye anti-suspension de portatil). Detalle en
      PASOS-EN-ORDEN.txt o kit-rustdesk/INSTALAR.md
 
+  Sin pendrive? git clone https://github.com/juanpablofuentealba/rustdesk-wlan-ssh-pi
+  Con onboarding.sh: NO uses 'curl ... | sudo bash'. Descarga, verifica el hash
+  y recien despues ejecuta:
+       curl -fsSL -o /tmp/onboarding.sh https://raw.githubusercontent.com/\
+         juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh
+       sha256sum /tmp/onboarding.sh          # comparar con el hash publicado
+       sudo bash /tmp/onboarding.sh --nombre c --rdpass 'X' --authkey-stdin
+  Offline:  sudo bash /tmp/onboarding.sh --local /ruta/al/kit ...
+
 ------------------------------------------------------------------------
   ANTES DE SALIR DE CASA
 ------------------------------------------------------------------------

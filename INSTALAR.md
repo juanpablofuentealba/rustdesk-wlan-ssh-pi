@@ -1,8 +1,25 @@
 # INSTALAR — PC de cliente desde cero
 
-> **Atajo (recomendado si el cliente ya tiene SO):** una sola línea con
-> [`onboarding.sh`](onboarding.sh) — baja el kit, verifica, instala y emite la
-> ficha. Ver [README → Onboarding](README.md#-onboarding-en-una-línea-recomendado)
+> **Atajo (recomendado si el cliente ya tiene SO):** bajá
+> [`onboarding.sh`](onboarding.sh), **verificalo y recién después ejecutalo** —
+> baja el kit, verifica, instala y emite la ficha.
+>
+> ```bash
+> # 1. descargar (NO ejecutar todavía)
+> curl -fsSL -o /tmp/onboarding.sh \
+>   https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh
+> # 2. verificar: revisar y comparar el hash
+> less /tmp/onboarding.sh && sha256sum /tmp/onboarding.sh
+> # 3. ejecutar (fijá el ref y el hash del tarball para un kit inmutable)
+> sudo bash /tmp/onboarding.sh --nombre cliente-juan --rdpass 'ClaveLarga2026' \
+>   --operador-hosts 'hp-operador msi-operador' --authkey-stdin \
+>   --ref v1.1.1 --sha256 <hex-del-tarball>
+> ```
+>
+> **NO** uses `curl … | sudo bash`: ejecuta código remoto como root sin que
+> puedas revisarlo. Alternativas: `git clone` del repo (auditable) u offline con
+> `sudo bash onboarding.sh --local /ruta/al/kit`.
+> Ver [README → Onboarding](README.md#-onboarding-en-una-línea-recomendado)
 > y [docs/onboarding-cliente.md](docs/onboarding-cliente.md). Este runbook es
 > para el caso completo (PC virgen / instalación del SO).
 

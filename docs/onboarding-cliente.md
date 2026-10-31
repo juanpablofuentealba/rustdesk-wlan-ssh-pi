@@ -20,7 +20,9 @@ remotamente, sin tocar nada a mano en su equipo.
                 └─ imprime la línea de onboarding (con contraseña ya generada)
                         │
                         ▼
-[cliente]  curl …/onboarding.sh | sudo bash -s -- --nombre juan --rdpass '…' …
+[cliente]  curl …/onboarding.sh -o /tmp/onboarding.sh   (descarga)
+           sha256sum /tmp/onboarding.sh                 (verifica el hash)
+           sudo bash /tmp/onboarding.sh --nombre juan --rdpass '…'   (ejecuta)
                 │
                 ├─ baja el kit del repo y verifica integridad
                 ├─ autoriza las claves de operadores (operadores/*.pub)
@@ -48,7 +50,7 @@ Qué produce:
 |---|---|
 | `clientes/juan/ficha.txt` | datos del cliente (se completa al instalar) |
 | `clientes/juan/kit-juan/` | kit completo + `operador.pub` + `MANIFEST.sha256` verificado |
-| línea `curl … \| sudo bash` | **copiar y pegar** en el cliente (contraseña incluida) |
+| línea de onboarding (descargar → verificar → `sudo bash`) | **copiar y pegar** en el cliente (contraseña incluida) |
 
 Además imprime la **alternativa por pendrive** (si el cliente no tiene internet):
 
@@ -79,16 +81,29 @@ Se crea en la **web**, no en el equipo:
 ### 2.2 Correr el onboarding
 
 ```bash
-# La auth key por STDIN: no queda en el historial ni en 'ps'
-curl -fsSL https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh \
-  | sudo bash -s -- --nombre juan --rdpass 'ClaveLarga2026' \
-      --operador-hosts 'hp-operador msi-operador' --authkey-stdin
+# 1. Descargar el script (NO ejecutar todavia)
+curl -fsSL -o /tmp/onboarding.sh \
+  https://raw.githubusercontent.com/juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh
+
+# 2. Verificar: revisarlo y comparar su hash
+less /tmp/onboarding.sh && sha256sum /tmp/onboarding.sh
+
+# 3. Ejecutar (auth key por STDIN: no queda en el historial ni en 'ps')
+#    Fija el ref (tag/commit) y su hash para un kit inmutable.
+sudo bash /tmp/onboarding.sh --nombre juan --rdpass 'ClaveLarga2026' \
+  --operador-hosts 'hp-operador msi-operador' --authkey-stdin \
+  --ref v1.1.1 --sha256 <hex-del-tarball>
 ```
+
+> **NO uses `curl … | sudo bash`:** ejecuta codigo remoto como root sin que
+> puedas revisarlo (riesgo de MITM / rama `main` comprometida). Alternativa
+> offline: `sudo bash /tmp/onboarding.sh --local /ruta/al/kit` o clonar el repo
+> con `git clone`.
 
 `onboarding.sh`:
 
 1. **Baja el kit** del ref indicado (`--ref`, por defecto `main`) y **verifica**
-   el `MANIFEST.sha256`.
+   el `MANIFEST.sha256` (y el hash del tarball, si pasas `--sha256`).
 2. **Resuelve las claves** de los operadores desde
    [`operadores/<host>.pub`](../operadores/) y las pasa a `instalar-todo.sh`.
 3. Corre `instalar-todo.sh` con `--tailnet-host cliente-<nombre>` (para

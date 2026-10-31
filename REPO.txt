@@ -12,6 +12,15 @@
      cd ~/kit
      sudo ./instalar-todo.sh --authkey 'tskey-auth-XXXX' --rdpass 'MiClave2026'
 
+  Atajo con onboarding.sh (NO uses 'curl ... | sudo bash'): descarga, VERIFICA
+  el hash y recien despues ejecuta con sudo:
+     curl -fsSL -o /tmp/onboarding.sh https://raw.githubusercontent.com/\
+       juanpablofuentealba/rustdesk-wlan-ssh-pi/main/onboarding.sh
+     sha256sum /tmp/onboarding.sh          # comparar con el hash publicado
+     sudo bash /tmp/onboarding.sh --nombre c --rdpass 'X' --authkey-stdin \
+       --ref v1.1.1 --sha256 <hex-del-tarball>
+  Offline:  sudo bash /tmp/onboarding.sh --local /ruta/al/kit ...
+
   Con agente IA (OpenCode/Claude/pi): pega primero  cat PROMPT-AGENTE.txt
 
   Sin internet (o desde el pendrive):
