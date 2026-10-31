@@ -56,6 +56,7 @@ warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
 
 FILES=(
   onboarding.sh
+  lib/sudo.sh
   instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
@@ -79,9 +80,13 @@ mkdir -p "$DEST"
 
 for f in "${FILES[@]}"; do
   [[ -f "$SCRIPT_DIR/$f" ]] || { echo "falta $f" >&2; exit 1; }
+  # FILES puede incluir rutas con subdirectorio (p.ej. lib/sudo.sh):
+  # crear el directorio destino antes de copiar.
+  mkdir -p "$DEST/$(dirname "$f")"
   cp -a "$SCRIPT_DIR/$f" "$DEST/$f"
 done
 chmod +x "$DEST"/*.sh
+[[ -d "$DEST/lib" ]] && chmod +x "$DEST/lib"/*.sh 2>/dev/null || true
 
 # --- Kit de Windows: carpeta completa (scripts .ps1 + su README) ---
 # Se copia si existe; no es obligatorio para el kit Linux, pero si está en el

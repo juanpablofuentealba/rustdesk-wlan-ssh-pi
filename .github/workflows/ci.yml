@@ -28,7 +28,7 @@ jobs:
           # Los 'source' relativos no se siguen (los scripts son autocontenidos).
           shellcheck --version
           fail=0
-          for f in ./*.sh ./.rd-setpass-root.sh; do
+          for f in ./*.sh ./lib/*.sh ./.rd-setpass-root.sh; do
             echo "── $f"
             shellcheck -S warning -e SC1090,SC1091 "$f" || fail=1
           done
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Sintaxis de todos los scripts
         run: |
-          for f in *.sh .rd-setpass-root.sh; do
+          for f in *.sh lib/*.sh .rd-setpass-root.sh; do
             bash -n "$f" && echo "✔ $f" || exit 1
           done
 
