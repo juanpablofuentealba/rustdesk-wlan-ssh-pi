@@ -106,20 +106,20 @@ tdoc "clip-vm sin args muestra ayuda" bash -c './clip-vm.sh >/dev/null 2>&1'
 
 sect "Soporte multi-distro (arch | debian | fedora)"
 t "detecta familia arch"    bash -c 'bash -c "id=arch; idlike=; case \" \$id \$idlike \" in *\" arch \"*) echo arch;; esac" | grep -q arch'
-t "script define detect_distro"   bash -c 'grep -q "^detect_distro()" setup-remote-target.sh'
-t "script define pkg_install"     bash -c 'grep -q "^pkg_install()" setup-remote-target.sh'
-t "script define pkg_installed"   bash -c 'grep -q "^pkg_installed()" setup-remote-target.sh'
+t "script define detect_distro"   bash -c 'grep -q "^detect_distro()" lib/sr-t-distro.sh'
+t "script define pkg_install"     bash -c 'grep -q "^pkg_install()" lib/sr-t-distro.sh'
+t "script define pkg_installed"   bash -c 'grep -q "^pkg_installed()" lib/sr-t-distro.sh'
 t "rama debian usa apt-get"       bash -c 'grep -q "apt-get install" setup-remote-target.sh'
 t "rama fedora usa dnf"           bash -c 'grep -q "dnf install" setup-remote-target.sh'
 t "rama arch usa pacman"          bash -c 'grep -q "pacman -S" setup-remote-target.sh'
 # Fedora 41+: 'dnf' es symlink a dnf5 y `dnf --version` responde "dnf5 ...".
 # NO hace falta cambiar los comandos (install -y sigue funcionando igual).
 t "diagnostico informa version del gestor" \
-  bash -c 'grep -q "^pkg_manager_version()" setup-remote-target.sh'
+  bash -c 'grep -q "^pkg_manager_version()" lib/sr-t-distro.sh'
 t "pkg_manager_version cubre las 3 familias" \
-  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" setup-remote-target.sh | grep -qE "(arch|debian|fedora)\\)"'
+  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" lib/sr-t-distro.sh | grep -qE "(arch|debian|fedora)\\)"'
 t "pkg_manager_version fuerza LC_ALL=C (salida no traducida)" \
-  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" setup-remote-target.sh | grep -q "LC_ALL=C dnf"'
+  bash -c 'awk "/^pkg_manager_version\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "LC_ALL=C dnf"'
 t "diagnostico imprime la linea Gestor" \
   bash -c 'grep -q "info \"Gestor: \$(pkg_manager_version)\"" setup-remote-target.sh'
 t "resuelve .deb via API GitHub"  bash -c 'grep -q "rustdesk_asset_url" setup-remote-target.sh && grep -q "releases/latest" setup-remote-target.sh'
@@ -288,20 +288,20 @@ t "inventory.sh usa ip route (no hostname -I)" \
 # cuando no hay ruta por defecto (contenedor, equipo recien instalado).
 # Antes un fallo de `ip` mataba el script con exit 127 (bug detectado en CI).
 t "setup usa ip route como metodo principal" \
-  bash -c 'grep -q "ip -4 route get" setup-remote-target.sh'
+  bash -c 'grep -q "ip -4 route get" lib/sr-t-distro.sh'
 t "setup local_ip no muere sin red (respaldo + return 0)" \
-  bash -c 'sed -n "/^local_ip()/,/^}/p" setup-remote-target.sh | grep -q "return 0"'
+  bash -c 'sed -n "/^local_ip()/,/^}/p" lib/sr-t-distro.sh | grep -q "return 0"'
 t "setup local_ip devuelve 'sin-red' si no hay IP" \
-  bash -c 'grep -q "sin-red" setup-remote-target.sh'
+  bash -c 'grep -q "sin-red" lib/sr-t-distro.sh'
 # H-08: strings|grep -q con pipefail → verify-docs debe capturar a variable
 t "verify-docs evita strings|grep -q" \
   bash -c '! grep -qE "strings -a .*\| *grep -q" verify-docs.sh'
 # Fedora 44 (imagen base mínima) NO trae el binario 'hostname': el kit debe
 # tener respaldo (/proc/sys/kernel/hostname o uname -n) para no mostrar vacío.
 t "setup tiene hostname portable (local_hostname)" \
-  bash -c 'grep -q "^local_hostname()" setup-remote-target.sh'
+  bash -c 'grep -q "^local_hostname()" lib/sr-t-distro.sh'
 t "local_hostname respalda con /proc/sys/kernel/hostname" \
-  bash -c 'awk "/^local_hostname\(\)/,/^}/" setup-remote-target.sh | grep -q "/proc/sys/kernel/hostname"'
+  bash -c 'awk "/^local_hostname\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "/proc/sys/kernel/hostname"'
 t "setup no llama hostname sin respaldo" \
   bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -qE "\$\(hostname\)"'
 t "inventory respalda hostname con /proc o uname -n" \
@@ -309,11 +309,11 @@ t "inventory respalda hostname con /proc o uname -n" \
 # Fedora 44 con KDE: la ultima sesion de `loginctl list-sessions` es de tipo
 # 'background'/'manager' (Type=unspecified) y ocultaba el Wayland real.
 t "setup tiene graphical_session_type()" \
-  bash -c 'grep -q "^graphical_session_type()" setup-remote-target.sh'
+  bash -c 'grep -q "^graphical_session_type()" lib/sr-t-distro.sh'
 t "no elige sesion con tail -1 (bug Fedora 44 KDE)" \
   bash -c '! grep -vE "^\s*#" setup-remote-target.sh | grep -qE "list-sessions.*tail -1"'
 t "graphical_session_type prefiere sesiones con seat" \
-  bash -c 'awk "/^graphical_session_type\(\)/,/^}/" setup-remote-target.sh | grep -q "\$4 != \"-\""'
+  bash -c 'awk "/^graphical_session_type\(\)/,/^}/" lib/sr-t-distro.sh | grep -q "\$4 != \"-\""'
 t "ambos avisos usan graphical_session_type" \
   bash -c '[[ $(grep -c "\$(graphical_session_type)" setup-remote-target.sh) -ge 2 ]]'
 
@@ -1284,13 +1284,13 @@ t "reconoce los 3 backends (kde/gnome/wlr)" \
 t "el mensaje sugiere el backend xdg-desktop-portal-kde" \
   bash -c 'grep -q "pkg_install_hint xdg-desktop-portal-kde" setup-remote-target.sh'
 t "existe pkg_install_hint (mensajes de arreglo por familia)" \
-  bash -c 'grep -q "^pkg_install_hint()" setup-remote-target.sh'
+  bash -c 'grep -q "^pkg_install_hint()" lib/sr-t-distro.sh'
 t "pkg_install_hint da pacman en Arch" \
-  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=arch\npkg_install_hint zstd ssh\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo pacman -S zstd ssh"'
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" lib/sr-t-distro.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=arch\npkg_install_hint zstd ssh\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo pacman -S zstd ssh"'
 t "pkg_install_hint da apt en Debian" \
-  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=debian\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo apt-get install -y pipewire"'
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" lib/sr-t-distro.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=debian\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo apt-get install -y pipewire"'
 t "pkg_install_hint da dnf en Fedora" \
-  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" setup-remote-target.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=fedora\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo dnf install -y pipewire"'
+  bash -c 'W=$(mktemp -d); sed -n "/^pkg_install_hint() {/,/^}/p" lib/sr-t-distro.sh > "$W/fn.sh"; printf "DISTRO_FAMILY=fedora\npkg_install_hint pipewire\n" >> "$W/fn.sh"; out=$(bash "$W/fn.sh"); rm -rf "$W"; test "$out" = "sudo dnf install -y pipewire"'
 t "H-40 documentado (clip-vm fish+wayland)" \
   bash -c 'grep -q "## H-40 — El portapapeles por SSH" docs/hallazgos.md'
 
@@ -1722,6 +1722,16 @@ t "#27: setup-remote-target.sh sourcea lib/sr-t-ui.sh" \
   bash -c 'grep -q "source .*lib/sr-t-ui.sh" setup-remote-target.sh'
 t "#27: make-kit.sh incluye lib/sr-t-ui.sh en el kit" \
   bash -c 'grep -q "^  lib/sr-t-ui.sh$" make-kit.sh'
+
+# --- issue #27 (sub-tarea 2/6): modulo de abstraccion de distro ---
+t "#27: existe lib/sr-t-distro.sh (modulo abstraccion de distro)" \
+  bash -c 'test -f lib/sr-t-distro.sh'
+t "#27: lib/sr-t-distro.sh define detect_distro/pkg_install/pkg_installed" \
+  bash -c 'for f in detect_distro pkg_install pkg_installed; do grep -q "^$f()" lib/sr-t-distro.sh || exit 1; done'
+t "#27: setup-remote-target.sh sourcea lib/sr-t-distro.sh" \
+  bash -c 'grep -q "source .*lib/sr-t-distro.sh" setup-remote-target.sh'
+t "#27: make-kit.sh incluye lib/sr-t-distro.sh en el kit" \
+  bash -c 'grep -q "^  lib/sr-t-distro.sh$" make-kit.sh'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
