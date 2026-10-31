@@ -75,7 +75,10 @@ if command -v curl >/dev/null 2>&1; then
   if printf '%s' "$assets" | grep -q '\.rpm'; then ok "hay assets .rpm en el último release"
   else ko "no se encontraron assets .rpm"; fi
   # Preferencia: los scripts deben excluir variantes sciter/suse
-  if grep -q "grep -v 'suse'" setup-remote-target.sh && grep -q "grep -v 'sciter'" setup-remote-target.sh; then
+  # Tras el #27 la elección de asset vive en lib/sr-t-rustdesk.sh
+  # (antes en setup-remote-target.sh). Aceptamos cualquiera de los dos.
+  _asset_src="lib/sr-t-rustdesk.sh"; [ -f "$_asset_src" ] || _asset_src="setup-remote-target.sh"
+  if grep -q "grep -v 'suse'" "$_asset_src" && grep -q "grep -v 'sciter'" "$_asset_src"; then
     ok "excluye variantes sciter/suse al elegir asset"
   else
     ko "no excluye variantes sciter/suse"
