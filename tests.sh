@@ -1647,8 +1647,33 @@ t "make-kit.sh incluye onboarding.sh" \
   bash -c 'grep -q "^  onboarding.sh$" make-kit.sh'
 t "instalar-todo.sh acepta --tailnet-host" \
   bash -c 'grep -q "\-\-tailnet-host" instalar-todo.sh'
-t "setup-remote-target.sh usa TS_HOSTNAME al unir a la tailnet" \
-  bash -c 'grep -q "TS_HOSTNAME:-\$(hostname" setup-remote-target.sh'
+# --- H-68: contraseña de RustDesk no se aplicaba (sudo -S se come stdin) ---
+t "H-68: rustdesk-password.sh define la funcion sudow (askpass)" \
+  bash -c 'grep -q "^sudow()" rustdesk-password.sh'
+t "H-68: rustdesk-password.sh usa sudo -A (no -S) para escribir la config" \
+  bash -c 'grep -q "SUDO_ASKPASS=\"\$_ap\" sudo -A" rustdesk-password.sh'
+t "H-68: ya NO queda el pipe peligroso \(printf ... | sudo -S\\) en la escritura" \
+  bash -c '! grep -q "printf .%s..n.%s..n. .\$salt. .\$storage. | sudo -S" rustdesk-password.sh'
+t "H-68: sudow usa SUDO_ASKPASS" \
+  bash -c 'grep -q "SUDO_ASKPASS" rustdesk-password.sh'
+t "H-68b: instalar-todo.sh separa los pasos CRITICOS de Tailscale" \
+  bash -c 'grep -q "ARGS_CORE=" instalar-todo.sh && grep -q "ARGS_TS=" instalar-todo.sh'
+t "H-68b: los pasos criticos no incluyen --all (que arrastra Tailscale)" \
+  bash -c 'grep -q "ARGS_CORE=(--rustdesk --ssh --laptop --yes)" instalar-todo.sh'
+t "H-68b: un fallo de Tailscale no aborta (marca TS_FALLO)" \
+  bash -c 'grep -q "TS_FALLO=1" instalar-todo.sh'
+t "H-68b: avisa que Tailscale es opcional si falla" \
+  bash -c 'grep -qi "Tailscale FALLÓ (paso opcional)" instalar-todo.sh'
+t "H-68b: instalar-todo.sh tambien tiene sudow" \
+  bash -c 'grep -q "^sudow()" instalar-todo.sh'
+t "H-68b: chk_root usa sudow para leer la config de root" \
+  bash -c 'grep -q "chk_root()" instalar-todo.sh'
+t "H-68 documentado en hallazgos" \
+  bash -c 'grep -q "H-68" docs/hallazgos.md'
+t "H-68 explica que sudo -S se come el salt de stdin" \
+  bash -c 'tr "\n" " " < docs/hallazgos.md | grep -qi "sudo -S. lee. la .* de stdin\|stdin.*buffering"'
+t "H-68 explica que Tailscale no esta en repos Debian/Ubuntu" \
+  bash -c 'tr "\n" " " < docs/hallazgos.md | grep -qi "repos.*Debian/Ubuntu\|no está en los repos"'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \

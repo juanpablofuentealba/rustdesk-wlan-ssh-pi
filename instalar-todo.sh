@@ -64,6 +64,23 @@ TS_LUEGO=0
 DRY_RUN=0
 ASSUME_YES=0
 
+# sudow: corre sudo dando la clave por SUDO_ASKPASS (no por stdin). Ver H-68.
+sudow() {
+  export SUDO_PASS="$SUDOPASS"
+  if [[ -n "${SUDOPASS:-}" ]]; then
+    local _ap _q _rc=0
+    _ap="$(mktemp)"
+    _q="$(printf '%s' "$SUDOPASS" | sed "s/'/'\\\\''/g")"
+    printf '#!/bin/sh\nprintf "%%s\\n" '\''%s'\''\n' "$_q" > "$_ap"
+    chmod 700 "$_ap"
+    SUDO_ASKPASS="$_ap" sudo -A "$@" || _rc=$?
+    rm -f "$_ap"
+    return $_rc
+  else
+    sudo -n "$@"
+  fi
+}
+
 info() { printf '\033[1;34m●\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
@@ -264,21 +281,9 @@ elif [[ $ASSUME_YES -eq 0 ]]; then
   esac
 fi
 
-ARGS_ALL=(--all --yes)
-[[ -n "$OPKEY" ]] && ARGS_ALL+=(--key "$OPKEY")
-[[ -n "$TAILNET_HOST" ]] && ARGS_ALL+=(--tailnet-host "$TAILNET_HOST")
-# La auth key NO va por argv del hijo: se pasa por variable de entorno, así no
-# aparece en 'ps' durante toda la instalación (que es larga). El hijo la lee
-# de KIT_AUTHKEY en vez de --authkey.
-EXPORT_AUTHKEY=0
-if [[ $SKIP_TS -eq 0 && $TS_LUEGO -eq 0 ]]; then
-  KIT_AUTHKEY="$AUTHKEY"; export KIT_AUTHKEY
-  ARGS_ALL+=(--authkey-env)
-  EXPORT_AUTHKEY=1
-fi
-# Con --tailscale-luego NO se une: se instala el daemon y se unira en la etapa 2
-[[ $TS_LUEGO -eq 1 ]] && ARGS_ALL+=(--install-tailscale)
-[[ $DRY_RUN -eq 1 ]] && ARGS_ALL+=(--dry-run)
+# TS_FALLO: marca si Tailscale falló (paso opcional) para el resumen final.
+TS_FALLO=0
+# (La construcción de ARGS_CORE/ARGS_TS se hace más abajo, antes de cada paso.)
 
 # ---------- 1. diagnóstico ----------
 hdr "1/5 · Diagnóstico"
@@ -290,17 +295,47 @@ FAM="$(grep -E 'Familia:' <<<"$CHECK_OUT" | awk '{print $3}' | head -1)"
 info "familia detectada: ${FAM:-?}"
 
 # ---------- 2 y 3. kit completo ----------
-hdr "2/5 · RustDesk unattended + SSH + firewall$([[ $SKIP_TS -eq 0 ]] && echo ' + Tailscale') + anti-suspensión (portátil)"
-if ! ./setup-remote-target.sh "${ARGS_ALL[@]}"; then
-  err "setup-remote-target.sh falló. Revisá la salida de arriba."
-  err "  Reintentá solo esa parte para ver el detalle:"
-  # No se imprime la auth key en el comando sugerido (evita re-exponerla).
-  if [[ $EXPORT_AUTHKEY -eq 1 ]]; then
-    err "    sudo KIT_AUTHKEY='...' ./setup-remote-target.sh --all --yes --authkey-env"
-  else
-    err "    sudo ./setup-remote-target.sh ${ARGS_ALL[*]}"
-  fi
+hdr "2/5 · RustDesk unattended + SSH + firewall + anti-suspensión (portátil)"
+# H-68b: los pasos CRÍTICOS (RustDesk + SSH + firewall + contraseña) no deben
+# abortarse si Tailscale falla. Tailscale es OPCIONAL para el acceso remoto
+# (solo añade alcance fuera de la LAN) y su paquete NO está en los repos de
+# Debian/Ubuntu/Mint por defecto → era el fallo típico que rompía TODA la
+# instalación y dejaba el desatendido sin contraseña.
+#
+# Por eso: primero los críticos (sin Tailscale); Tailscale se intenta APARTE.
+ARGS_CORE=(--rustdesk --ssh --laptop --yes)
+[[ -n "$OPKEY" ]] && ARGS_CORE+=(--key "$OPKEY")
+[[ $DRY_RUN -eq 1 ]] && ARGS_CORE+=(--dry-run)
+if ! ./setup-remote-target.sh "${ARGS_CORE[@]}"; then
+  err "setup-remote-target.sh falló en los pasos CRÍTICOS. Revisá la salida de arriba."
+  err "  Reintentá solo eso para ver el detalle:"
+  err "    sudo ./setup-remote-target.sh ${ARGS_CORE[*]}"
   exit 1
+fi
+
+# Tailscale por separado (opcional en la práctica: solo da acceso fuera de LAN)
+if [[ $SKIP_TS -eq 0 ]]; then
+  hdr "2b/5 · Tailscale (acceso fuera de la LAN)"
+  ARGS_TS=(--tailscale --yes)
+  [[ -n "$TAILNET_HOST" ]] && ARGS_TS+=(--tailnet-host "$TAILNET_HOST")
+  [[ $DRY_RUN -eq 1 ]] && ARGS_TS+=(--dry-run)
+  # Auth key por entorno (no por argv), para no dejarla en 'ps'.
+  if [[ $TS_LUEGO -eq 1 ]]; then
+    ARGS_TS+=(--install-tailscale)
+  else
+    KIT_AUTHKEY="$AUTHKEY"; export KIT_AUTHKEY
+    ARGS_TS+=(--authkey-env)
+  fi
+  if ./setup-remote-target.sh "${ARGS_TS[@]}"; then
+    ok "Tailscale OK"
+  else
+    warn "Tailscale FALLÓ (paso opcional). El acceso por LAN/SSH sigue funcionando."
+    warn "  Causa típica: el paquete no está en los repos (Debian/Ubuntu/Mint)."
+    warn "  Se instala después con el repo oficial:"
+    warn "    curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up --authkey=..."
+    warn "  O reejecutá:  sudo ./setup-remote-target.sh --tailscale --yes --authkey-env"
+    TS_FALLO=1
+  fi
 fi
 
 # ---------- 4. contraseña de RustDesk ----------
@@ -325,16 +360,26 @@ if [[ $DRY_RUN -eq 1 ]]; then
   exit 0
 fi
 
-# relanzar rustdesk para que tome la config nueva
-systemctl restart rustdesk >/dev/null 2>&1 || true
+# relanzar rustdesk para que tome la config nueva (con sudo si hace falta)
+sudow systemctl restart rustdesk >/dev/null 2>&1 || sudo -n systemctl restart rustdesk >/dev/null 2>&1 || true
 sleep 3
 
 FAILED=0
+# chk_root: comprueba algo que requiere leer config de root (usa sudow/sudo -n)
+chk_root() {
+  if sudow test -r /root/.config/rustdesk/RustDesk.toml >/dev/null 2>&1 \
+     && sudow grep -q "^password = .01" /root/.config/rustdesk/RustDesk.toml >/dev/null 2>&1; then
+    ok "$1"
+  else
+    err "$1"
+    FAILED=$((FAILED+1))
+  fi
+}
 chk() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else err "$1"; FAILED=$((FAILED+1)); fi; }
 
 chk "rustdesk.service activo"        'systemctl is-active --quiet rustdesk'
 chk "sshd activo"                    'systemctl is-active --quiet sshd || systemctl is-active --quiet ssh'
-chk "contraseña permanente escrita"  'grep -q "^password = .01" /root/.config/rustdesk/RustDesk.toml'
+chk_root "contraseña permanente escrita"
 chk "uinput disponible"              'test -e /dev/uinput'
 
 # captura DRM: buscar en las ubicaciones posibles (varía según el usuario de sesión)
@@ -358,6 +403,9 @@ if [[ $SKIP_TS -eq 0 ]]; then
   TSIP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
   if [[ -n "$TSIP" ]]; then
     ok "Tailscale: $TSIP"
+  elif [[ ${TS_FALLO:-0} -eq 1 ]]; then
+    # Ya sabíamos que Tailscale falló (paso opcional): no cuenta como fallo global.
+    warn "Tailscale sin IP (paso opcional; el acceso por LAN/SSH sigue OK)"
   else
     err "Tailscale sin IP (revisá: sudo tailscale status)"
     FAILED=$((FAILED+1))

@@ -36,6 +36,31 @@ PY_BIN="${PY_BIN:-python3}"
 # Salida con formato. OJO: no llamar a estas funciones `info`, `test` ni `[`:
 # `info` colisiona con el comando info(1) del sistema y rompe el script con
 # "No menu item ... in node (dir)Top". Usamos `say`.
+# --- helper de sudo con contraseña (H-68) ---------------------------------
+# Da la clave a sudo por SUDO_ASKPASS en vez de por stdin. Motivo: `sudo -S`
+# lee la clave de stdin con buffering y puede comerse datos que también vayan
+# por stdin (p. ej. salt/storage del helper), rompiendo la escritura de la
+# config de RustDesk de forma silenciosa. Con askpass, stdin queda libre.
+#
+# Uso: sudow [env VAR=val ...] <comando...>   (necesita SUDO_PASS definida)
+# Si SUDO_PASS está vacía, usa `sudo -n` (NOPASSWD).
+sudow() {
+  if [[ -n "${SUDO_PASS:-}" ]]; then
+    local _ap
+    _ap="$(mktemp)"
+    local _q
+    _q="$(printf '%s' "$SUDO_PASS" | sed "s/'/'\\\\''/g")"
+    printf '#!/bin/sh\nprintf "%%s\\n" '\''%s'\''\n' "$_q" > "$_ap"
+    chmod 700 "$_ap"
+    local _rc=0
+    SUDO_ASKPASS="$_ap" sudo -A "$@" || _rc=$?
+    rm -f "$_ap"
+    return $_rc
+  else
+    sudo -n "$@"
+  fi
+}
+
 say()  { printf '\033[1;34m●\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m✔\033[0m %s\n' "$*"; }
 warnf() { printf '\033[1;33m▲\033[0m %s\n' "$*"; }
@@ -70,7 +95,7 @@ ensure_pynacl() {
   if [[ $EUID -eq 0 ]]; then
     $cmd >/dev/null 2>&1 || { err "falló: $cmd"; return 1; }
   elif [[ -n "${SUDO_PASS:-}" ]]; then
-    printf '%s\n' "$SUDO_PASS" | sudo -S -p '' bash -c "$cmd" >/dev/null 2>&1 \
+    sudow bash -c "$cmd" >/dev/null 2>&1 \
       || { err "falló: $cmd"; return 1; }
   else
     sudo bash -c "$cmd" >/dev/null 2>&1 || { err "falló: $cmd (probá con SUDO_PASS)"; return 1; }
@@ -211,11 +236,23 @@ install_remote() {
   # así no aparecen en `ps` mientras corre (P2 del reporte).
   if [[ $is_local -eq 1 ]]; then
     # --- LOCAL: sin SSH, sin scp ---
+    # OJO (H-68): NO se puede mezclar la contraseña de sudo con los datos en el
+    # mismo stdin. `sudo -S` lee la clave de stdin con buffering y se lleva
+    # (parte de) el salt/storage, dejando al helper sin datos → `read` falla y
+    # con `set -e` el helper aborta. La contraseña de RustDesk NUNCA se aplicaba
+    # en modo local, silenciosamente.
+    #
+    # Solución robusta: dar la clave a sudo por SUDO_ASKPASS (un fd aparte),
+    # dejando stdin libre para salt/storage. Así los datos llegan intactos.
     if [[ -n "$sudo_pass" ]]; then
-      printf '%s\n%s\n' "$salt" "$storage" | sudo -S -p '' bash "$helper" --stdin
+      # La clave de sudo va por SUDO_ASKPASS (ver sudow): así stdin queda libre
+      # para salt/storage y el helper los recibe intactos.
+      printf '%s\n%s\n' "$salt" "$storage" | sudow bash "$helper" --stdin \
+        || { err "falló la escritura de la config (¿sudo?)"; return 1; }
     else
-      printf '%s\n%s\n' "$salt" "$storage" | sudo -n bash "$helper" --stdin
-    fi || { err "falló la escritura de la config (¿sudo?)"; return 1; }
+      printf '%s\n%s\n' "$salt" "$storage" | sudo -n bash "$helper" --stdin \
+        || { err "falló la escritura de la config (¿sudo?)"; return 1; }
+    fi
   else
     # --- REMOTO: helper por scp, args por stdin ---
     # NO usamos `bash -s < archivo`: sudo -S lee la contraseña de stdin.
@@ -248,7 +285,7 @@ install_remote() {
   echo "→ Reiniciando rustdesk.service ..."
   if [[ $is_local -eq 1 ]]; then
     if [[ -n "$sudo_pass" ]]; then
-      printf '%s\n' "$sudo_pass" | sudo -S -p '' systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
+      sudow systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
     else
       sudo -n systemctl restart rustdesk && sleep 2 && systemctl is-active rustdesk
     fi
@@ -271,7 +308,7 @@ install_remote() {
   local jpcfg="$HOME/.config/rustdesk/RustDesk.toml"
   local rootn
   if [[ $is_local -eq 1 ]]; then
-    rootn="$(sudo -n bash -s <<<"$vercmd" 2>/dev/null || echo '?')"
+    rootn="$(sudow bash -s <<<"$vercmd" 2>/dev/null || echo '?')"
     grep -c "^password = '01" "$jpcfg" 2>/dev/null | sed 's/^/  líneas password=01 en config jp:   /'
   else
     rootn="$(ssh -o BatchMode=yes "$target" 'sudo -n bash -s' <<<"$vercmd" 2>/dev/null || echo '?')"
