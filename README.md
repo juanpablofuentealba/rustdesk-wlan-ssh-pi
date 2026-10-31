@@ -159,6 +159,7 @@ llegar **fuera de la LAN** sin abrir puertos → **Tailscale**.
 | [`docs/caso-real-rai-omen.md`](docs/caso-real-rai-omen.md) | **Caso real**: HP Omen Windows "se apaga solo", seguimiento a 1 día, acceso de operador móvil y corte de SSH con el equipo vivo ([H-54..H-62](docs/hallazgos.md), [H-66](docs/hallazgos.md)) |
 | [`docs/wol-y-energia-remota.md`](docs/wol-y-energia-remota.md) | **Encendido/apagado remoto**: WoL con el operador como relé, y energía sin exponer la clave · [H-64](docs/hallazgos.md) |
 | [`docs/android-operador.md`](docs/android-operador.md) | **Operador móvil (Android)**: Tailscale por proot+userspace cuando la app no sirve · [H-65](docs/hallazgos.md) |
+| [`docs/autostart-zte-a13.md`](docs/autostart-zte-a13.md) | **ZTE bloquea el autostart**: Termux:Boot/API no arrancan solos en el ZTE Blade A54; watchdog al abrir Termux (nodo a13) |
 | [`PASOS-EN-ORDEN.txt`](PASOS-EN-ORDEN.txt) | Checklist del pendrive, en orden |
 | [`LEEME-PRIMERO.txt`](LEEME-PRIMERO.txt) | Qué hay en el pendrive + resumen |
 | [`REPO.txt`](REPO.txt) | Este repositorio: URL, uso rápido, índice |
