@@ -1650,8 +1650,10 @@ t "instalar-todo.sh acepta --tailnet-host" \
 # --- H-68: contraseña de RustDesk no se aplicaba (sudo -S se come stdin) ---
 t "H-68: rustdesk-password.sh define la funcion sudow (askpass)" \
   bash -c 'grep -q "^sudow()" rustdesk-password.sh'
-t "H-68: rustdesk-password.sh usa sudo -A (no -S) para escribir la config" \
-  bash -c 'grep -q "SUDO_ASKPASS=\"\$_ap\" sudo -A" rustdesk-password.sh'
+t "H-68: rustdesk-password.sh usa sudow (askpass) para escribir la config" \
+  bash -c 'grep -q "sudow bash \"\$helper\" --stdin" rustdesk-password.sh'
+t "H-68: el helper de sudo usa sudo -A (no -S) en codigo (lib/sudo.sh)" \
+  bash -c 'grep -vE "^\s*#" lib/sudo.sh | grep -q "sudo -A"'
 t "H-68: ya NO queda el pipe peligroso \(printf ... | sudo -S\\) en la escritura" \
   bash -c '! grep -q "printf .%s..n.%s..n. .\$salt. .\$storage. | sudo -S" rustdesk-password.sh'
 t "H-68: sudow usa SUDO_ASKPASS" \
@@ -1674,6 +1676,28 @@ t "H-68 explica que sudo -S se come el salt de stdin" \
   bash -c 'tr "\n" " " < docs/hallazgos.md | grep -qi "sudo -S. lee. la .* de stdin\|stdin.*buffering"'
 t "H-68 explica que Tailscale no esta en repos Debian/Ubuntu" \
   bash -c 'tr "\n" " " < docs/hallazgos.md | grep -qi "repos.*Debian/Ubuntu\|no está en los repos"'
+
+# --- issue #28: helper UNICO de sudo (lib/sudo.sh) ---
+t "#28: existe lib/sudo.sh (helper unico de sudo)" \
+  bash -c 'test -f lib/sudo.sh'
+t "#28: lib/sudo.sh usa sudo -A (askpass), nunca -S en codigo" \
+  bash -c 'grep -q "sudo -A" lib/sudo.sh && ! grep -vE "^\s*#" lib/sudo.sh | grep -q "sudo -S"'
+t "#28: lib/sudo.sh define sudo_run" \
+  bash -c 'grep -q "^sudo_run()" lib/sudo.sh'
+t "#28: lib/sudo.sh define sudo_v (refresco sin consumir stdin)" \
+  bash -c 'grep -q "^sudo_v()" lib/sudo.sh'
+t "#28: instalar-todo.sh sourcea lib/sudo.sh" \
+  bash -c 'grep -q "source .*lib/sudo.sh" instalar-todo.sh'
+t "#28: rustdesk-password.sh sourcea lib/sudo.sh" \
+  bash -c 'grep -q "source .*lib/sudo.sh" rustdesk-password.sh'
+t "#28: energia-remota.sh sourcea lib/sudo.sh" \
+  bash -c 'grep -q "source .*lib/sudo.sh" energia-remota.sh'
+t "#28: make-kit.sh incluye lib/sudo.sh en el kit" \
+  bash -c 'grep -q "^  lib/sudo.sh$" make-kit.sh'
+t "#28: ya NO queda 'sudo -S -v' suelto en instalar-todo.sh (patron de H-68)" \
+  bash -c '! grep -q "printf .%s..n. .\$SUDOPASS. | sudo -S" instalar-todo.sh'
+t "#28: CI lint-ea lib/*.sh (shellcheck)" \
+  bash -c 'grep -q "lib/\*.sh" .github/workflows/ci.yml'
 
 sect "Resumen"
 printf '  %s%d OK%s · %s%d fallos%s · %s%d omitidos%s\n' \
