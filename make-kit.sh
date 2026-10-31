@@ -61,6 +61,7 @@ FILES=(
   lib/sr-t-distro.sh
   lib/sr-t-rustdesk.sh
   lib/sr-t-ssh.sh
+  lib/sr-t-tailscale.sh
   instalar-todo.sh
   setup-remote-target.sh
   inventory.sh
