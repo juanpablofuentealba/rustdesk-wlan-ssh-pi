@@ -120,3 +120,31 @@ icacls $f /inheritance:r /grant '*S-1-5-32-544:F' /grant 'SYSTEM:F'
 
 Detalles de problemas reales encontrados al escribir estos scripts:
 [H-45, H-46 y H-47](../docs/hallazgos.md).
+
+## Estado de las pruebas (⚠️ leer antes de confiar)
+
+Los `.ps1` de este kit están **validados estáticamente**:
+
+- `tests-windows.ps1` comprueba sintaxis con **PowerShell real** (pwsh), que no
+  hay flags muertos, y reglas de seguridad (BOM UTF-8, etc.).
+- El CI de GitHub ejecuta `PSScriptAnalyzer` y `tests-windows.ps1` en cada push.
+
+**Pero NO se han probado todavía en un Windows real de punta a punta** (no había
+equipo Windows disponible; ver **H-50**). Eso significa que la lógica de
+`setup-remote-target.ps1` (instalación real de RustDesk/OpenSSH/Tailscale) está
+revisada pero **no ejecutada sobre Windows**.
+
+**Prueba pendiente** — se hará en un Windows dentro de **WinBoat** (contenedor
+Windows en Linux) en el equipo MSI:
+
+1. `sudo systemctl start docker` (o `podman`) en el host Linux.
+2. Lanzar **WinBoat** → Windows desatendido.
+3. Dentro de Windows: instalar `spice-guest-tools`, luego
+   `Set-ExecutionPolicy -Scope Process Bypass -Force` y
+   `.\setup-remote-target.ps1 -Check` → `-DryRun` → `-Apply`.
+4. Verificar RustDesk + OpenSSH + Tailscale y reportar cualquier fallo como
+   hallazgo nuevo.
+
+Si encontrás un error al probarlo, **es exactamente el objetivo**: documentá el
+hallazgo (H-XX) en [`../docs/hallazgos.md`](../docs/hallazgos.md) con la salida
+real.

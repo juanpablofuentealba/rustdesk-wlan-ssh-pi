@@ -11,7 +11,7 @@ Cada hallazgo indica cómo se verificó, para que puedas reproducirlo o refutarl
 
 ## Índice
 
-**66 hallazgos** (H-01..H-67; no existe H-25). Agrupados por tema, para ir
+**67 hallazgos** (H-01..H-68; no existe H-25). Agrupados por tema, para ir
 directo a lo que te interesa.
 
 ### ⭐ Top 10 para quien llega nuevo
@@ -77,7 +77,8 @@ Lo que más veces ahorra tiempo en campo, en orden de impacto:
 [H-63](#h-63--los-nodos-tailscale-en-userspace-networking-sí-reciben-conexiones-entrantes) ·
 [H-65](#h-65--alternativa-a-los-binarios-de-tailscale-en-termux-proot--userspace) ·
 [H-66](#h-66--ssh-caído-con-el-equipo-vivo-tailscale-ping-ok--sshd-funcionando) ·
-[H-67](#h-67--trusted_devices-activo-sin-unlock_pin-hace-que-rustdesk-pida-la-clave-de-contraseñas)
+[H-67](#h-67--trusted_devices-activo-sin-unlock_pin-hace-que-rustdesk-pida-la-clave-de-contraseñas) ·
+[H-68](#h-68--la-contraseña-permanente-de-rustdesk-no-se-aplicaba-dos-bugs-en-cadena)
 
 **SSH, shells y automatización**
 
@@ -3155,3 +3156,94 @@ sudo ls -la /root/.config/rustdesk/
 **Lección:** cuando RustDesk pide "otra" contraseña, no es un bug ni una
 corrupción: es `trusted_devices` sin `unlock_pin`. Y antes de buscar en el
 `~` del usuario, confirmar **con qué usuario corre el servicio**.
+
+---
+
+## H-68 — La contraseña permanente de RustDesk NO se aplicaba (dos bugs en cadena)
+
+**Verificado:** ✅ (Linux Mint 22.3 en QEMU/KVM, 30-oct-2026)
+
+Encontrado al **probar el kit de verdad en una VM Linux** (Mint 22.3, Ubuntu
+noble). Dos bugs independientes que, juntos, dejaban el **acceso desatendido
+roto sin ningún error visible**.
+
+### H-68a — `sudo -S` se come el `salt` que va por stdin (grave)
+
+`rustdesk-password.sh`, en **modo local con `SUDO_PASS`**, hacía:
+
+```bash
+printf '%s\n%s\n' "$salt" "$storage" | sudo -S -p '' bash "$helper" --stdin
+```
+
+`sudo -S` **lee la contraseña de stdin**. Pero por stdin van `salt` y `storage`
+(2 líneas). Resultado: sudo toma el **salt** como si fuera la contraseña, y
+**nunca puede autenticar**; el helper, además, se queda sin datos (y con
+`set -e`, un `read` en EOF lo aborta). Falla **siempre**, pero en silencio:
+
+```
+Lo siento, pruebe otra vez.
+sudo: no password was provided
+✘ falló la escritura de la config (¿sudo?)
+```
+
+Y como `instalar-todo.sh` **abortaba** en ese punto, la config quedaba con
+`password = ''` → **el equipo pedía aceptación manual o contraseña temporal en
+cada conexión**.
+
+**Arreglo:** dar la clave a sudo por **`SUDO_ASKPASS`** (`sudo -A`), dejando
+stdin libre para datos. Se añade un helper `sudow()` reutilizable:
+
+```bash
+sudow() {
+  if [[ -n "${SUDO_PASS:-}" ]]; then
+    local _ap; _ap="$(mktemp)"
+    printf '#!/bin/sh\nprintf "%%s\\n" %q\n' "$SUDO_PASS" > "$_ap"; chmod 700 "$_ap"
+    SUDO_ASKPASS="$_ap" sudo -A "$@"; local rc=$?; rm -f "$_ap"; return $rc
+  else
+    sudo -n "$@"
+  fi
+}
+printf '%s\n%s\n' "$salt" "$storage" | sudow bash "$helper" --stdin
+```
+
+**Verificado en vivo:** con sudo *desautenticado*, la config se escribe en
+`/root` y en el usuario, y la verificación pasa (`password = '01...'` en ambos).
+
+> Regla general: **nunca** mezclar la contraseña de sudo con datos en el mismo
+> stdin. `sudo -S` lee de stdin con buffering; usa `sudo -A`/`SUDO_ASKPASS` o
+> un fd dedicado.
+
+### H-68b — Un fallo de Tailscale abortaba TODA la instalación (grave)
+
+`instalar-todo.sh` corría `setup-remote-target.sh --all` (RustDesk + SSH +
+firewall + **Tailscale** + portátil) como un bloque **todo-o-nada**. Si
+Tailscale fallaba, hacía `exit 1` y **nunca llegaba al paso 4/5** (la contraseña
+de RustDesk).
+
+Y Tailscale **es el fallo más probable** en Debian/Ubuntu/Mint: su paquete
+**no está en los repos** por defecto:
+
+```
+E: No se ha podido localizar el paquete tailscale
+```
+
+→ instalación "fallida" **con RustDesk y SSH ya instalados pero sin contraseña**.
+
+**Arreglo:** separar los pasos **críticos** (RustDesk + SSH + laptop) de
+Tailscale, que pasa a ser un **paso opcional** aparte. Si Tailscale falla, se
+avisa (con el modo correcto de instalarlo: repo oficial) y **se continúa**; la
+contraseña se aplica igual. La verificación tampoco lo cuenta como fallo global.
+
+**Lección:** los pasos **opcionales** (acceso fuera de la LAN) no deben poder
+romper los pasos **críticos** (acceso remoto en sí). Y en un instalador, el
+paso "fijar la contraseña del desatendido" debe ir **antes** o ser
+**independiente** de cualquier cosa que pueda fallar.
+
+### Evidencia de la prueba
+
+```
+✔ rustdesk 1.5.0, sshd y ufw activos
+✔ contraseña permanente en /root y en el usuario (tras el fix)
+✔ ID de RustDesk: 11281967
+✔ acceso por clave SSH sin contraseña (--key)
+```
