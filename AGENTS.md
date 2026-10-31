@@ -80,7 +80,7 @@ Heredadas de `PROMPT-AGENTE.txt` + lecciones propias del repo:
 | `install-rustdesk-unattended-fedora.sh` | RustDesk con DRM en Fedora/RHEL |
 | `verify-offlan.sh` | Prueba acceso fuera de la LAN |
 | `inventory.sh` | Ficha de specs (texto/JSON/MD) |
-| `tests.sh` | ~474 tests (se corre en CI y antes de un cliente nuevo) |
+| `tests.sh` | ~667 tests (se corre en CI y antes de un cliente nuevo) |
 | `verify-docs.sh` | Verifica que la doc no se desincronice |
 | `make-kit.sh` | Empaqueta para pendrive/tarball |
 | `PROMPT-AGENTE.txt` | Prompt de instalación (para el equipo OBJETIVO) |

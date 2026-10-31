@@ -218,7 +218,7 @@ Diseño completo y cómo **reportar vulnerabilidades**: [`SECURITY.md`](SECURITY
 
 ## Estado y versiones
 
-**v1.0.0** — primera versión estable. Cambios en [`CHANGELOG.md`](CHANGELOG.md).
+**v1.1.1** — última versión. Cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
